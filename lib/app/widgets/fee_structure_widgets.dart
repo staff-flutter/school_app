@@ -16,7 +16,7 @@ class _FeeStructureTab extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Set Fee Structure',
+            'Set Fee Structure.',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
