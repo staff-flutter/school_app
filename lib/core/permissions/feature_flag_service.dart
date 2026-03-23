@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
-import 'module_visibility.dart';
-import '../../app/modules/auth/controllers/auth_controller.dart';
+import 'package:school_app/core/permissions/module_visibility.dart';
+import 'package:school_app/controllers/auth_controller.dart';
 
 class FeatureFlagService {
   static String? _getCurrentUserRole() {

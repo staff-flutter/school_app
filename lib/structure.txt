@@ -1,0 +1,291 @@
+=====================================================================
+  lib/ — RESTRUCTURED LAYOUT
+  School Management App
+=====================================================================
+
+The original codebase had files spread across:
+  lib/app/controllers/    lib/app/modules/*/controllers/
+  lib/app/views/          lib/app/modules/*/views/
+  lib/app/bindings/       lib/app/modules/*/bindings/
+  lib/app/core/           lib/core/          (two separate core trees!)
+  lib/app/widgets/        lib/app/modules/*/widgets/
+
+This is the flattened, readable structure. Everything is one level deep
+per category. All imports use package:school_app/ absolute paths.
+
+Zero functionality changes. Zero API changes. Zero RBAC changes.
+
+=====================================================================
+  FOLDER OVERVIEW
+=====================================================================
+
+lib/
+├── main.dart                     ← App entry point, unchanged
+│
+├── constants/                    ← App-wide constants
+│   └── api_constants.dart
+│
+├── routes/                       ← GetX routing
+│   ├── app_pages.dart            ← All GetPage definitions
+│   ├── app_routes.dart           ← Route name constants
+│   └── simple_routes.dart
+│
+├── middleware/                   ← Route middleware
+│   └── role_guard.dart
+│
+├── core/                         ← Non-UI infrastructure
+│   ├── api_guard.dart
+│   ├── feature_flags.dart
+│   ├── module_visibility.dart
+│   ├── role_modules.dart
+│   ├── extensions/
+│   │   └── widget_extensions.dart
+│   ├── icons/
+│   │   └── custom_icons.dart
+│   ├── permissions/              ← Permission + RBAC system
+│   │   ├── api_permission_system.dart
+│   │   ├── api_permissions.dart
+│   │   ├── feature_flag_service.dart
+│   │   ├── module_visibility.dart
+│   │   ├── permission_system.dart
+│   │   ├── route_guard.dart
+│   │   └── sidebar_config.dart
+│   ├── rbac/
+│   │   ├── api_rbac.dart
+│   │   └── ui_rbac_helper.dart
+│   ├── theme/
+│   │   └── app_theme.dart
+│   └── utils/
+│       ├── api_debug_helper.dart
+│       ├── api_loading_helper.dart
+│       ├── batch_api_update.dart
+│       ├── class_utils.dart
+│       ├── debug_helper.dart
+│       ├── error_handler.dart
+│       ├── responsive_helper.dart   ← from lib/app/core/utils/ (ResponsiveHelper class)
+│       ├── responsive_layout.dart   ← from lib/core/utils/ (ResponsiveLayout class)
+│       └── safe_snackbar.dart
+│
+├── models/                       ← All data models flat
+│   ├── accounting_models.dart
+│   ├── club_model.dart
+│   ├── communication_models.dart
+│   ├── demo_models.dart
+│   ├── school_models.dart
+│   ├── student_model.dart
+│   ├── student_record_model.dart
+│   └── user_model.dart
+│
+├── services/                     ← API + data services
+│   ├── api_handler_service.dart
+│   ├── api_service.dart
+│   └── subscription_service.dart
+│
+├── controllers/                  ← ALL GetX controllers flat (22 files)
+│   ├── academics_controller.dart
+│   ├── accounting_controller.dart
+│   ├── announcement_controller.dart
+│   ├── attendance_controller.dart      ← class: AttendanceController (old/admin)
+│   ├── auth_controller.dart
+│   ├── club_controller.dart
+│   ├── club_detail_controller.dart
+│   ├── clubs_controller.dart
+│   ├── communications_controller.dart
+│   ├── dashboard_controller.dart
+│   ├── fee_structure_controller.dart
+│   ├── finance_ledger_controller.dart
+│   ├── homework_controller.dart
+│   ├── main_navigation_controller.dart
+│   ├── my_children_controller.dart
+│   ├── parent_attendance_controller.dart ← class: ParentAttendanceController
+│   │                                       (was: modules/attendance/controllers/attendance_controller.dart)
+│   ├── school_controller.dart
+│   ├── student_controller.dart
+│   ├── student_management_controller.dart
+│   ├── student_record_controller.dart
+│   ├── students_controller.dart
+│   ├── subscription_controller.dart
+│   ├── system_management_controller.dart
+│   ├── teacher_assignment_controller.dart
+│   ├── teacher_controller.dart
+│   ├── theme_controller.dart
+│   ├── timetable_controller.dart
+│   └── user_management_controller.dart
+│
+├── bindings/                     ← ALL GetX bindings flat
+│   ├── academics_binding.dart
+│   ├── accounting_binding.dart
+│   ├── announcement_binding.dart
+│   ├── auth_binding.dart
+│   ├── clubs_binding.dart
+│   ├── communications_binding.dart
+│   ├── dashboard_binding.dart
+│   ├── old_attendance_binding.dart     ← class: OldAttendanceBinding
+│   │                                     (was: app/bindings/attendance_binding.dart)
+│   ├── parent_attendance_binding.dart  ← class: ParentAttendanceBinding
+│   │                                     (was: modules/attendance/bindings/attendance_binding.dart)
+│   ├── student_binding.dart
+│   ├── student_record_binding.dart
+│   ├── students_binding.dart
+│   └── subscription_binding.dart
+│
+├── screens/                      ← ALL views/screens flat (54 files)
+│   │
+│   │  ── Auth ──
+│   ├── splash_view.dart
+│   ├── login_view.dart
+│   ├── create_school_view.dart
+│   ├── edit_school_view.dart
+│   │
+│   │  ── Dashboard / Main ──
+│   ├── dashboard_view.dart
+│   ├── accounting_dashboard_view.dart
+│   ├── admin_dashboard_view.dart
+│   ├── school_management_view.dart
+│   ├── profile_view.dart
+│   ├── enhanced_profile_view.dart
+│   ├── privacy_policy_view.dart
+│   ├── delete_account_view.dart
+│   ├── new_features_launcher_view.dart
+│   │
+│   │  ── Academics ──
+│   ├── academics_view.dart
+│   ├── timetable_management_view.dart
+│   ├── homework_management_view.dart
+│   ├── homework_detail_view.dart
+│   │
+│   │  ── Accounting / Finance ──
+│   ├── fee_collection_tabbed_view.dart
+│   ├── fee_collection_view.dart
+│   ├── fee_structure_view.dart
+│   ├── expenses_view.dart
+│   ├── reports_view.dart
+│   ├── receipt_detail_view.dart
+│   ├── receipts_list_view.dart
+│   ├── finance_dashboard_view.dart
+│   ├── transaction_detail_view.dart
+│   ├── concession_detail_view.dart
+│   ├── notifications_view.dart
+│   │
+│   │  ── Students ──
+│   ├── students_view.dart
+│   ├── students_tab.dart               ← was: studentsTab.dart (renamed to snake_case)
+│   ├── student_management_view.dart    ← from: app/views/student_management_view.dart
+│   ├── student_management_module_view.dart ← from: modules/students/views/student_management_view.dart
+│   │                                         (different parent class, kept both)
+│   ├── student_form_page.dart
+│   ├── student_form_dialog.dart
+│   ├── student_individual_detail_view.dart
+│   ├── details_of_student_view.dart
+│   ├── create_student_view.dart
+│   ├── create_student_view_new.dart
+│   ├── student_records_view.dart
+│   ├── student_receipts_view.dart
+│   ├── record_details_view.dart
+│   ├── user_detail_view.dart
+│   │
+│   │  ── Attendance ──
+│   ├── attendance_view.dart            ← ParentAttendanceController-based (active)
+│   ├── parent_attendance_view.dart     ← from app/views/attendance_view.dart (mostly legacy/commented)
+│   │
+│   │  ── Communications ──
+│   ├── communications_view.dart
+│   ├── enhanced_communications_view.dart
+│   ├── simple_communications_view.dart
+│   ├── announcement_detail_view.dart
+│   │
+│   │  ── Clubs / Activities ──
+│   ├── clubs_activities_view.dart      ← active clubs view (from modules)
+│   ├── clubs_activities_view_fixed.dart
+│   ├── clubs_activities_view_modern.dart
+│   ├── clubs_activities_legacy_view.dart ← from app/views/clubs_activities_view.dart
+│   ├── responsive_clubs_view.dart
+│   ├── club_detail_view.dart
+│   ├── video_detail_view.dart
+│   │
+│   │  ── Teacher ──
+│   ├── teacher_classes_view.dart
+│   ├── teacher_assignment_view.dart
+│   ├── teacher_assignment_view_fixed.dart
+│   │
+│   │  ── System / Admin ──
+│   ├── system_management_view.dart
+│   ├── subscription_management_view.dart
+│   ├── my_children_view.dart
+│   │
+│   │  ── Dev/Test ──
+│   ├── api_test_view.dart
+│   └── api_testing_view.dart
+│
+├── widgets/                      ← ALL shared UI widgets flat
+│   ├── animated_nav_bar.dart
+│   ├── api_rbac_wrapper.dart
+│   ├── base_responsive_view.dart
+│   ├── clubs_dialogue_in_students_tab.dart
+│   ├── fee_structure_widgets.dart
+│   ├── glass_screen.dart
+│   ├── gradient_card.dart
+│   ├── legacy_permission_wrapper.dart  ← from lib/core/widgets/ (older implementation)
+│   ├── main_wrapper.dart
+│   ├── main_wrapper_fixed.dart
+│   ├── modern_card.dart
+│   ├── modern_dropdown.dart
+│   ├── permission_wrapper.dart         ← from lib/app/core/widgets/ (active)
+│   ├── pie_chart_painter.dart
+│   ├── rbac_wrapper.dart
+│   ├── receipt_list_item.dart
+│   ├── responsive_widgets.dart
+│   ├── responsive_wrapper.dart
+│   ├── school_logo_helper.dart
+│   ├── student_record_integration.dart
+│   ├── student_record_navigation.dart
+│   ├── student_record_navigation_fab.dart  ← from app/core/widgets/ (FAB version)
+│   ├── student_record_widgets.dart
+│   └── video_player_widget.dart
+│
+├── examples/
+│   └── rbac_usage_example.dart
+│
+└── test/
+    ├── api_test_button.dart
+    ├── api_test_examples.dart
+    └── api_test_screens.dart
+
+=====================================================================
+  RENAMES & WHY
+=====================================================================
+
+OLD PATH                                           NEW PATH
+------------------------------------------------------------------------------------------------------------------
+app/modules/attendance/controllers/               controllers/parent_attendance_controller.dart
+  attendance_controller.dart                        (class is ParentAttendanceController — avoids clash
+                                                     with controllers/attendance_controller.dart)
+
+app/bindings/attendance_binding.dart              bindings/old_attendance_binding.dart
+                                                    (class is OldAttendanceBinding)
+
+app/modules/attendance/bindings/                  bindings/parent_attendance_binding.dart
+  attendance_binding.dart                           (class is ParentAttendanceBinding)
+
+app/modules/students/views/                       screens/student_management_module_view.dart
+  student_management_view.dart                      (different parent class from app/views/ version)
+
+core/utils/responsive_helper.dart                 core/utils/responsive_layout.dart
+  (lib/core/ outer tree)                            (class is ResponsiveLayout, not ResponsiveHelper)
+
+core/widgets/permission_wrapper.dart              widgets/legacy_permission_wrapper.dart
+  (lib/core/ outer tree)                            (older implementation — different signature)
+
+app/views/attendance_view.dart                    screens/parent_attendance_view.dart
+  (mostly commented-out legacy code)                (to distinguish from the active attendance_view.dart)
+
+app/views/clubs_activities_view.dart              screens/clubs_activities_legacy_view.dart
+  (pre-modules clubs view)                          (to distinguish from modules version)
+
+app/views/studentsTab.dart                        screens/students_tab.dart
+                                                    (renamed to snake_case, Dart convention)
+
+app/core/widgets/student_record_navigation.dart   widgets/student_record_navigation_fab.dart
+  (FAB implementation with role check)              (to distinguish from widgets/student_record_navigation.dart
+                                                     which has different ListTile implementation)
+

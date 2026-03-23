@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 
-import '../../app/core/theme/app_theme.dart';
+import 'package:school_app/core/theme/app_theme.dart';
 
 /// Utility class for standardized error handling across the app
 class ErrorHandler {

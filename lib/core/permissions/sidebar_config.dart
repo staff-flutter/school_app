@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'module_visibility.dart';
+import 'package:school_app/core/permissions/module_visibility.dart';
 
 class SidebarConfig {
   static const Map<String, Map<String, dynamic>> moduleConfig = {

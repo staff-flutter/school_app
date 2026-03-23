@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
-import 'module_visibility.dart';
-import 'sidebar_config.dart';
-import '../../app/modules/auth/controllers/auth_controller.dart';
+import 'package:school_app/core/permissions/module_visibility.dart';
+import 'package:school_app/core/permissions/sidebar_config.dart';
+import 'package:school_app/controllers/auth_controller.dart';
 
 class RouteGuard {
   static bool canAccess(String route, {String? requiredRole}) {
