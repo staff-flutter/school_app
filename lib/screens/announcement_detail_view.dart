@@ -25,7 +25,7 @@ class AnnouncementDetailView extends StatelessWidget {
           announcement['title'] ?? 'Announcement',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
         elevation: 0,
       ),

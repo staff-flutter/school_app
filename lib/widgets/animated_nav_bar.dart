@@ -131,6 +131,7 @@ class AnimatedNavBar extends StatelessWidget {
       case 'homework': return Icons.assignment_rounded;
       case 'timetable': return Icons.schedule_rounded;
       case 'my classes': return Icons.class_rounded;
+      case 'my children': return Icons.child_care_rounded;
       default: return Icons.grid_view_rounded;
     }
   }

@@ -190,7 +190,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
           ),
         ),
       ),
-      backgroundColor: AppTheme.primaryBlue,
+      backgroundColor: AppTheme.navBarSelectedDeep,
     );
   }
 

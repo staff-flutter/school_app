@@ -36,7 +36,7 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reports'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,

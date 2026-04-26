@@ -34,7 +34,7 @@ class _ApiTestingViewState extends State<ApiTestingView> with TickerProviderStat
     return Scaffold(
       appBar: AppBar(
         title: const Text('API Testing'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,

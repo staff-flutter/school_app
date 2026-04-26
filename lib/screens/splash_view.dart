@@ -39,11 +39,12 @@ class SplashView extends GetView<AuthController> {
               ),
               SizedBox(height: 8),
               Text(
-                'Finance & Accounting Portal',
+                'Your school, your way',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.white70,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
+                  fontStyle: FontStyle.italic,
                 ),
                 textAlign: TextAlign.center,
               ),

@@ -52,6 +52,8 @@ class School {
 
   @override
   int get hashCode => id.hashCode;
+
+  void operator [](String other) {}
 }
 
 class SchoolClass {

@@ -149,12 +149,12 @@ class DashboardView extends GetView<DashboardController> {
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: AppTheme.primaryGradient,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: AppTheme.navBarSelectedDeep.withOpacity(0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -162,18 +162,22 @@ class DashboardView extends GetView<DashboardController> {
         children: [
           Obx(() => Text(
             _getModuleTitle(controller.selectedModule.value),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              letterSpacing: -0.3,
             ),
           )),
           const Spacer(),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications),
+          _TopBarIconBtn(
+            icon: Icons.notifications_outlined,
+            onTap: () {},
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings),
+          const SizedBox(width: 4),
+          _TopBarIconBtn(
+            icon: Icons.settings_outlined,
+            onTap: () {},
           ),
         ],
       ),
@@ -1270,5 +1274,27 @@ class DashboardView extends GetView<DashboardController> {
     } catch (e) {
       return 'N/A';
     }
+  }
+}
+
+class _TopBarIconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _TopBarIconBtn({required this.icon, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
   }
 }

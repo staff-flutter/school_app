@@ -35,7 +35,7 @@ class _StudentReceiptsViewState extends State<StudentReceiptsView> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${student['studentName'] ?? 'Student'} - Receipts'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
       ),
       body: Column(

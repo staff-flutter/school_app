@@ -227,12 +227,12 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD8D5E8).withOpacity(0.6),
+                    color: const Color(0xFF5C4FC7).withOpacity(0.25),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
+                    color: const Color(0xFF5C4FC7).withOpacity(0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),

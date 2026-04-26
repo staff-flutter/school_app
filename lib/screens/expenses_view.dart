@@ -29,8 +29,8 @@ class ExpensesView extends GetView<AccountingController> {
   final _bankNameController = TextEditingController();
   final selectedCategory = 'Salary'.obs;
   final selectedPaymentMode = 'cash'.obs;
-  final billFiles = <PlatformFile>[].obs; // Store actual files
-  final workPhotoFiles = <PlatformFile>[].obs; // Store actual files
+  final billFiles = <PlatformFile>[].obs;
+  final workPhotoFiles = <PlatformFile>[].obs;
   final selectedSchool = Rxn<School>();
   final selectedDate = DateTime.now().obs;
   final schoolController = Get.find<SchoolController>();
@@ -69,7 +69,7 @@ class ExpensesView extends GetView<AccountingController> {
     
     if (!authController.hasPermission(Permission.EXPENSE_ADD)) {
       return Scaffold(
-        backgroundColor: AppTheme.appBackground,
+        backgroundColor: const Color(0xFFF5F7FA),
         body: SafeArea(
           child: Center(
             child: Container(
@@ -78,9 +78,10 @@ class ExpensesView extends GetView<AccountingController> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withOpacity(0.06),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -129,7 +130,7 @@ class ExpensesView extends GetView<AccountingController> {
     });
 
     return Scaffold(
-      backgroundColor: AppTheme.appBackground,
+      backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -152,13 +153,24 @@ class ExpensesView extends GetView<AccountingController> {
 
   Widget _buildModernAppBar(BuildContext context, bool isTablet) {
     return SliverAppBar(
-      expandedHeight: isTablet ? 200 : 160,
+      expandedHeight: isTablet ? 180 : 150,
       floating: false,
       pinned: true,
+      backgroundColor: Colors.white,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            gradient: LinearGradient(
+              colors: [
+                Colors.white,
+                const Color(0xFFF8F9FA),
+                const Color(0xFFF0F2F5),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
@@ -175,12 +187,21 @@ class ExpensesView extends GetView<AccountingController> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primaryBlue.withOpacity(0.15),
+                              AppTheme.primaryBlue.withOpacity(0.08),
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.primaryBlue.withOpacity(0.2),
+                            width: 1,
+                          ),
                         ),
                         child: const Icon(
                           Icons.receipt_long,
-                          color: Colors.white,
+                          color: AppTheme.primaryBlue,
                           size: 28,
                         ),
                       ),
@@ -192,7 +213,7 @@ class ExpensesView extends GetView<AccountingController> {
                             Text(
                               'Expenses',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppTheme.primaryText,
                                 fontSize: isTablet ? 24 : 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -200,7 +221,7 @@ class ExpensesView extends GetView<AccountingController> {
                             Text(
                               'Track and manage school expenses',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: AppTheme.mutedText,
                                 fontSize: isTablet ? 16 : 14,
                               ),
                             ),
@@ -209,12 +230,21 @@ class ExpensesView extends GetView<AccountingController> {
                       ),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.grey.shade100,
+                              Colors.grey.shade50,
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 1,
+                          ),
                         ),
                         child: IconButton(
                           onPressed: () => _showExpensesList(context),
-                          icon: const Icon(Icons.history, color: Colors.white),
+                          icon: const Icon(Icons.history, color: AppTheme.primaryText),
                           tooltip: 'View History',
                         ),
                       ),
@@ -226,7 +256,6 @@ class ExpensesView extends GetView<AccountingController> {
           ),
         ),
       ),
-      backgroundColor: AppTheme.primaryBlue,
     );
   }
 
@@ -234,14 +263,35 @@ class ExpensesView extends GetView<AccountingController> {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
     final isReadOnly = !['correspondent'].contains(userRole);
-    
+
+    // For accountant/read-only: auto-select school silently, no visible UI
+    if (isReadOnly) {
+      return Obx(() {
+        final userSchoolId = authController.user.value?.schoolId;
+        final userSchool = schoolController.schools.firstWhereOrNull(
+          (school) => school.id == userSchoolId,
+        );
+        if (userSchool != null && selectedSchool.value == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            selectedSchool.value = userSchool;
+            if (Get.isRegistered<SubscriptionController>()) {
+              Get.find<SubscriptionController>().loadSubscription(userSchool.id);
+            }
+          });
+        }
+        return const SizedBox.shrink();
+      });
+    }
+
+    // For correspondent: show school selector dropdown
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -257,14 +307,14 @@ class ExpensesView extends GetView<AccountingController> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.successGradient,
+                    gradient: AppTheme.primaryGradient,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.school, color: Colors.white, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  isReadOnly ? 'Your School' : 'Select School',
+                  'Select School',
                   style: TextStyle(
                     fontSize: isTablet ? 20 : 18,
                     fontWeight: FontWeight.bold,
@@ -273,92 +323,46 @@ class ExpensesView extends GetView<AccountingController> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            if (isReadOnly)
-              Obx(() {
-                final userSchoolId = authController.user.value?.schoolId;
-                final userSchool = schoolController.schools.firstWhereOrNull(
-                  (school) => school.id == userSchoolId,
-                );
-                final schoolName = selectedSchool.value?.name ?? userSchool?.name ?? 'Loading...';
-                
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppTheme.primaryBlue.withOpacity(0.05), AppTheme.primaryBlue.withOpacity(0.02)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.2), width: 1.5),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.business, color: Colors.white, size: 16),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          schoolName,
-                          style: TextStyle(
-                            color: AppTheme.primaryText,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              })
-            else
-              Obx(() => Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+            const SizedBox(height: 16),
+            Obx(() => Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: DropdownButtonFormField<School>(
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  hintText: 'Choose a school',
                 ),
-                child: DropdownButtonFormField<School>(
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    hintText: 'Choose a school',
-                  ),
-                  value: schoolController.schools.contains(selectedSchool.value) 
-                      ? selectedSchool.value 
-                      : null,
-                  items: schoolController.schools.map((school) {
-                    return DropdownMenuItem<School>(
-                      value: school,
-                      child: Text(school.name),
-                    );
-                  }).toList(),
-                  onChanged: (school) {
-                    selectedSchool.value = school;
-                    if (school != null) {
-                      if (Get.isRegistered<SubscriptionController>()) {
-                        final subscriptionController = Get.find<SubscriptionController>();
-                        subscriptionController.loadSubscription(school.id);
-                      }
+                value: schoolController.schools.contains(selectedSchool.value)
+                    ? selectedSchool.value
+                    : null,
+                items: schoolController.schools.map((school) {
+                  return DropdownMenuItem<School>(
+                    value: school,
+                    child: Text(school.name),
+                  );
+                }).toList(),
+                onChanged: (school) {
+                  selectedSchool.value = school;
+                  if (school != null) {
+                    if (Get.isRegistered<SubscriptionController>()) {
+                      final subscriptionController = Get.find<SubscriptionController>();
+                      subscriptionController.loadSubscription(school.id);
                     }
-                  },
-                ),
-              )),
+                  }
+                },
+              ),
+            )),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildContentArea(BuildContext context, bool isTablet) {
+    Widget _buildContentArea(BuildContext context, bool isTablet) {
     return Obx(() {
       if (selectedSchool.value == null) {
         return _buildEmptyStateWidget(context, isTablet, 'Please select a school', Icons.school);
@@ -372,7 +376,6 @@ class ExpensesView extends GetView<AccountingController> {
         return const Center(child: CircularProgressIndicator());
       }
       
-      // Only check subscription for correspondent and principal roles
       final userRole = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
       final requiresSubscriptionCheck = ['correspondent', 'principal'].contains(userRole);
 
@@ -394,9 +397,10 @@ class ExpensesView extends GetView<AccountingController> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -437,9 +441,10 @@ class ExpensesView extends GetView<AccountingController> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -524,11 +529,12 @@ class ExpensesView extends GetView<AccountingController> {
   Widget _buildExpenseDetailsCard(bool isTablet) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.biologyGreen.withOpacity(0.39),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -581,11 +587,12 @@ class ExpensesView extends GetView<AccountingController> {
   Widget _buildEvidenceCard(bool isTablet) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.chemistryYellow.withOpacity(0.35),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -637,18 +644,18 @@ class ExpensesView extends GetView<AccountingController> {
               'Bill/Invoice Upload',
               'Upload bill or invoice',
               billFiles,
-              true, // Mandatory
+              true,
               isTablet,
-              true, // isBillFile
+              true,
             ),
             const SizedBox(height: 20),
             _buildFileUploadSection(
               'Photo of Work/Item',
               'Upload photo of actual work done or item purchased (Optional)',
               workPhotoFiles,
-              false, // Optional
+              false,
               isTablet,
-              false, // isWorkPhoto
+              false,
             ),
           ],
         ),
@@ -1008,7 +1015,12 @@ class ExpensesView extends GetView<AccountingController> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient.scale(0.1),
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primaryBlue.withOpacity(0.15),
+                                  AppTheme.primaryBlue.withOpacity(0.08),
+                                ],
+                              ),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -1102,7 +1114,7 @@ class ExpensesView extends GetView<AccountingController> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
-      allowMultiple: true, // Allow multiple files
+      allowMultiple: true,
     );
 
     if (result != null && result.files.isNotEmpty) {
@@ -1118,14 +1130,12 @@ class ExpensesView extends GetView<AccountingController> {
 
   void _saveExpense() {
     if (_formKey.currentState!.validate()) {
-      // Validate bill files are uploaded (mandatory)
       if (billFiles.isEmpty) {
         Get.snackbar('Error', 'Please upload at least one bill/invoice file', 
           backgroundColor: Colors.red, colorText: Colors.white);
         return;
       }
 
-      // Get academic year from school or use current year
       final school = selectedSchool.value;
       final academicYear = school?.currentAcademicYear ?? 
         '${DateTime.now().year}-${DateTime.now().year + 1}';
@@ -1165,18 +1175,40 @@ class ExpensesView extends GetView<AccountingController> {
             Container(
               padding: EdgeInsets.all(isTablet ? 24 : 20),
               decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white,
+                    const Color(0xFFF8F9FA),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.grey.shade200,
+                    width: 1,
+                  ),
+                ),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.amber.withOpacity(0.2),
+                          Colors.amber.withOpacity(0.1),
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.amber.withOpacity(0.3),
+                        width: 1,
+                      ),
                     ),
-                    child: const Icon(Icons.receipt_long, color: Colors.white, size: 24),
+                    child: const Icon(Icons.receipt_long, color: AppTheme.primaryText, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1186,7 +1218,7 @@ class ExpensesView extends GetView<AccountingController> {
                         Text(
                           'Expenses History',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.primaryText,
                             fontSize: isTablet ? 20 : 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1194,7 +1226,7 @@ class ExpensesView extends GetView<AccountingController> {
                         Text(
                           selectedSchool.value?.name ?? "All Schools",
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: AppTheme.mutedText,
                             fontSize: 14,
                           ),
                         ),
@@ -1203,12 +1235,12 @@ class ExpensesView extends GetView<AccountingController> {
                   ),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: IconButton(
                       onPressed: () => Get.back(),
-                      icon: const Icon(Icons.close, color: Colors.white),
+                      icon: const Icon(Icons.close, color: AppTheme.primaryText),
                     ),
                   ),
                 ],
@@ -1284,11 +1316,12 @@ class ExpensesView extends GetView<AccountingController> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.lightGreen.withOpacity(0.19),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -1309,8 +1342,17 @@ class ExpensesView extends GetView<AccountingController> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient.scale(0.1),
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primaryBlue.withOpacity(0.15),
+                            AppTheme.primaryBlue.withOpacity(0.08),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primaryBlue.withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
                       child: Icon(
                         _getCategoryIcon(expense.category),
@@ -1365,7 +1407,7 @@ class ExpensesView extends GetView<AccountingController> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: statusColor,
+                            gradient: LinearGradient(colors: [statusColor, statusColor.withOpacity(0.8)]),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -1440,7 +1482,7 @@ class ExpensesView extends GetView<AccountingController> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.blueGrey,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -1452,7 +1494,7 @@ class ExpensesView extends GetView<AccountingController> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: AppTheme.mathGradient,
+                      gradient: AppTheme.primaryGradient,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -1511,6 +1553,7 @@ class ExpensesView extends GetView<AccountingController> {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

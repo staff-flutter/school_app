@@ -24,7 +24,7 @@ class StudentRecordDetailsPage extends StatelessWidget {
       backgroundColor: AppTheme.appBackground,
       appBar: AppBar(
         title: const Text('Student Record Details'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
         elevation: 0,
       ),

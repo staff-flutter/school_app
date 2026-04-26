@@ -100,8 +100,10 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
         preferredSize: const Size.fromHeight(70),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.teal.shade600, Colors.teal.shade400],
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF9D8FFF), Color(0xFF5C4FC7)],
             ),
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(24),
@@ -109,9 +111,9 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: const Color(0xFF6A5AE0).withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -150,9 +152,11 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
         }
 
         return Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.teal.shade50, Colors.white],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFF0EEFF), Color(0xFFFAFAFF)],
             ),
           ),
           child: SingleChildScrollView(
@@ -163,8 +167,8 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                 const SizedBox(height: 16),
                 _buildCollapsibleSection(
                   'Mandatory Information',
-                  Icons.info,
-                  LinearGradient(colors: [Colors.purple.shade600, Colors.purple.shade400]),
+                  Icons.info_rounded,
+                  const LinearGradient(colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)]),
                   'mandatory',
                   _buildMandatoryInfo(),
                   isTablet,
@@ -172,8 +176,8 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                 const SizedBox(height: 16),
                 _buildCollapsibleSection(
                   'UDISE',
-                  Icons.description,
-                  LinearGradient(colors: [Colors.orange.shade600, Colors.orange.shade400]),
+                  Icons.description_rounded,
+                  const LinearGradient(colors: [Color(0xFFFF8A3D), Color(0xFFFF6200)]),
                   'nonMandatory',
                   _buildNonMandatoryInfo(),
                   isTablet,
@@ -181,8 +185,8 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                 const SizedBox(height: 16),
                 _buildCollapsibleSection(
                   'Club Memberships',
-                  Icons.groups,
-                  LinearGradient(colors: [Colors.pink.shade600, Colors.pink.shade400]),
+                  Icons.groups_rounded,
+                  const LinearGradient(colors: [Color(0xFFFF6B9D), Color(0xFFC9184A)]),
                   'clubs',
                   _buildClubsInfo(),
                   isTablet,
@@ -202,14 +206,16 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
       
       return Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.teal.shade600, Colors.teal.shade400],
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF9D8FFF), Color(0xFF5C4FC7)],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.teal.withOpacity(0.3),
-              blurRadius: 12,
+              color: const Color(0xFF6A5AE0).withOpacity(0.3),
+              blurRadius: 16,
               offset: const Offset(0, 6),
             ),
           ],
@@ -244,7 +250,7 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                                 child: Text(
                                   (studentData['studentName'] ?? 'U')[0].toUpperCase(),
                                   style: TextStyle(
-                                    color: Colors.teal.shade600,
+                                    color: const Color(0xFF6A5AE0),
                                     fontSize: isTablet ? 40 : 32,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -256,7 +262,7 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                             child: Text(
                               (studentData['studentName'] ?? 'U')[0].toUpperCase(),
                               style: TextStyle(
-                                color: Colors.teal.shade600,
+                                color: const Color(0xFF6A5AE0),
                                 fontSize: isTablet ? 40 : 32,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -533,17 +539,17 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.pink.shade50, Colors.pink.shade100],
+                colors: [const Color(0xFFFFF0F5), const Color(0xFFFFD6E7)],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.pink.shade200),
+              border: Border.all(color: const Color(0xFFFFB3CE)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.pink,
+                    color: const Color(0xFFC9184A),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.group, color: Colors.white, size: 24),
@@ -587,19 +593,19 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
         gradient: LinearGradient(
           colors: [
             Colors.white.withOpacity(0.9),
-            Colors.blue.shade50.withOpacity(0.5),
+            const Color(0xFFF0EEFF),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.blue.shade100.withOpacity(0.5),
+          color: const Color(0xFFEDE9FF),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.shade100.withOpacity(0.3),
+            color: const Color(0xFFE0DAFF).withOpacity(0.3),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -615,13 +621,13 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade100.withOpacity(0.5),
+                    color: const Color(0xFFEDE9FF),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
                     Icons.label,
                     size: 16,
-                    color: Colors.blue.shade700,
+                    color: const Color(0xFF6A5AE0),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -631,7 +637,7 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.blue.shade900,
+                      color: const Color(0xFF3D2DB5),
                     ),
                   ),
                 ),
@@ -647,7 +653,7 @@ class _DetailsOfStudentViewState extends State<DetailsOfStudentView> {
                 color: Colors.white.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Colors.blue.shade200.withOpacity(0.3),
+                  color: const Color(0xFFB8ADFF).withOpacity(0.3),
                 ),
               ),
               child: Text(

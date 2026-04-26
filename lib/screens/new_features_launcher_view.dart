@@ -17,7 +17,7 @@ class NewFeaturesLauncherView extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('New Features Demo'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
       ),
       body: SafeArea(

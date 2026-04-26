@@ -61,7 +61,7 @@ class FeeCollectionTabbedView extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.primaryBlue, Colors.indigo.shade600],
+          colors: [AppTheme.primaryBlue, Colors.blue.shade700],
         ),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
@@ -186,7 +186,7 @@ class _FeeCollectionTab extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.blue.shade50, Colors.indigo.shade50],
+          colors: [Colors.blue.shade50, Colors.blue.shade50],
         ),
       ),
       child: Padding(
@@ -449,51 +449,18 @@ class _FeeCollectionTab extends StatelessWidget {
                   ),
                 );
               } else {
-                // Readonly for non-correspondent
+                // Readonly for non-correspondent: auto-select silently
                 final userSchoolId = _authController.user.value?.schoolId;
                 final userSchool = schoolController.schools.firstWhereOrNull(
                   (school) => school.id == userSchoolId,
                 );
-                
-                // Auto-select user's school
                 if (userSchool != null && selectedSchool.value == null) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     selectedSchool.value = userSchool;
                     _loadStudentsForSchool(userSchool.id);
                   });
                 }
-
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryBlue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          userSchool?.name ?? 'Loading...',
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+                return const SizedBox.shrink();
               }
             }),
           ],
@@ -1305,7 +1272,7 @@ class _FeeCollectionTab extends StatelessWidget {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppTheme.primaryBlue, Colors.indigo.shade600],
+                    colors: [AppTheme.primaryBlue, Colors.blue.shade700],
                   ),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
@@ -1852,7 +1819,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.blue.shade50, Colors.indigo.shade50],
+          colors: [Colors.blue.shade50, Colors.blue.shade50],
         ),
       ),
       child: Padding(
@@ -2044,44 +2011,18 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
           },
         );
       } else {
-        // Readonly for non-correspondent
+        // Readonly for non-correspondent: auto-select silently
         final userSchoolId = authController.user.value?.schoolId;
         final userSchool = schoolController.schools.firstWhereOrNull(
           (school) => school.id == userSchoolId,
         );
-        
-        // Auto-select user's school
         if (userSchool != null && selectedSchool.value == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             selectedSchool.value = userSchool;
             schoolController.getAllClasses(userSchool.id);
           });
         }
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.school, color: AppTheme.primaryBlue),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  userSchool?.name ?? 'Loading...',
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+        return const SizedBox.shrink();
       }
     });
   }

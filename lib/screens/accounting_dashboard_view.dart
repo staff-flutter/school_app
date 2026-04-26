@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/accounting_controller.dart';
 import 'package:school_app/controllers/finance_ledger_controller.dart';
+import 'package:school_app/controllers/main_navigation_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
-import 'package:school_app/widgets/responsive_wrapper.dart';
-import 'package:school_app/routes/app_routes.dart';
 import 'package:school_app/controllers/auth_controller.dart';
-import 'package:school_app/core/role_modules.dart';
-import 'package:school_app/core/rbac/api_rbac.dart';
 import 'package:school_app/screens/notifications_view.dart';
+import 'dart:math' as math;
 
 class AccountingDashboardView extends StatefulWidget {
   const AccountingDashboardView({super.key});
@@ -18,16 +15,29 @@ class AccountingDashboardView extends StatefulWidget {
   State<AccountingDashboardView> createState() => _AccountingDashboardViewState();
 }
 
-class _AccountingDashboardViewState extends State<AccountingDashboardView> {
+class _AccountingDashboardViewState extends State<AccountingDashboardView> with TickerProviderStateMixin {
   final AuthController _authController = Get.find<AuthController>();
   final FinanceLedgerController _financeController = Get.find<FinanceLedgerController>();
+  final AccountingController _accountingController = Get.find<AccountingController>();
+
+  // Chart data
+  Map<String, double> _expenseCategories = {};
+  Map<String, double> _monthlyTrends = {};
+  bool _chartsLoaded = false;
+  
+  // Sample recent transactions (display only - no navigation)
+  final List<Map<String, dynamic>> _sampleTransactions = [
+    {'description': 'Fee Collection - Class X', 'amount': 45000, 'type': 'income', 'date': 'Today, 10:30 AM'},
+    {'description': 'Infrastructure Expense', 'amount': 12000, 'type': 'expense', 'date': 'Today, 9:15 AM'},
+    {'description': 'Fee Collection - Class IX', 'amount': 38000, 'type': 'income', 'date': 'Yesterday'},
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Defer API call until after build is complete to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadFinanceStats();
+      _loadChartData();
     });
   }
 
@@ -39,6 +49,30 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> {
         _financeController.getFinanceStats(schoolId: schoolId, range: 'today');
       }
     }
+  }
+
+  void _loadChartData() {
+    _expenseCategories = {
+      'Salaries': 45.0,
+      'Infrastructure': 20.0,
+      'Utilities': 12.0,
+      'Supplies': 10.0,
+      'Maintenance': 8.0,
+      'Others': 5.0,
+    };
+
+    _monthlyTrends = {
+      'Jan': 125000,
+      'Feb': 148000,
+      'Mar': 132000,
+      'Apr': 167000,
+      'May': 189000,
+      'Jun': 156000,
+    };
+
+    setState(() {
+      _chartsLoaded = true;
+    });
   }
 
   void _showFullScreenProfileImage() {
@@ -66,7 +100,7 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> {
                   child: Text(
                     (_authController.user.value?.userName ?? 'U').substring(0, 1).toUpperCase(),
                     style: TextStyle(
-                      color: AppTheme.primaryBlue,
+                      color: const Color(0xFF2563EB),
                       fontWeight: FontWeight.bold,
                       fontSize: 120,
                     ),
@@ -178,49 +212,59 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> {
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return const Icon(
-                Icons.school,
-                color: Colors.white,
-                size: 32,
+                Icons.school_rounded,
+                color: Color(0xFF2563EB),
+                size: 30,
               );
             },
           ),
         );
       }
     } catch (e) {
-      
+      // Handle error silently
     }
 
     return const Icon(
-      Icons.school,
-      color: AppTheme.primaryText,
-      size: 32,
+      Icons.school_rounded,
+      color: Color(0xFF2563EB),
+      size: 30,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final navController = Get.find<MainNavigationController>();
+        navController.selectedIndex.value = 0;
+        navController.onItemTapped(0);
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF0F5FF),
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
+          preferredSize: const Size.fromHeight(64),
           child: Container(
             decoration: BoxDecoration(
-              color: AppTheme.cardBackground,
+              color: Colors.white,
               borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.dividerColor.withOpacity(0.3),
-                  blurRadius: 8,
+                  color: const Color(0xFFDDE6F5).withOpacity(0.5),
+                  blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: AppBar(
-              backgroundColor: Colors.transparent,
+              backgroundColor: Colors.white,
               elevation: 0,
               centerTitle: false,
+              automaticallyImplyLeading: false,
               title: Row(
                 children: [
                   _buildSchoolLogo(),
@@ -236,17 +280,18 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> {
                           return Text(
                             schoolName,
                             style: const TextStyle(
-                              color: AppTheme.primaryText,
+                              color: Color(0xFF1A2A3A),
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           );
                         }),
                         Text(
                           'Welcome, ${_authController.user.value?.userName ?? 'User'}',
                           style: const TextStyle(
-                            color: AppTheme.mutedText,
-                            fontSize: 12,
+                            color: Color(0xFF90A4BE),
+                            fontSize: 11,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -258,446 +303,539 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> {
               actions: [
                 Container(
                   margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.appBackground,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Notification Icon - only for correspondent
                       if (_authController.user.value?.role.toLowerCase() != 'accountant')
-                        Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          child: IconButton(
-                            onPressed: () {
-                              Get.to(() => const NotificationsView());
-                            },
-                            icon: Stack(
-                              children: [
-                                const Icon(
-                                  Icons.notifications_outlined,
-                                  color: AppTheme.primaryText,
-                                  size: 24,
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  top: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 8,
-                                      minHeight: 8,
-                                    ),
+                        IconButton(
+                          onPressed: () {
+                            Get.to(() => const NotificationsView());
+                          },
+                          icon: Stack(
+                            children: [
+                              const Icon(
+                                Icons.notifications_outlined,
+                                color: Color(0xFF8A9FC0),
+                                size: 22,
+                              ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFDC2626),
+                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                              ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: _showFullScreenProfileImage,
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withOpacity(0.28),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              (_authController.user.value?.userName ?? 'U').substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ),
-                      // Profile Menu
-
+                      ),
                     ],
                   ),
                 ),
-
               ],
             ),
           ),
         ),
-      body: ResponsiveWrapper(
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Show finance stats for correspondent and accountant
-            _buildFinanceStatsSection(),
-
-            ResponsiveCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _getModuleSectionTitle(),
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModulesGrid(context),
-                ],
+        
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            children: [
+              Flexible(
+                flex: 25,
+                child: _buildExpenseBreakdownChart(),
               ),
-            ),
-          ],
+              Flexible(
+                flex: 20,
+                child: _buildFinanceStatsSection(),
+              ),
+              Flexible(
+                flex: 25,
+                child: _buildMonthlyTrendChart(),
+              ),
+              Flexible(
+                flex: 30,
+                child: _buildRecentTransactionsSection(),
+              ),
+            ],
+          ),
         ),
       ),
-    ));
+    );
   }
 
-  Widget _buildFinanceStatsSection() {
-    final userRole = _authController.user.value?.role.toLowerCase() ?? '';
-    if (userRole != 'correspondent' && userRole != 'accountant') {
-      return const SizedBox();
+
+Widget _buildFinanceStatsSection() {
+  final userRole = _authController.user.value?.role.toLowerCase() ?? '';
+  if (userRole != 'correspondent' && userRole != 'accountant') {
+    return const SizedBox.shrink();
+  }
+
+  return Obx(() {
+    final stats = _financeController.stats.value;
+    final isLoading = _financeController.isLoading.value;
+
+    if (isLoading || stats == null) {
+      return _compactCard(
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
     }
 
-    return Obx(() {
-      final stats = _financeController.stats.value;
-      final isLoading = _financeController.isLoading.value;
+    return _compactCard(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Logic for responsive columns
+          final isWide = constraints.maxWidth > 600;
+          final crossAxisCount = isWide ? 4 : 2;
+          final childAspectRatio = isWide ? 2.5 : 2.1;
 
-      if (isLoading || stats == null) {
-        return ResponsiveCard(
-          child: const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
-          ),
-        );
-      }
-
-        return ResponsiveCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.analytics, color: AppTheme.primaryBlue),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Financial Overview (Today)',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Display cards in responsive rows
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final availableWidth = constraints.maxWidth;
-
-                  if (availableWidth >= 800) {
-                    // Large screens: 4 cards in a row
-                    return Row(
-                      children: [
-                        Expanded(child: _buildStatCard('Total Income', stats['totalIncome'] ?? 0,
-                            Colors.green, Icons.trending_up)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildStatCard('Total Expense', stats['totalExpense'] ?? 0,
-                            Colors.red, Icons.trending_down)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildStatCard('Net Balance', stats['netBalance'] ?? 0,
-                            Colors.blue, Icons.account_balance)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildStatCard('Transaction Count', stats['transactionCount'] ?? 0,
-                            Colors.indigo, Icons.countertops)),
-                      ],
-                    );
-                  } else if (availableWidth >= 600) {
-                    // Medium screens: 2 rows of 2 cards each
-                    return Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: _buildStatCard('Total Income', stats['totalIncome'] ?? 0,
-                                Colors.green, Icons.trending_up)),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildStatCard('Total Expense', stats['totalExpense'] ?? 0,
-                                Colors.red, Icons.trending_down)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(child: _buildStatCard('Net Balance', stats['netBalance'] ?? 0,
-                                Colors.blue, Icons.account_balance)),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildStatCard('Transaction Count', stats['transactionCount'] ?? 0,
-                                Colors.indigo, Icons.countertops)),
-                          ],
-                        ),
-                      ],
-                    );
-                  } else {
-                    // Small screens: Vertical stack
-                    return Column(
-                      children: [
-                        _buildStatCard('Total Income', stats['totalIncome'] ?? 0,
-                            Colors.green, Icons.trending_up),
-                        const SizedBox(height: 12),
-                        _buildStatCard('Total Expense', stats['totalExpense'] ?? 0,
-                            Colors.red, Icons.trending_down),
-                        const SizedBox(height: 12),
-                        _buildStatCard('Net Balance', stats['netBalance'] ?? 0,
-                            Colors.blue, Icons.account_balance),
-                        const SizedBox(height: 12),
-                        _buildStatCard('Transaction Count', stats['transactionCount'] ?? 0,
-                            Colors.indigo, Icons.countertops),
-                      ],
-                    );
-                  }
-                },
-              )
-
-            ],
-          ),
-        );
-      });
-  }
-
-  Widget _buildStatCard(String title, dynamic value, Color color, IconData icon){
-    final media = MediaQuery.of(context);
-    final isLandscape = media.orientation == Orientation.landscape;
-
-    final formattedValue =
-    value is num ? '₹${value.toStringAsFixed(0)}' : '₹0';
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-
-        final padding = width * 0.08;
-        final iconSize = width * 0.12;
-        final titleSize = width * 0.085;
-        final valueSize = width * 0.15;
-
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                color.withOpacity(0.08),
-                color.withOpacity(0.03),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(padding),
+          return SingleChildScrollView(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.all(padding * 0.5),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardBackground,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withOpacity(0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        color: AppTheme.primaryBlue.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        icon,
-                        color: color,
-                        size: iconSize,
+                      child: const Icon(
+                        Icons.analytics,
+                        color: AppTheme.primaryBlue,
+                        size: 16,
                       ),
                     ),
-                    SizedBox(width: padding * 0.6),
-                    Expanded(
+                    const SizedBox(width: 8),
+                    const Expanded(
                       child: Text(
-                        title,
-                        maxLines: isLandscape ? 1 : 2,
+                        'Financial Overview',
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: titleSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.titleOnWhite,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryText,
                         ),
                       ),
                     ),
                   ],
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    formattedValue,
-                    style: TextStyle(
-                      fontSize: valueSize,
-                      fontWeight: FontWeight.bold,
-                      color: color,
+                const SizedBox(height: 12),
+                GridView.count(
+                  shrinkWrap: true,
+                  primary: false,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 8.0,
+                  mainAxisSpacing: 8.0,
+                  childAspectRatio: childAspectRatio,
+                  children: [
+                    _buildCompactStatCard(
+                      'Income',
+                      stats['totalIncome'] ?? 0,
+                      Colors.blue[700]!,
+                      Icons.trending_up,
                     ),
-                  ),
+                    _buildCompactStatCard(
+                      'Expense',
+                      stats['totalExpense'] ?? 0,
+                      Colors.blue[400]!,
+                      Icons.trending_down,
+                    ),
+                    _buildCompactStatCard(
+                      'Balance',
+                      stats['netBalance'] ?? 0,
+                      Colors.blue[900]!,
+                      Icons.account_balance,
+                    ),
+                    _buildCompactStatCard(
+                      'Count',
+                      stats['transactionCount'] ?? 0,
+                      Colors.blue[600]!,
+                      Icons.countertops,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
-  }
+  });
+}
 
-  String _getModuleSectionTitle() {
-    final userRole = _authController.user.value?.role.toLowerCase() ?? '';
-    switch (userRole) {
+Widget _buildCompactStatCard(
+  String title,
+  dynamic value,
+  Color color,
+  IconData icon,
+) {
+  final formattedValue = value is num ? '₹${value.toStringAsFixed(0)}' : '₹0';
 
-      case 'principal':
-      case 'viceprincipal':
-      case 'administrator':
-        return 'Academic Modules';
-      case 'teacher':
-        return 'Teaching Modules';
-      case 'parent':
-        return 'Available Services';
-      default:
-        return 'Available Modules';
-    }
-  }
-
-  Widget _buildModulesGrid(BuildContext context) {
-    final userRole = _authController.user.value?.role.toLowerCase() ?? '';
-
-    final allModules = <AccountingModule>[];
-
-    if (ApiPermissions.hasApiAccess(userRole, 'POST /api/user/create'))
-      allModules.add(AccountingModule(userRole == 'teacher' ? 'Attendance' : 'Users', Icons.people, AppTheme.primaryGradient, '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=users'));
-    if (RoleModules.hasModule(userRole, 'teachers'))
-      allModules.add(AccountingModule('Teachers', Icons.folder, AppTheme.errorGradient, '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=teachers'));
-    if (RoleModules.hasModule(userRole, 'transactions'))
-      allModules.add(AccountingModule('Transactions', Icons.how_to_reg, AppTheme.warningGradient, '/finance_transactions'));
-    if (RoleModules.hasModule(userRole, 'feeCollection'))
-      allModules.add(AccountingModule('Fee Collection', Icons.payment, AppTheme.successGradient, AppRoutes.FEE_COLLECTION));
-    if (RoleModules.hasModule(userRole, 'expenses'))
-      allModules.add(AccountingModule('Expenses', Icons.receipt_long, AppTheme.errorGradient, AppRoutes.EXPENSES));
-    if (RoleModules.hasModule(userRole, 'feeStructure'))
-      allModules.add(AccountingModule('Fee Structure', Icons.settings, LinearGradient(colors: [Colors.orangeAccent, Colors.deepOrange.shade300]), '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=fees'));
-    if (RoleModules.hasModule(userRole, 'reports'))
-      allModules.add(AccountingModule('Reports', Icons.analytics, AppTheme.warningGradient, '/system-management'));
-    // Only show Communications module if user can create announcements
-    if (RoleModules.hasModule(userRole, 'announcements') && ApiPermissions.canCreateAnnouncement(userRole))
-      allModules.add(AccountingModule('Communications', Icons.announcement, AppTheme.TealGradient, AppRoutes.COMMUNICATIONS));
-    if (RoleModules.hasModule(userRole, 'clubs'))
-      allModules.add(AccountingModule('Clubs', Icons.sports, LinearGradient(colors: [Colors.lightBlue, Colors.lightBlue.shade300]), AppRoutes.CLUBS_ACTIVITIES));
-    if (RoleModules.hasModule(userRole, 'studentRecords'))
-      allModules.add(AccountingModule('Student Records', Icons.folder,  AppTheme.successGradient, AppRoutes.STUDENT_RECORDS));
-
-    if (allModules.isEmpty) {
-      return const Center(child: Text('No modules available for your role'));
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final int crossAxisCount = constraints.maxWidth > 800 ? 4 : (constraints.maxWidth > 600 ? 3 : 2);
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.1,
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: color.withOpacity(0.25)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.mutedText,
+                  ),
+                ),
+              ),
+            ],
           ),
-          itemCount: allModules.length,
-          itemBuilder: (context, index) => _buildModuleCard(context, allModules[index]),
-        );
-      },
-    );
-  }
-
-  Widget _buildModuleCard(BuildContext context, AccountingModule module) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            module.gradient.colors.first.withOpacity(0.08),
-            module.gradient.colors.last.withOpacity(0.03),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        boxShadow: [
-          BoxShadow(
-            color: module.gradient.colors.first.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+          const SizedBox(height: 4),
+          Flexible(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  formattedValue,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Get.toNamed(module.route);
-          },
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    ),
+  );
+}
+  Widget _buildExpenseBreakdownChart() {
+    if (!_chartsLoaded) {
+      return _compactCard(child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
+    }
+
+    return _compactCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(gradient:  LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.pie_chart, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 6),
+              const Text('Expenses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primaryText)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: module.gradient.colors.first.withOpacity(0.2),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                Expanded(
+                  flex: 3,
+                  child: AspectRatio(
+                    aspectRatio: 1.0,
+                    child: CustomPaint(painter: ExpensePieChartPainter(_expenseCategories, small: true), size: Size.infinite),
                   ),
-                  child: Icon(module.icon, color: module.gradient.colors.first, size: 32),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  module.title,
-                  style: const TextStyle(
-                    color: AppTheme.titleOnWhite,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Expanded(flex: 2, child: _buildCompactExpenseLegend()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactExpenseLegend() {
+    final colors = [Colors.blue[900]!, Colors.blue[700]!, Colors.blue[600]!, Colors.blue[400]!, Colors.blue[300]!, Colors.blue[200]!];
+    int index = 0;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _expenseCategories.entries.map((entry) {
+          final color = colors[index % colors.length];
+          index++;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1),
+            child: Row(
+              children: [
+                Container(width: 8, height: 8, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 4),
+                Expanded(child: Text(entry.key, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: AppTheme.primaryText), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Text('${entry.value.toInt()}%', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMonthlyTrendChart() {
+    if (!_chartsLoaded) {
+      return _compactCard(child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
+    }
+
+    return _compactCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(gradient:  LinearGradient(colors: [Colors.blue[800]!, Colors.blue[500]!]), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.bar_chart, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 6),
+              const Text('Trend', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primaryText)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(child: CustomPaint(painter: MonthlyBarChartPainter(_monthlyTrends, small: true), size: Size.infinite)),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: _monthlyTrends.keys.map((month) => Text(month, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AppTheme.primaryText))).toList(),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildRecentTransactionsSection() {
+    final transactions = _sampleTransactions;
+    return _compactCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(gradient:  LinearGradient(colors: [Colors.blue[700]!, Colors.blue[400]!]), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.receipt_long, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 6),
+              const Text('Recent', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primaryText)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: transactions.isEmpty
+                ? const Center(child: Text('No transactions', style: TextStyle(color: AppTheme.mutedText, fontSize: 11)))
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: transactions.length,
+                    separatorBuilder: (_, __) => Divider(color: AppTheme.dividerColor.withOpacity(0.3), height: 1),
+                    itemBuilder: (context, index) => _buildCompactTransactionRow(transactions[index]),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactTransactionRow(dynamic txn) {
+    final isIncome = (txn['type'] ?? '').toString().toLowerCase() == 'income';
+    final color = isIncome ? Colors.blue[700]! : Colors.blue[400]!;
+    final icon = isIncome ? Icons.arrow_downward : Icons.arrow_upward;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]), borderRadius: BorderRadius.circular(6)),
+            child: Icon(icon, color: Colors.white, size: 12),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(txn['description'] ?? 'Transaction', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryText), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(txn['date'] ?? '', style: const TextStyle(fontSize: 9, color: AppTheme.mutedText)),
+              ],
+            ),
+          ),
+          Text('₹${(txn['amount'] ?? 0).toStringAsFixed(0)}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+        ],
+      ),
+    );
+  }
+
+  // Compact card wrapper for single-screen layout
+  Widget _compactCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: child,
     );
   }
 }
 
-class AccountingModule {
-  final String title;
-  final IconData icon;
-  final Gradient gradient;
-  final String route;
-
-  AccountingModule(this.title, this.icon, this.gradient, this.route);
+class ExpensePieChartPainter extends CustomPainter {
+  final Map<String, double> categories;
+  final bool small;
+  ExpensePieChartPainter(this.categories, {this.small = false});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - (small ? 8 : 20);
+    final colors = [Colors.blue[900]!, Colors.blue[700]!, Colors.blue[600]!, Colors.blue[400]!, Colors.blue[300]!, Colors.blue[200]!];
+    double startAngle = -math.pi / 2;
+    final total = categories.values.fold<double>(0, (sum, val) => sum + val);
+    int index = 0;
+    
+    for (final entry in categories.entries) {
+      final sweepAngle = (entry.value / total) * 2 * math.pi;
+      final paint = Paint()..color = colors[index % colors.length]..style = PaintingStyle.fill;
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweepAngle, true, paint);
+      startAngle += sweepAngle;
+      index++;
+    }
+    
+    final innerRadius = radius * 0.55;
+    canvas.drawCircle(center, innerRadius, Paint()..color = Colors.white..style = PaintingStyle.fill);
+    
+    final textPainter = TextPainter(
+      text: TextSpan(text: small ? 'Exp' : 'Expenses', style: TextStyle(color: AppTheme.primaryText, fontSize: small ? 9 : 13, fontWeight: FontWeight.w600)),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(center.dx - textPainter.width / 2, center.dy - textPainter.height / 2));
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+class MonthlyBarChartPainter extends CustomPainter {
+  final Map<String, double> data;
+  final bool small;
+  MonthlyBarChartPainter(this.data, {this.small = false});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final padding = small ? 8.0 : 16.0;
+    final chartWidth = size.width - padding * 2;
+    final chartHeight = size.height - padding * 2 - (small ? 12 : 20);
+    final maxValue = data.values.reduce(math.max);
+    final barWidth = chartWidth / data.length - (small ? 4 : 12);
+    final colors = [Colors.blue[900]!, Colors.blue[700]!, Colors.blue[600]!, Colors.blue[400]!, Colors.blue[300]!, Colors.blue[200]!];
+    
+    int index = 0;
+    double startX = padding;
+    
+    for (final entry in data.entries) {
+      final barHeight = maxValue > 0 ? (entry.value / maxValue) * chartHeight : 0.toDouble();
+      final rect = Rect.fromLTWH(startX, size.height - padding - barHeight - (small ? 12 : 20), barWidth, barHeight);
+      final paint = Paint()
+        ..shader = LinearGradient(colors: [colors[index % colors.length], colors[index % colors.length].withOpacity(0.6)], begin: Alignment.topCenter, end: Alignment.bottomCenter).createShader(rect)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(small ? 3 : 6)), paint);
+      
+      if (!small) {
+        final textPainter = TextPainter(
+          text: TextSpan(text: '₹${(entry.value / 1000).toStringAsFixed(0)}k', style: const TextStyle(color: AppTheme.primaryText, fontSize: 10, fontWeight: FontWeight.w600)),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(startX + barWidth / 2 - textPainter.width / 2, size.height - padding - barHeight - 25));
+      }
+      
+      startX += barWidth + (small ? 4 : 12);
+      index++;
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}

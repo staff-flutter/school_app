@@ -1,35 +1,35 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // 🎨 Global Background Colors (Updated)
-  static const Color appBackground = Color(0xFFF4F4F6);
+  // 🎨 Global Background Colors
+  static const Color appBackground = Color(0xFFF0F5FF);
   static const Color cardBackground = Color(0xFFFFFFFF);
-  static const Color dividerColor = Color(0xFFE2E2E8);
-  static const Color mutedText = Color(0xFFA0A0A5);
-  static const Color primaryText = Color(0xFF1C1C1E);
+  static const Color dividerColor = Color(0xFFDDE6F5);
+  static const Color mutedText = Color(0xFF90A4BE);
+  static const Color primaryText = Color(0xFF1A2A3A);
 
   // Additional colors for compatibility
   static const Color TealColor = Color(0xFF4CC9F0);
-  static const Color navBarSelectedDeep = Color(0xFF6A5AE0);
+  static const Color navBarSelectedDeep = Color(0xFF1D4ED8);
 
-  // AppBar Gradient (Grey with Lavender tint)
+  // AppBar — clean primary blue gradient
   static const LinearGradient appBarGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFE8E8EA), Color(0xFFD8D5E8)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
   );
 
   // 📚 Subject Card Gradient System
 
-  // Geography (Purple - Primary Style)
+  // Geography (Blue - Primary Style)
   static const LinearGradient geographyGradient = LinearGradient(
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient geographySoftGradient = LinearGradient(
-    colors: [Color(0xFFEDE9FF), Color(0xFFF5F3FF)],
+    colors: [Color(0xFFDBEAFE), Color(0xFFEFF6FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -73,9 +73,9 @@ class AppTheme {
     end: Alignment.bottomRight,
   );
 
-  // Physics (Purple) - Added for compatibility
+  // Physics (Blue) - Added for compatibility
   static const LinearGradient physicsGradient = LinearGradient(
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -89,7 +89,7 @@ class AppTheme {
 
   // 🎯 Primary System Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -98,7 +98,7 @@ class AppTheme {
   static const LinearGradient navBarSelectedGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
   );
 
   static const LinearGradient successGradient = LinearGradient(
@@ -132,13 +132,13 @@ class AppTheme {
   static const Color subtitleOnWhite = Color(0xFF6E6E73);
 
   // Legacy colors (Updated but preserved)
-  static const Color primaryBlue = Color(0xFF8E7CFF);
-  static const Color successGreen = Color(0xFF8EDB4F);
-  static const Color warningYellow = Color(0xFFFF8A3D);
-  static const Color errorRed = Color(0xFFEF4444);
-  static const Color mathOrange = Color(0xFFFF8A3D);
-  static const Color geographyBlue = Color(0xFF8E7CFF);
-  static const Color biologyGreen = Color(0xFF8EDB4F);
+  static const Color primaryBlue = Color(0xFF2563EB);
+  static const Color successGreen = Color(0xFF16A34A);
+  static const Color warningYellow = Color(0xFFD97706);
+  static const Color errorRed = Color(0xFFDC2626);
+  static const Color mathOrange = Color(0xFFD97706);
+  static const Color geographyBlue = Color(0xFF2563EB);
+  static const Color biologyGreen = Color(0xFF16A34A);
   static const Color chemistryYellow = Color(0xFF4CC9F0);
   
   // Legacy gradients
@@ -168,22 +168,28 @@ class AppTheme {
     ),
     scaffoldBackgroundColor: appBackground,
     appBarTheme: AppBarTheme(
-      backgroundColor: const Color(0xFFE8E8EA),
+      backgroundColor: const Color(0xFF2563EB),
+      foregroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: true,
-      iconTheme: const IconThemeData(color: primaryText),
+      iconTheme: const IconThemeData(color: Colors.white),
       titleTextStyle: const TextStyle(
-        color: primaryText,
+        color: Colors.white,
         fontSize: 18,
         fontWeight: FontWeight.w600,
+        letterSpacing: 0.3,
       ),
-      shadowColor: const Color(0xFFD8D5E8).withOpacity(0.6),
+      shadowColor: const Color(0xFF2563EB),
     ),
     tabBarTheme: const TabBarThemeData(
-      labelColor: primaryText,
-      unselectedLabelColor: mutedText,
-      indicatorColor: primaryBlue,
-      labelStyle: TextStyle(fontWeight: FontWeight.w600),
+      labelColor: Colors.white,
+      unselectedLabelColor: Color(0xCCFFFFFF),
+      indicatorColor: Colors.white,
+      labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+      dividerColor: Colors.transparent,
     ),
     cardTheme: CardThemeData(
       color: cardBackground,
@@ -302,7 +308,7 @@ class AppTheme {
       leading: leading,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
-          gradient: navBarSelectedGradient,
+          gradient: primaryGradient,
         ),
       ),
     );

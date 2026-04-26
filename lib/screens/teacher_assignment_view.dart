@@ -1,34 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import 'package:school_app/controllers/teacher_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/user_management_controller.dart';
+import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
+import 'package:school_app/widgets/responsive_wrapper.dart';
 
 class TeacherAssignmentView extends StatefulWidget {
   const TeacherAssignmentView({super.key});
 
   @override
-  State<TeacherAssignmentView> createState() =>
-      _TeacherAssignmentViewState();
+  State<TeacherAssignmentView> createState() => _TeacherAssignmentViewState();
 }
 
 class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
   final TeacherController teacherController = Get.put(TeacherController());
   final SchoolController schoolController = Get.find<SchoolController>();
-  final UserManagementController userController =
-  Get.find<UserManagementController>();
+  final UserManagementController userController = Get.find<UserManagementController>();
+  final AuthController authController = Get.find<AuthController>();
 
   String? selectedTeacherId;
 
   /// Current UI selections (what should be assigned)
-  final RxList<Map<String, dynamic>> selectedAssignments =
-      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> selectedAssignments = <Map<String, dynamic>>[].obs;
 
   /// Original assignments when teacher was loaded
-  final RxList<Map<String, dynamic>> originalAssignments =
-      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> originalAssignments = <Map<String, dynamic>>[].obs;
 
   /// Master data
   List<Map<String, dynamic>> classSectionData = [];
@@ -44,24 +42,14 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
   }
 
   Future<void> _initialize() async {
-    
-    
-    
-    
     if (_initialized || schoolController.selectedSchool.value == null) {
-      
       return;
     }
 
     _initialized = true;
     final schoolId = schoolController.selectedSchool.value!.id;
-    
 
-    await userController.loadUsers(
-      schoolId: schoolId,
-      role: 'teacher',
-    );
-    
+    await userController.loadUsers(schoolId: schoolId, role: 'teacher');
 
     if (!mounted) return;
     await _loadClassSectionAssignments();
@@ -71,26 +59,17 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
 
   Future<void> _loadClassSectionAssignments() async {
     final schoolId = schoolController.selectedSchool.value!.id;
-    
 
-    final response =
-    await teacherController.getAllClassSectionAssignments(
-      schoolId,
-    );
-    
+    final response = await teacherController.getAllClassSectionAssignments(schoolId);
 
     if (!mounted) return;
     setState(() {
       classSectionData = response;
     });
-    
   }
 
   /// Prefill from teacher assignments API
   void _prefillFromTeacherAssignments(List assignments) {
-    
-
-    // Store original assignments for comparison
     originalAssignments.clear();
     selectedAssignments.clear();
 
@@ -98,59 +77,362 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
       final classObj = a['classId'];
       final sectionObj = a['sectionId'];
 
-      final String classId =
-      classObj is Map ? classObj['_id'] : classObj?.toString() ?? '';
-
+      final String classId = classObj is Map ? classObj['_id'] : classObj?.toString() ?? '';
       final String? sectionId = sectionObj == null
           ? null
           : (sectionObj is Map ? sectionObj['_id'] : sectionObj?.toString());
 
-      final assignment = {
-        'classId': classId,
-        'sectionId': sectionId,
-      };
+      final assignment = {'classId': classId, 'sectionId': sectionId};
 
       originalAssignments.add(assignment);
       selectedAssignments.add(assignment);
-      
     }
-    
+  }
 
+  // ================= PROFESSIONAL APPBAR =================
+
+  PreferredSizeWidget _buildProfessionalAppBar() {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(70),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.cardBackground,
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.dividerColor.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: AppTheme.primaryText, size: 20),
+            onPressed: () => Get.back(),
+          ),
+          title: Row(
+            children: [
+              _buildSchoolLogo(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Teacher Assignments',
+                      style: const TextStyle(
+                        color: AppTheme.primaryText,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Text(
+                      'Manage teacher assignments',
+                      style: TextStyle(
+                        color: AppTheme.mutedText,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: GestureDetector(
+                onTap: _showFullScreenProfileImage,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.5)),
+                  ),
+                  child: Center(
+                    child: Obx(() {
+                      final userName = authController.user.value?.userName ?? 'U';
+                      return Text(
+                        userName.substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSchoolLogo() {
+    try {
+      final school = authController.userSchool.value;
+      if (school != null && school['logo'] != null && school['logo']['url'] != null) {
+        return GestureDetector(
+          onTap: () => _showFullScreenSchoolLogo(school['logo']['url']),
+          child: Image.network(
+            school['logo']['url'],
+            width: 32,
+            height: 32,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(Icons.school, color: Colors.white, size: 32);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error silently
+    }
+    return const Icon(Icons.school, color: AppTheme.primaryText, size: 32);
+  }
+
+  void _showFullScreenProfileImage() {
+    final userName = authController.user.value?.userName ?? 'U';
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            Center(
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    userName.substring(0, 1).toUpperCase(),
+                    style: TextStyle(
+                      color: AppTheme.primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 120,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 40,
+              child: GestureDetector(
+                onTap: () => Get.back(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.close, color: Colors.black, size: 24),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullScreenSchoolLogo(String logoUrl) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Get.back(),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black.withOpacity(0.9),
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      logoUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        Get.back();
+                        Get.snackbar(
+                          'Error',
+                          'Failed to load logo',
+                          backgroundColor: Colors.red,
+                          colorText: Colors.white,
+                        );
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 50,
+              right: 20,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Compact card wrapper for consistent styling
+  Widget _compactCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 
   // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
-    if (schoolController.selectedSchool.value == null) {
-      return const Center(child: Text('No school selected'));
-    }
+
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Teacher Assignments'),
-        backgroundColor: AppTheme.primaryBlue,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+            // Header Section
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient:  LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
                 children: [
-                  _buildTeacherDropdown(),
-                  const SizedBox(height: 12),
-                  _buildCurrentAssignments(),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.assignment_ind, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Teacher Assignments',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Assign classes and sections to teachers',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
+
+            // Teacher Selection Card
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _compactCard(child: _buildTeacherDropdown()),
+            ),
+
+            // Current Assignments Card
+            if (selectedTeacherId != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _compactCard(child: _buildCurrentAssignments()),
+              ),
+
+            // Class/Section List
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildClassSectionList(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: _compactCard(child: _buildClassSectionList()),
               ),
             ),
+
+            // Save Button
             Padding(
               padding: const EdgeInsets.all(16),
               child: _buildSaveButton(),
@@ -164,151 +446,217 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
   // ================= TEACHER DROPDOWN =================
 
   Widget _buildTeacherDropdown() {
-    return GetBuilder<UserManagementController>(
-      builder: (controller) {
-        return DropdownButtonFormField<String>(
-          isExpanded: true,
-          decoration: InputDecoration(
-            hintText: 'Choose Teacher',
-            hintStyle: TextStyle(color: Colors.grey.shade600),
-            prefixIcon: Container(
-              margin: const EdgeInsets.all(8),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.blue[700]!.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.person, color: AppTheme.primaryBlue, size: 20),
+              child: const Icon(Icons.person, color: Colors.blue, size: 20),
             ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
-          dropdownColor: Colors.white,
-          menuMaxHeight: 300,
-          borderRadius: BorderRadius.circular(12),
-          icon: Container(
-            margin: const EdgeInsets.only(right: 12),
-            child: Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryBlue),
-          ),
-          style: TextStyle(
-            color: Colors.grey.shade800,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-          value: selectedTeacherId,
-          selectedItemBuilder: (context) {
-            return controller.users.map((teacher) {
-              return Text(
-                teacher['userName'] ?? 'Unknown',
-                style: TextStyle(
-                  color: Colors.grey.shade800,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+            const SizedBox(width: 10),
+            const Text(
+              'Select Teacher',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primaryText),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        GetBuilder<UserManagementController>(
+          builder: (controller) {
+            return DropdownButtonFormField<String>(
+              isExpanded: true,
+              decoration: InputDecoration(
+                hintText: 'Choose a teacher',
+                hintStyle: TextStyle(color: Colors.grey.shade500),
+                prefixIcon: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[700]!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.person, color: Colors.blue[700], size: 18),
                 ),
-                overflow: TextOverflow.ellipsis,
-              );
-            }).toList();
-          },
-          items: controller.users
-              .map<DropdownMenuItem<String>>((teacher) {
-            return DropdownMenuItem<String>(
-              value: teacher['_id'],
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Icon(Icons.person, color: AppTheme.primaryBlue, size: 16),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        teacher['userName'] ?? 'Unknown',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
+              dropdownColor: Colors.white,
+              menuMaxHeight: 300,
+              borderRadius: BorderRadius.circular(12),
+              icon: Container(
+                margin: const EdgeInsets.only(right: 12),
+                child: Icon(Icons.keyboard_arrow_down, color: Colors.blue[700]),
+              ),
+              style: TextStyle(
+                color: Colors.grey.shade800,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              value: selectedTeacherId,
+              selectedItemBuilder: (context) {
+                return controller.users.map((teacher) {
+                  return Text(
+                    teacher['userName'] ?? 'Unknown',
+                    style: TextStyle(
+                      color: Colors.grey.shade800,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }).toList();
+              },
+              items: controller.users.map<DropdownMenuItem<String>>((teacher) {
+                return DropdownMenuItem<String>(
+                  value: teacher['_id'],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[700]!.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(Icons.person, color: Colors.blue[700], size: 16),
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            teacher['userName'] ?? 'Unknown',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) async {
+                if (value == null) return;
+
+                selectedAssignments.clear();
+                originalAssignments.clear();
+
+                if (!mounted) return;
+                setState(() => selectedTeacherId = value);
+
+                final teacher = await userController.getTeacherById(value);
+
+                if (!mounted) return;
+                if (teacher != null && teacher['assignments'] != null) {
+                  _prefillFromTeacherAssignments(teacher['assignments']);
+                  if (mounted) setState(() {});
+                }
+              },
             );
-          }).toList(),
-          onChanged: (value) async {
-            if (value == null) return;
-
-            /// 🔥 HARD RESET (CRITICAL FIX)
-            selectedAssignments.clear();
-            originalAssignments.clear();
-
-            if (!mounted) return;
-            setState(() => selectedTeacherId = value);
-
-            final teacher =
-            await userController.getTeacherById(value);
-
-            if (!mounted) return;
-            if (teacher != null &&
-                teacher['assignments'] != null) {
-              _prefillFromTeacherAssignments(
-                teacher['assignments'],
-              );
-              if (mounted) {
-                setState(() {});
-              }
-            }
           },
-        );
-      },
+        ),
+      ],
     );
   }
 
   // ================= CURRENT ASSIGNMENTS =================
 
   Widget _buildCurrentAssignments() {
-    if (selectedTeacherId == null) return const SizedBox();
-
     return Obx(() {
-      if (selectedAssignments.isEmpty) return const SizedBox();
+      if (selectedAssignments.isEmpty) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'No assignments yet. Select classes/sections below.',
+              style: TextStyle(color: AppTheme.mutedText, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        );
+      }
 
-      return Card(
-        elevation: 1,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: SingleChildScrollView(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.check_circle, color: Colors.green, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Current Assignments',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primaryText),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
             child: Wrap(
               spacing: 8,
-              runSpacing: 6,
+              runSpacing: 8,
               children: selectedAssignments.map((a) {
                 final className = _getClassName(a['classId']);
-                final sectionName = a['sectionId'] != null
-                    ? _getSectionName(a['sectionId'])
-                    : 'All Sections';
-            
+                final sectionName = a['sectionId'] != null ? _getSectionName(a['sectionId']) : 'All Sections';
                 final isAll = a['sectionId'] == null;
-            
-                return Chip(
-                  avatar: Icon(
-                    isAll ? Icons.school : Icons.layers,
-                    size: 18,
-                    color:
-                    isAll ? AppTheme.primaryBlue : Colors.green,
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isAll ? Colors.blue[700]!.withOpacity(0.12) : Colors.green.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isAll ? Colors.blue[700]!.withOpacity(0.3) : Colors.green.withOpacity(0.3),
+                    ),
                   ),
-                  label: Text('$className - $sectionName'),
-                  backgroundColor: isAll
-                      ? AppTheme.primaryBlue.withOpacity(0.15)
-                      : Colors.green.withOpacity(0.15),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isAll ? Icons.school : Icons.layers,
+                        size: 14,
+                        color: isAll ? Colors.blue[700] : Colors.green,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$className - $sectionName',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isAll ? Colors.blue[700] : Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }).toList(),
             ),
           ),
-        ),
+        ],
       );
     });
   }
@@ -317,10 +665,26 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
 
   Widget _buildClassSectionList() {
     if (classSectionData.isEmpty) {
-      return const Center(child: Text('No class data available'));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.class_, size: 48, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No class data available',
+                style: TextStyle(color: AppTheme.mutedText, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return ListView.builder(
+      padding: EdgeInsets.zero,
       itemCount: classSectionData.length,
       itemBuilder: (context, index) {
         final cls = classSectionData[index];
@@ -329,77 +693,97 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
         final sections = cls['sections'] ?? [];
 
         final hasAllAssigned = selectedAssignments.any(
-              (a) => a['classId'] == classId && a['sectionId'] == null,
+          (a) => a['classId'] == classId && a['sectionId'] == null,
         );
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
           child: ExpansionTile(
-            title: Text('Class $className'),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            childrenPadding: const EdgeInsets.only(left: 14, right: 14, bottom: 10),
+            collapsedBackgroundColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
+            shape: Border(),
+            collapsedShape: Border(),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[700]!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.class_, color: Colors.blue[700], size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Class $className',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
             subtitle: hasAllAssigned
-                ? const Text('All sections assigned')
+                ? const Text('All sections assigned', style: TextStyle(color: Colors.green, fontSize: 11))
                 : null,
             children: [
               // "All Sections" checkbox
               CheckboxListTile(
-                title: const Text('All Sections'),
-                subtitle: const Text('Assign to entire class'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('All Sections', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                subtitle: const Text('Assign to entire class', style: TextStyle(fontSize: 11, color: AppTheme.mutedText)),
                 value: hasAllAssigned,
+                activeColor: Colors.blue[700],
                 onChanged: selectedTeacherId == null
                     ? null
                     : (checked) {
-                        // For toggle API: send classId only (no sectionId) to toggle entire class
-                        final classToggle = {'classId': classId};
-
                         if (checked == true) {
-                          // Assign all sections: remove individual section assignments for this class
                           selectedAssignments.removeWhere((a) => a['classId'] == classId);
-                          // Add the "all sections" assignment
                           selectedAssignments.add({'classId': classId, 'sectionId': null});
-                          
                         } else {
-                          // Remove all assignments for this class
                           selectedAssignments.removeWhere((a) => a['classId'] == classId);
-                          
                         }
                         setState(() {});
                       },
               ),
-
-              // Individual sections (show if "all sections" is not selected, or allow switching)
-              const Divider(),
+              const Divider(height: 1),
               if (sections.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(12),
-                  child: Text('No sections available'),
+                  child: Text('No sections available', style: TextStyle(color: AppTheme.mutedText, fontSize: 12)),
                 )
               else
                 ...sections.map<Widget>((section) {
                   final sectionId = section['_id'];
                   final sectionName = section['name'] ?? 'Unknown Section';
-
                   final checked = selectedAssignments.any((a) =>
                       a['classId'] == classId && a['sectionId'] == sectionId);
 
                   return CheckboxListTile(
-                    title: Text('Section $sectionName'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Section $sectionName', style: const TextStyle(fontSize: 13)),
                     value: checked,
+                    activeColor: Colors.blue[700],
                     subtitle: hasAllAssigned
-                        ? const Text('Uncheck "All Sections" above to select individual sections')
+                        ? const Text('Uncheck "All Sections" above to select individual',
+                            style: TextStyle(fontSize: 10, color: AppTheme.mutedText))
                         : null,
                     onChanged: selectedTeacherId == null
                         ? null
                         : (hasAllAssigned && !checked)
                             ? (_) {
-                                // If "All Sections" is checked and user tries to check individual section,
-                                // first uncheck "All Sections"
                                 selectedAssignments.removeWhere((a) => a['classId'] == classId);
-                                // Then check the individual section
                                 _toggleAssignment(classId, sectionId);
                                 setState(() {});
                               }
                             : hasAllAssigned && checked
-                                ? null // Can't uncheck individual when "all" is selected
+                                ? null
                                 : (_) => _toggleAssignment(classId, sectionId),
                   );
                 }),
@@ -416,92 +800,67 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
     return Obx(() {
       final loading = teacherController.isLoading.value;
 
-      return Column(
-        children: [
-          ElevatedButton(
-            onPressed: selectedTeacherId == null || loading
-                ? null
-                : _saveAssignments,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 50),
-            ),
-            child: loading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('Save Assignments'),
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: selectedTeacherId == null || loading ? null : _saveAssignments,
+          icon: loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save, size: 20),
+          label: Text(loading ? 'Saving...' : 'Save Assignments'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue[700],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 4,
           ),
-
-        ],
+        ),
       );
     });
   }
 
   Future<void> _saveAssignments() async {
-
-    // Calculate changes for toggle API
     final changesToSend = <Map<String, dynamic>>[];
 
-    // Find assignments to REMOVE (in original but not in selected)
+    // Find assignments to REMOVE
     for (final original in originalAssignments) {
       final stillSelected = selectedAssignments.any((selected) =>
-          selected['classId'] == original['classId'] &&
-          selected['sectionId'] == original['sectionId']);
-
-      if (!stillSelected) {
-        changesToSend.add(original);
-        
-      }
+          selected['classId'] == original['classId'] && selected['sectionId'] == original['sectionId']);
+      if (!stillSelected) changesToSend.add(original);
     }
 
-    // Find assignments to ADD (in selected but not in original)
+    // Find assignments to ADD
     for (final selected in selectedAssignments) {
       final wasOriginallyAssigned = originalAssignments.any((original) =>
-          original['classId'] == selected['classId'] &&
-          original['sectionId'] == selected['sectionId']);
-
-      if (!wasOriginallyAssigned) {
-        changesToSend.add(selected);
-        
-      }
+          original['classId'] == selected['classId'] && original['sectionId'] == selected['sectionId']);
+      if (!wasOriginallyAssigned) changesToSend.add(selected);
     }
 
     if (changesToSend.isEmpty) {
-      
-      Get.snackbar('Info', 'No changes to save');
+      Get.snackbar('Info', 'No changes to save', backgroundColor: Colors.blue[400], colorText: Colors.white);
       return;
     }
 
-    // Send to toggle API
     teacherController.manageTeacherAssignments(
       teacherId: selectedTeacherId!,
       updates: changesToSend,
       schoolId: schoolController.selectedSchool.value!.id,
     );
 
-    // Update original assignments to current state (for future comparisons)
     originalAssignments.clear();
     originalAssignments.addAll(selectedAssignments);
 
-    // Refresh UI after toggle operations
     Future.delayed(const Duration(milliseconds: 500), () async {
       if (!mounted) return;
       if (selectedTeacherId != null) {
-        
         final updatedTeacher = await userController.getTeacherById(selectedTeacherId!);
         if (!mounted) return;
         if (updatedTeacher != null) {
-          
-          // Update UI with actual state after toggles
           selectedAssignments.clear();
           originalAssignments.clear();
           if (updatedTeacher['assignments'] != null) {
             _prefillFromTeacherAssignments(updatedTeacher['assignments']);
           }
-          
-          if (mounted) {
-            setState(() {});
-          }
+          if (mounted) setState(() {});
         }
       }
     });
@@ -510,24 +869,17 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
   void _toggleAssignment(String classId, String sectionId) {
     final assignment = {'classId': classId, 'sectionId': sectionId};
     final index = selectedAssignments.indexWhere((a) =>
-    a['classId'] == classId &&
-        a['sectionId'] == sectionId);
+        a['classId'] == classId && a['sectionId'] == sectionId);
 
     if (index >= 0) {
-      // Unchecking: remove from selected
       selectedAssignments.removeAt(index);
-      
     } else {
-      // Checking: add to selected
       selectedAssignments.add(assignment);
-      
     }
-
   }
 
   String _getClassName(String classId) {
-    final cls =
-    classSectionData.firstWhereOrNull((c) => c['_id'] == classId);
+    final cls = classSectionData.firstWhereOrNull((c) => c['_id'] == classId);
     return cls?['name'] ?? 'Unknown Class';
   }
 
@@ -535,502 +887,9 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
     for (final item in classSectionData) {
       final List sections = item['sections'] ?? [];
       for (final sec in sections) {
-        if (sec['_id'] == sectionId) {
-          return sec['name'] ?? 'Unknown Section';
-        }
+        if (sec['_id'] == sectionId) return sec['name'] ?? 'Unknown Section';
       }
     }
     return 'Unknown Section';
   }
 }
-
-// import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
-//
-// import '../controllers/teacher_controller.dart';
-// import '../controllers/school_controller.dart';
-// import '../controllers/user_management_controller.dart';
-// import '../core/theme/app_theme.dart';
-//
-// class TeacherAssignmentView extends StatefulWidget {
-//   const TeacherAssignmentView({super.key});
-//
-//   @override
-//   State<TeacherAssignmentView> createState() =>
-//       _TeacherAssignmentViewState();
-// }
-//
-// class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
-//   final TeacherController teacherController = Get.put(TeacherController());
-//   final SchoolController schoolController = Get.find<SchoolController>();
-//   final UserManagementController userController =
-//   Get.find<UserManagementController>();
-//
-//   String? selectedTeacherId;
-//
-//   final RxList<Map<String, dynamic>> selectedAssignments =
-//       <Map<String, dynamic>>[].obs;
-//
-//   List<Map<String, dynamic>> classSectionData = [];
-//
-//   bool _initialized = false;
-//
-//   // ================= INIT =================
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
-//   }
-//
-//   Future<void> _initialize() async {
-//     if (_initialized ||
-//         schoolController.selectedSchool.value == null) return;
-//
-//     _initialized = true;
-//
-//     final schoolId = schoolController.selectedSchool.value!.id;
-//
-//     await userController.loadUsers(
-//       schoolId: schoolId,
-//       role: 'teacher',
-//     );
-//
-//     await _loadClassSectionAssignments();
-//   }
-//
-//   // ================= API =================
-//
-//   Future<void> _loadClassSectionAssignments() async {
-//     final schoolId = schoolController.selectedSchool.value!.id;
-//
-//     final response =
-//     await teacherController.getAllClassSectionAssignments(
-//       schoolId: schoolId,
-//     );
-//
-//     setState(() {
-//       classSectionData = response;
-//     });
-//   }
-//
-//   void _prefillFromTeacherAssignments(List assignments) {
-//     selectedAssignments.clear();
-//
-//     for (final a in assignments) {
-//       final classObj = a['classId'];
-//       final sectionObj = a['sectionId'];
-//
-//       final String classId =
-//       classObj is Map ? classObj['_id'] : classObj;
-//
-//       final String? sectionId = sectionObj == null
-//           ? null
-//           : (sectionObj is Map ? sectionObj['_id'] : sectionObj);
-//
-//       selectedAssignments.add({
-//         'classId': classId,
-//         'sectionId': sectionId,
-//       });
-//     }
-//   }
-//   final RxList<Map<String, dynamic>> removedAssignments =
-//       <Map<String, dynamic>>[].obs;
-//
-//   // ================= UI =================
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     if (schoolController.selectedSchool.value == null) {
-//       return const Center(child: Text('No school selected'));
-//     }
-//
-//     return LayoutBuilder(
-//       builder: (context, constraints) {
-//         final isTablet = constraints.maxWidth > 700;
-//
-//         return Scaffold(
-//           backgroundColor: const Color(0xFFF6F8FC),
-//           appBar: AppBar(
-//             title: const Text('Teacher Assignments'),
-//             backgroundColor: Colors.brown,
-//             foregroundColor: Colors.white,
-//             elevation: 0,
-//           ),
-//           body: SafeArea(
-//             child: Column(
-//               children: [
-//                 /// HEADER
-//                 Padding(
-//                   padding: EdgeInsets.symmetric(
-//                     horizontal: isTablet ? 24 : 16,
-//                     vertical: 12,
-//                   ),
-//                   child: Column(
-//                     children: [
-//                       _buildTeacherDropdown(),
-//                       const SizedBox(height: 12),
-//                       _buildCurrentAssignments(),
-//                     ],
-//                   ),
-//                 ),
-//
-//                 /// LIST
-//                 Expanded(
-//                   child: Container(
-//                     padding: EdgeInsets.symmetric(
-//                       horizontal: isTablet ? 24 : 16,
-//                     ),
-//                     child: _buildClassSectionList(),
-//                   ),
-//                 ),
-//
-//                 /// SAVE BUTTON
-//                 Container(
-//                   padding: EdgeInsets.fromLTRB(
-//                     isTablet ? 24 : 16,
-//                     12,
-//                     isTablet ? 24 : 16,
-//                     MediaQuery.of(context).padding.bottom + 12,
-//                   ),
-//                   decoration: const BoxDecoration(
-//                     color: Colors.white,
-//                     boxShadow: [
-//                       BoxShadow(
-//                         color: Colors.black12,
-//                         blurRadius: 10,
-//                         offset: Offset(0, -2),
-//                       ),
-//                     ],
-//                   ),
-//                   child: _buildSaveButton(),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-//
-//   // ================= TEACHER DROPDOWN =================
-//
-//   Widget _buildTeacherDropdown() {
-//     return GetBuilder<UserManagementController>(
-//       builder: (controller) {
-//         return Card(
-//           elevation: 2,
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(12),
-//           ),
-//           child: Padding(
-//             padding: const EdgeInsets.all(12),
-//             child: DropdownButtonFormField<String>(
-//               decoration: const InputDecoration(
-//                 labelText: 'Select Teacher',
-//                 prefixIcon: Icon(Icons.person),
-//                 border: OutlineInputBorder(),
-//               ),
-//               value: selectedTeacherId,
-//               items: controller.users
-//                   .map<DropdownMenuItem<String>>((teacher) {
-//                 return DropdownMenuItem<String>(
-//                   value: teacher['_id'],
-//                   child: Text(teacher['userName'] ?? 'Unknown'),
-//                 );
-//               }).toList(),
-//               onChanged: (value) async {
-//                 if (value == null) return;
-//
-//                 setState(() => selectedTeacherId = value);
-//
-//                 final teacher =
-//                 await userController.getTeacherById(value);
-//
-//                 if (teacher != null &&
-//                     teacher['assignments'] != null) {
-//                   _prefillFromTeacherAssignments(
-//                     teacher['assignments'],
-//                   );
-//                 }
-//               },
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-//
-//   // ================= CURRENT ASSIGNMENTS =================
-//
-//   Widget _buildCurrentAssignments() {
-//     if (selectedTeacherId == null) return const SizedBox();
-//
-//     return Obx(() {
-//       if (selectedAssignments.isEmpty) {
-//         return const SizedBox();
-//       }
-//
-//       return Card(
-//         elevation: 1,
-//         shape: RoundedRectangleBorder(
-//           borderRadius: BorderRadius.circular(12),
-//         ),
-//         child: Padding(
-//           padding: const EdgeInsets.all(12),
-//           child: SingleChildScrollView(
-//             child: Wrap(
-//               spacing: 8,
-//               runSpacing: 6,
-//               children: selectedAssignments.map((a) {
-//                 final className = _getClassName(a['classId']);
-//                 final sectionName = a['sectionId'] != null
-//                     ? _getSectionName(a['sectionId'])
-//                     : 'All Sections';
-//            
-//                 final bool isSection = a['sectionId'] != null;
-//            
-//                 return Chip(
-//                   avatar: Icon(
-//                     isSection ? Icons.layers : Icons.school,
-//                     size: 18,
-//                     color: isSection
-//                         ? Colors.green
-//                         : AppTheme.primaryBlue,
-//                   ),
-//                   label: Text('$className • $sectionName'),
-//                   backgroundColor: isSection
-//                       ? Colors.green.withOpacity(0.12)
-//                       : AppTheme.primaryBlue.withOpacity(0.12),
-//                 );
-//               }).toList(),
-//             ),
-//           ),
-//         ),
-//       );
-//     });
-//   }
-//
-//   // ================= CLASS / SECTION LIST =================
-//
-//   Widget _buildClassSectionList() {
-//     if (classSectionData.isEmpty) {
-//       return const Center(child: Text('No class data available'));
-//     }
-//
-//     return ListView.builder(
-//       padding: const EdgeInsets.only(bottom: 20),
-//       itemCount: classSectionData.length,
-//       itemBuilder: (context, index) {
-//         final cls = classSectionData[index];
-//         final classId = cls['_id'];
-//         final className = cls['name'] ?? 'Unknown Class';
-//         final sections = cls['sections'] ?? [];
-//
-//         return Card(
-//           elevation: 2,
-//           margin: const EdgeInsets.only(bottom: 12),
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(12),
-//           ),
-//           child: ExpansionTile(
-//             leading: const Icon(Icons.school),
-//             title: Text(
-//               'Class $className',
-//               style: const TextStyle(fontWeight: FontWeight.w600),
-//             ),
-//             children: sections.isEmpty
-//                 ? const [
-//               Padding(
-//                 padding: EdgeInsets.all(12),
-//                 child: Text('No sections'),
-//               )
-//             ]
-//                 : sections.map<Widget>((section) {
-//               final sectionId = section['_id'];
-//               final sectionName =
-//                   section['name'] ?? 'Unknown Section';
-//
-//               return CheckboxListTile(
-//                 title: Text('Section $sectionName'),
-//                 value: selectedAssignments.any((a) =>
-//                 a['classId'] == classId &&
-//                     a['sectionId'] == sectionId),
-//                 onChanged: selectedTeacherId == null
-//                     ? null
-//                     : (_) {
-//                   _toggleAssignment(
-//                     classId,
-//                     sectionId,
-//                   );
-//                 },
-//               );
-//             }).toList(),
-//           ),
-//         );
-//       },
-//     );
-//   }
-//
-//   // ================= SAVE =================
-//
-//   Widget _buildSaveButton() {
-//     return Obx(() {
-//       final loading = teacherController.isLoading.value;
-//
-//       return SizedBox(
-//         width: double.infinity,
-//         height: 52,
-//         child: ElevatedButton(
-//           onPressed: selectedTeacherId == null || loading
-//               ? null
-//               : _saveAssignments,
-//           style: ElevatedButton.styleFrom(
-//             backgroundColor: AppTheme.primaryBlue,
-//             foregroundColor: Colors.white,
-//             shape: RoundedRectangleBorder(
-//               borderRadius: BorderRadius.circular(14),
-//             ),
-//           ),
-//           child: loading
-//               ? const CircularProgressIndicator(color: Colors.white)
-//               : const Text(
-//             'Save Assignments',
-//             style: TextStyle(
-//               fontSize: 16,
-//               fontWeight: FontWeight.w600,
-//             ),
-//           ),
-//         ),
-//       );
-//     });
-//   }
-//
-//   void _saveAssignments() async {
-//     if (selectedTeacherId == null) return;
-//
-//     // 1️⃣ Fetch latest assignments from backend
-//     final teacher =
-//     await userController.getTeacherById(selectedTeacherId!);
-//
-//     final List existingAssignments =
-//         teacher?['assignments'] ?? [];
-//
-//     // 2️⃣ Normalize existing assignments
-//     final List<Map<String, dynamic>> normalizedExisting =
-//     existingAssignments.map<Map<String, dynamic>>((a) {
-//       final classObj = a['classId'];
-//       final sectionObj = a['sectionId'];
-//
-//       return {
-//         'classId': classObj is Map ? classObj['_id'] : classObj,
-//         'sectionId': sectionObj is Map ? sectionObj['_id'] : sectionObj,
-//       };
-//     }).toList();
-//
-//     // 3️⃣ Remove ONLY explicitly removed ones
-//     final filteredExisting = normalizedExisting.where((existing) {
-//       return !removedAssignments.any((removed) =>
-//       removed['classId'] == existing['classId'] &&
-//           removed['sectionId'] == existing['sectionId']);
-//     }).toList();
-//
-//     // 4️⃣ Merge with newly selected (avoid duplicates)
-//     final finalAssignments = [
-//       ...filteredExisting,
-//       ...selectedAssignments.where((newItem) =>
-//       !filteredExisting.any((e) =>
-//       e['classId'] == newItem['classId'] &&
-//           e['sectionId'] == newItem['sectionId'])),
-//     ];
-//
-//     // 5️⃣ Send FULL FINAL STATE
-//     teacherController.manageTeacherAssignments(
-//       teacherId: selectedTeacherId!,
-//       updates: finalAssignments,
-//       schoolId: schoolController.selectedSchool.value!.id,
-//     );
-//
-//     // 6️⃣ Clear removals after save
-//     removedAssignments.clear();
-//   }
-//
-//   // void _saveAssignments() async {
-//   //   final teacher =
-//   //   await userController.getTeacherById(selectedTeacherId!);
-//   //
-//   //   final List<Map<String, dynamic>> existingAssignments = [];
-//   //
-//   //   if (teacher != null && teacher['assignments'] != null) {
-//   //     for (final a in teacher['assignments']) {
-//   //       final classObj = a['classId'];
-//   //       final sectionObj = a['sectionId'];
-//   //
-//   //       existingAssignments.add({
-//   //         'classId': classObj is Map ? classObj['_id'] : classObj,
-//   //         'sectionId': sectionObj == null
-//   //             ? null
-//   //             : (sectionObj is Map ? sectionObj['_id'] : sectionObj),
-//   //       });
-//   //     }
-//   //   }
-//   //
-//   //   /// 🔥 Merge without duplicates
-//   //   final Set<String> seen = {};
-//   //   final List<Map<String, dynamic>> finalAssignments = [];
-//   //
-//   //   for (final a in [...existingAssignments, ...selectedAssignments]) {
-//   //     final key = '${a['classId']}_${a['sectionId']}';
-//   //     if (!seen.contains(key)) {
-//   //       seen.add(key);
-//   //       finalAssignments.add(a);
-//   //     }
-//   //   }
-//   //
-//   //   teacherController.manageTeacherAssignments(
-//   //     teacherId: selectedTeacherId!,
-//   //     updates: finalAssignments,
-//   //     schoolId: schoolController.selectedSchool.value!.id,
-//   //   );
-//   // }
-//
-//
-//   // ================= HELPERS =================
-//
-//   void _toggleAssignment(String classId, String sectionId) {
-//     final index = selectedAssignments.indexWhere(
-//           (a) => a['classId'] == classId && a['sectionId'] == sectionId,
-//     );
-//
-//     if (index >= 0) {
-//       // User explicitly removed
-//       final removed = selectedAssignments.removeAt(index);
-//       removedAssignments.add(removed);
-//     } else {
-//       // User added
-//       selectedAssignments.add({
-//         'classId': classId,
-//         'sectionId': sectionId,
-//       });
-//     }
-//   }
-//
-//
-//   String _getClassName(String classId) {
-//     final cls =
-//     classSectionData.firstWhereOrNull((c) => c['_id'] == classId);
-//     return cls?['name'] ?? 'Unknown Class';
-//   }
-//
-//   String _getSectionName(String sectionId) {
-//     for (final item in classSectionData) {
-//       final List sections = item['sections'] ?? [];
-//       for (final sec in sections) {
-//         if (sec['_id'] == sectionId) {
-//           return sec['name'] ?? 'Unknown Section';
-//         }
-//       }
-//     }
-//     return 'Unknown Section';
-//   }
-// }

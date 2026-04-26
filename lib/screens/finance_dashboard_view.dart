@@ -393,7 +393,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Finance Dashboard'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
       ),
       body: Center(
