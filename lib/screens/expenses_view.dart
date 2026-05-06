@@ -69,7 +69,7 @@ class ExpensesView extends GetView<AccountingController> {
     
     if (!authController.hasPermission(Permission.EXPENSE_ADD)) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
+        backgroundColor: const Color(0xFFF0F5FF),
         body: SafeArea(
           child: Center(
             child: Container(
@@ -130,7 +130,7 @@ class ExpensesView extends GetView<AccountingController> {
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF0F5FF),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -152,108 +152,74 @@ class ExpensesView extends GetView<AccountingController> {
   }
 
   Widget _buildModernAppBar(BuildContext context, bool isTablet) {
-    return SliverAppBar(
-      expandedHeight: isTablet ? 180 : 150,
-      floating: false,
-      pinned: true,
-      backgroundColor: Colors.white,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white,
-                const Color(0xFFF8F9FA),
-                const Color(0xFFF0F2F5),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFDDE6F5), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFDDE6F5).withOpacity(0.5),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(24),
-              bottomRight: Radius.circular(24),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.receipt_long_rounded,
+                color: Color(0xFF2563EB),
+                size: 20,
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.all(isTablet ? 24 : 20),
+            const SizedBox(width: 12),
+            const Expanded(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.primaryBlue.withOpacity(0.15),
-                              AppTheme.primaryBlue.withOpacity(0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppTheme.primaryBlue.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.receipt_long,
-                          color: AppTheme.primaryBlue,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Expenses',
-                              style: TextStyle(
-                                color: AppTheme.primaryText,
-                                fontSize: isTablet ? 24 : 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Track and manage school expenses',
-                              style: TextStyle(
-                                color: AppTheme.mutedText,
-                                fontSize: isTablet ? 16 : 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.grey.shade100,
-                              Colors.grey.shade50,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.grey.shade300,
-                            width: 1,
-                          ),
-                        ),
-                        child: IconButton(
-                          onPressed: () => _showExpensesList(context),
-                          icon: const Icon(Icons.history, color: AppTheme.primaryText),
-                          tooltip: 'View History',
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Expenses',
+                    style: TextStyle(
+                      color: Color(0xFF1A2A3A),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Track and manage school expenses',
+                    style: TextStyle(
+                      color: Color(0xFF90A4BE),
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
+            GestureDetector(
+              onTap: () => _showExpensesList(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.history_rounded,
+                    color: Color(0xFF2563EB), size: 18),
+              ),
+            ),
+          ],
         ),
       ),
     );

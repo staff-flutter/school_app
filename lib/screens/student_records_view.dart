@@ -89,7 +89,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
     final isTablet = screenSize.width > 600;
     
     return Scaffold(
-      backgroundColor: AppTheme.appBackground,
+      backgroundColor: const Color(0xFFF0F5FF),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -111,86 +111,79 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   }
 
   Widget _buildModernAppBar(BuildContext context, bool isTablet) {
-    return SliverAppBar(
-      expandedHeight: isTablet ? 200 : 160,
-      floating: false,
-      pinned: true,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(24),
-              bottomRight: Radius.circular(24),
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFDDE6F5), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFDDE6F5).withOpacity(0.5),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.all(isTablet ? 24 : 20),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.folder_shared_rounded,
+                color: Color(0xFF2563EB),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.school,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Student Records',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: isTablet ? 24 : 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Manage student fees and concessions',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: isTablet ? 16 : 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          authController.user.value?.role?.toUpperCase() ?? 'USER',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Student Records',
+                    style: TextStyle(
+                      color: Color(0xFF1A2A3A),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Manage student fees and concessions',
+                    style: TextStyle(
+                      color: Color(0xFF90A4BE),
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                authController.user.value?.role?.toUpperCase() ?? 'USER',
+                style: const TextStyle(
+                  color: Color(0xFF2563EB),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      backgroundColor: AppTheme.navBarSelectedDeep,
     );
   }
 

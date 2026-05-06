@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:school_app/controllers/accounting_controller.dart';
 import 'package:school_app/controllers/finance_ledger_controller.dart';
-import 'package:school_app/controllers/main_navigation_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/auth_controller.dart';
-import 'package:school_app/screens/notifications_view.dart';
 import 'dart:math' as math;
 
 class AccountingDashboardView extends StatefulWidget {
@@ -233,152 +231,15 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> with 
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        final navController = Get.find<MainNavigationController>();
-        navController.selectedIndex.value = 0;
-        navController.onItemTapped(0);
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF0F5FF),
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(64),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFDDE6F5).withOpacity(0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              centerTitle: false,
-              automaticallyImplyLeading: false,
-              title: Row(
-                children: [
-                  _buildSchoolLogo(),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Obx(() {
-                          final school = _authController.userSchool.value;
-                          final schoolName = school?['name'] ?? 'School';
-                          return Text(
-                            schoolName,
-                            style: const TextStyle(
-                              color: Color(0xFF1A2A3A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          );
-                        }),
-                        Text(
-                          'Welcome, ${_authController.user.value?.userName ?? 'User'}',
-                          style: const TextStyle(
-                            color: Color(0xFF90A4BE),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                Container(
-                  margin: const EdgeInsets.only(right: 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_authController.user.value?.role.toLowerCase() != 'accountant')
-                        IconButton(
-                          onPressed: () {
-                            Get.to(() => const NotificationsView());
-                          },
-                          icon: Stack(
-                            children: [
-                              const Icon(
-                                Icons.notifications_outlined,
-                                color: Color(0xFF8A9FC0),
-                                size: 22,
-                              ),
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFDC2626),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: _showFullScreenProfileImage,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          margin: const EdgeInsets.only(right: 4),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF2563EB).withOpacity(0.28),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              (_authController.user.value?.userName ?? 'U').substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        
         body: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Column(
             children: [
+              // Top header bar (replaces removed AppBar)
+              _buildInlineHeader(),
+              const SizedBox(height: 8),
               Flexible(
                 flex: 25,
                 child: _buildExpenseBreakdownChart(),
@@ -398,10 +259,60 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> with 
             ],
           ),
         ),
-      ),
     );
   }
 
+
+Widget _buildInlineHeader() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFFDDE6F5).withOpacity(0.5),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        _buildSchoolLogo(),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Obx(() {
+                final school = _authController.userSchool.value;
+                final schoolName = school?['name'] ?? 'School';
+                return Text(
+                  schoolName,
+                  style: const TextStyle(
+                    color: Color(0xFF1A2A3A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                );
+              }),
+              Text(
+                'Welcome, ${_authController.user.value?.userName ?? 'User'}',
+                style: const TextStyle(
+                  color: Color(0xFF90A4BE),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 Widget _buildFinanceStatsSection() {
   final userRole = _authController.user.value?.role.toLowerCase() ?? '';

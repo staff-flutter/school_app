@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
-import 'package:school_app/core/rbac/api_rbac.dart';
-import 'package:school_app/controllers/auth_controller.dart';
+import '../core/rbac/api_rbac.dart';
+import 'auth_controller.dart';
 
 class MainNavigationController extends GetxController {
   final selectedIndex = 0.obs;
@@ -13,7 +13,7 @@ class MainNavigationController extends GetxController {
       switch (userRole) {
         case 'parent':
           return [
-            NavigationItem('My Children', '/my-children'),
+            NavigationItem('My Children', '/homepage'),
             NavigationItem('Timetable', '/timetable-management'),
             NavigationItem('Homework', '/homework-management'),
             NavigationItem('Clubs', '/clubs-activities'),

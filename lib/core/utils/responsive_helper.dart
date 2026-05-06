@@ -74,6 +74,42 @@ class ResponsiveHelper {
     if (screenHeight >= 600) return 600; // Medium screens
     return screenHeight * 0.8; // Small screens (80% of screen height)
   }
+
+
+  // ✅ Is it a small height screen (360x640 type)
+  static bool isSmallHeight(BuildContext context) =>
+      MediaQuery.of(context).size.height <= 680;
+
+  // ✅ Scale based on screen width (for widths, horizontal padding, font sizes)
+  static double w(BuildContext context, double size) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return size * (screenWidth / 375.0);
+  }
+
+  // ✅ Scale based on screen height (for heights, vertical padding, spacing)
+  static double h(BuildContext context, double size) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    return size * (screenHeight / 812.0);
+  }
+
+  // ✅ Scale fonts — width based but clamped so text never gets too tiny
+  static double sp(BuildContext context, double size) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return (size * (screenWidth / 375.0)).clamp(size * 0.75, size * 1.2);
+  }
+
+  // ✅ Responsive vertical spacing — use instead of SizedBox(height: x)
+  static double verticalSpace(BuildContext context, double size) {
+    if (isSmallHeight(context)) return size * 0.5;
+    return h(context, size);
+  }
+
+  // ✅ Responsive SizedBox — use this everywhere instead of SizedBox(height: x)
+  static Widget vSpace(BuildContext context, double size) =>
+      SizedBox(height: verticalSpace(context, size));
+
+  static Widget hSpace(BuildContext context, double size) =>
+      SizedBox(width: w(context, size));
 }
 
 class ResponsiveBuilder extends StatelessWidget {

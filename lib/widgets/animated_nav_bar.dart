@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:school_app/controllers/main_navigation_controller.dart';
+import '../controllers/main_navigation_controller.dart';
 
 class AnimatedNavBar extends StatelessWidget {
   const AnimatedNavBar({super.key});
@@ -15,7 +15,12 @@ class AnimatedNavBar extends StatelessWidget {
       if (items.isEmpty) return const SizedBox();
 
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+        margin: EdgeInsets.only(
+          left: 22,
+          right: 22,
+          top: 18,
+          bottom: 18 + MediaQuery.of(context).viewPadding.bottom, //  adds system nav height
+        ),
         height: 75,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(42),
@@ -131,7 +136,6 @@ class AnimatedNavBar extends StatelessWidget {
       case 'homework': return Icons.assignment_rounded;
       case 'timetable': return Icons.schedule_rounded;
       case 'my classes': return Icons.class_rounded;
-      case 'my children': return Icons.child_care_rounded;
       default: return Icons.grid_view_rounded;
     }
   }
@@ -183,8 +187,8 @@ class _NavItem extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [
                       Color(0xffDDD6FE), // light highlight
-                      Color(0xffA78BFA), // main purple
-                      Color(0xff7C3AED), // deep vibrant
+                      Color(0xff4A90E2),
+                      Color(0xff6FD3F7), // deep vibrant
                     ],
 
 
@@ -207,11 +211,11 @@ class _NavItem extends StatelessWidget {
                     ),
 
                     /// glow
-                    BoxShadow(
-                      color: const Color(0xffC4B5FD).withOpacity(.65),
-                      blurRadius: 35,
-                      spreadRadius: 3,
-                    ),
+                    // BoxShadow(
+                    //   color: const Color(0xffC4B5FD).withOpacity(.65),
+                    //   blurRadius: 35,
+                    //   spreadRadius: 3,
+                    // ),
                   ],
                 ),
               ),
@@ -243,7 +247,7 @@ class _NavItem extends StatelessWidget {
 
                     /// SUBTLE PURPLE GLOW DEPTH
                     BoxShadow(
-                      color: const Color(0xff7C3AED).withOpacity(.25),
+                      color: const Color(0xff4A90E2).withOpacity(.25),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),

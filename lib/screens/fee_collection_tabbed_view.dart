@@ -29,7 +29,7 @@ class FeeCollectionTabbedView extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: const Color(0xFFF0F5FF),
         body: SafeArea(
           child: Column(
             children: [
@@ -57,58 +57,60 @@ class FeeCollectionTabbedView extends StatelessWidget {
 
   Widget _buildModernHeader(BuildContext context, bool isTablet) {
     return Container(
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.primaryBlue, Colors.blue.shade700],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFDDE6F5), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFDDE6F5).withOpacity(0.5),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet,
-                color: Colors.white,
-                size: 28,
-              ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB).withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Fee Management',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isTablet ? 24 : 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Collect fees and manage records',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: isTablet ? 16 : 14,
-                    ),
-                  ),
-                ],
-              ),
+            child: const Icon(
+              Icons.payments_rounded,
+              color: Color(0xFF2563EB),
+              size: 20,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Fee Management',
+                  style: TextStyle(
+                    color: Color(0xFF1A2A3A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Collect fees and manage records',
+                  style: TextStyle(
+                    color: Color(0xFF90A4BE),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

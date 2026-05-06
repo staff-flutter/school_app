@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:school_app/core/theme/app_theme.dart';
-import 'package:school_app/services/subscription_service.dart';
-import 'package:school_app/routes/app_pages.dart';
-import 'package:school_app/routes/app_routes.dart';
-import 'package:school_app/services/api_service.dart';
-import 'package:school_app/controllers/auth_controller.dart';
-import 'package:school_app/controllers/accounting_controller.dart';
-import 'package:school_app/controllers/dashboard_controller.dart';
-import 'package:school_app/controllers/theme_controller.dart';
-import 'package:school_app/controllers/school_controller.dart';
-import 'package:school_app/controllers/main_navigation_controller.dart';
-import 'package:school_app/controllers/subscription_controller.dart';
-import 'package:school_app/controllers/club_controller.dart';
-import 'package:school_app/controllers/finance_ledger_controller.dart';
+import 'core/theme/app_theme.dart';
+import 'services/subscription_service.dart';
+import 'services/user_session.dart';
+import 'routes/app_pages.dart';
+import 'routes/app_routes.dart';
+import 'services/api_service.dart';
+import 'controllers/auth_controller.dart';
+import 'controllers/accounting_controller.dart';
+import 'controllers/dashboard_controller.dart';
+import 'controllers/theme_controller.dart';
+import 'controllers/school_controller.dart';
+import 'controllers/main_navigation_controller.dart';
+import 'controllers/subscription_controller.dart';
+import 'controllers/club_controller.dart';
+import 'controllers/finance_ledger_controller.dart';
 // void main() async {
 //   WidgetsFlutterBinding.ensureInitialized();
 //   await GetStorage.init();
@@ -30,7 +32,11 @@ import 'package:school_app/controllers/finance_ledger_controller.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
-  
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+  ));
   // Initialize core services and controllers
   Get.put(ApiService(), permanent: true);
   Get.put(SubscriptionService(), permanent: true);
@@ -43,16 +49,55 @@ void main() async {
   Get.put(SubscriptionController(), permanent: true);
   Get.put(ClubController(), permanent: true);
   Get.put(FinanceLedgerController(), permanent: true);
-  
-  runApp(SchoolApp());
-}
+
+
+  final session = Get.put(UserSession(), permanent: true);
+  await session.loadSession();
+
+
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]).then((_) {
+
+    runApp(SchoolApp());
+  });}
 
 class SchoolApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ));
     return GetMaterialApp(
+     // this below three lines are to check with all screen sizes
+     // useInheritedMediaQuery: true,
+     //  locale: DevicePreview.locale(context),
+     //  builder: (context, child) {
+     //    // ✅ Wrap DevicePreview builder AND force status bar
+     //    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+     //      statusBarColor: Colors.black,
+     //      statusBarIconBrightness: Brightness.light,
+     //      statusBarBrightness: Brightness.dark,
+     //    ));
+     //    return DevicePreview.appBuilder(context, child);
+     //  },
       title: 'School Management',
-      theme: AppTheme.lightTheme,
+      //theme: AppTheme.lightTheme,
+      theme: ThemeData(
+        useMaterial3: true,
+        // This creates a full blue color scheme based on your primary blue
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xff4A90E2),
+          primary: const Color(0xff4A90E2),
+        ),
+        // Specifically targets progress indicators if they don't follow the seed
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Color(0xff4A90E2),
+        ),
+      ),
       initialRoute: AppRoutes.SPLASH, // Start with splash screen for auth check
       getPages: [
         ...AppPages.routes,

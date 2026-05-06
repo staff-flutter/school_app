@@ -6,13 +6,13 @@ import 'package:photo_view/photo_view.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:school_app/constants/api_constants.dart';
-import 'package:school_app/core/theme/app_theme.dart';
-import 'package:school_app/models/school_models.dart';
-import 'package:school_app/models/student_model.dart';
-import 'package:school_app/services/api_service.dart';
-import 'package:school_app/controllers/auth_controller.dart';
-import 'package:school_app/controllers/subscription_controller.dart';
+import '../constants/api_constants.dart';
+import '../core/theme/app_theme.dart';
+import '../models/school_models.dart';
+import '../models/student_model.dart';
+import '../services/api_service.dart';
+import 'auth_controller.dart';
+import 'subscription_controller.dart';
 
 class SchoolController extends GetxController {
   final ApiService _apiService = Get.find();
@@ -1300,7 +1300,7 @@ class SchoolController extends GetxController {
           }
         }
         
-        _showSnackbar('Access Denied', errorMessage, AppTheme.errorRed);
+        //_showSnackbar('Access Denied', errorMessage, AppTheme.errorRed);
         return;
       }
       

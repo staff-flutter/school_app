@@ -1,9 +1,42 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:school_app/services/api_service.dart';
+import '../services/api_service.dart';
 
 class TimetableController extends GetxController {
+
+  // ---------My changes-------------
+  final schoolId = "".obs;
+  final classId = "".obs;
+  final sectionId = "".obs;
+  final weeklyScheduleId = "".obs;
+  final selectedDay = "Monday".obs; // Default value
+
+
+  void setTimetableContext({
+    required String sId,
+    required String cId,
+    String? secId,
+    String? wId,
+    String? day,
+  }) {
+    schoolId.value = sId;
+    classId.value = cId;
+    sectionId.value = secId ?? "";
+    weeklyScheduleId.value = wId ?? "";
+    if (day != null) selectedDay.value = day;
+
+
+    getAllTimetables(
+      schoolId: sId,
+      classId: cId,
+      sectionId: secId,
+      weeklyScheduleId: wId,
+      day: day,
+    );
+  }
+
+  //-----------------------------------
   final ApiService _apiService = Get.find<ApiService>();
   
   final isLoading = false.obs;
@@ -13,6 +46,12 @@ class TimetableController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    //----My changes--------
+    if (Get.arguments != null) {
+      weeklyScheduleId.value = Get.arguments;
+      getAllTimetables(weeklyScheduleId: Get.arguments);
+    }
+    //------------------------
   }
 
   // 1. Add day to timetable (POST /api/timetable/addday)

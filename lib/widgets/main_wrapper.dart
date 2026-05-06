@@ -1,61 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:school_app/controllers/auth_controller.dart';
-import 'package:school_app/controllers/main_navigation_controller.dart';
-import 'package:school_app/core/theme/app_theme.dart';
-import 'package:school_app/widgets/admin_sidebar.dart';
-
-/// Roles that use the persistent left-rail sidebar instead of the
-/// bottom navigation bar that non-administrative roles use.
-const _kAdminRoles = {'accountant', 'correspondent'};
+import '../controllers/main_navigation_controller.dart';
+import '../core/theme/app_theme.dart';
+import 'animated_nav_bar.dart';
 
 class MainWrapper extends StatelessWidget {
   final Widget child;
-
+  
   const MainWrapper({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return GetBuilder<MainNavigationController>(
       init: MainNavigationController(),
-      builder: (navController) {
-        // Resolve current role (guard against controller not-yet-registered)
-        String role = '';
-        try {
-          final auth = Get.find<AuthController>();
-          role = auth.user.value?.role.toLowerCase() ?? '';
-        } catch (_) {}
-
-        final isAdminRole = _kAdminRoles.contains(role);
-
-        // ── Admin layout: persistent left rail sidebar + content ─────────
-        if (isAdminRole) {
-          return Scaffold(
-            backgroundColor: AppTheme.appBackground,
-            body: SafeArea(
-              child: Row(
-                children: [
-                  // Always-visible collapsible sidebar
-                  const AdminSidebar(),
-
-                  // Main page content fills the remaining width
-                  Expanded(child: child),
-                ],
-              ),
+      builder: (controller) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Scaffold(
+              extendBody: true, // Crucial for floating nav bar to show content behind it
+              backgroundColor: AppTheme.appBackground,
+              // i commented out the safe area which is created by previous developer
+              body:
+            //  SafeArea(
+            //    bottom: false, // Let navigation bar handle the bottom padding or space
+               // child:
+              child,
+            //  ),
+              bottomNavigationBar: const AnimatedNavBar(),
             ),
-          );
-        }
-
-        // ── Non-admin layout: original scaffold (unchanged) ──────────────
-        return Scaffold(
-          extendBody: true,
-          backgroundColor: AppTheme.appBackground,
-          body: SafeArea(
-            bottom: false,
-            child: child,
           ),
         );
       },
     );
   }
 }
+  IconData _getIconData(String label) {
+    switch (label.toLowerCase()) {
+      case 'dashboard':
+        return Icons.dashboard;
+      case 'users':
+        return Icons.people;
+      case 'students':
+        return Icons.school;
+      case 'fee collection':
+        return Icons.payment;
+      case 'teacher assignments':
+        return Icons.assignment_ind;
+      case 'fee structure':
+        return Icons.account_balance_wallet;
+      case 'attendance':
+        return Icons.how_to_reg;
+      case 'clubs':
+        return Icons.groups;
+      case 'my children':
+        return Icons.child_care;
+      case 'announcements':
+      case 'communications':
+        return Icons.campaign;
+      case 'records':
+        return Icons.folder;
+      case 'profile':
+        return Icons.person;
+      case 'expenses':
+        return Icons.receipt_long;
+      case 'reports':
+        return Icons.analytics;
+      case 'academics':
+        return Icons.school;
+      case 'schools':
+      case 'school':
+        return Icons.business;
+      case 'fees':
+        return Icons.payment;
+      case 'my classes':
+        return Icons.class_;
+      case 'subscription':
+        return Icons.subscriptions;
+      case 'homework':
+        return Icons.assignment;
+      case 'timetable':
+        return Icons.schedule;
+      default:
+        return Icons.dashboard;
+    }
+  }

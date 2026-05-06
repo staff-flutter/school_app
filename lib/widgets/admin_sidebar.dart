@@ -5,27 +5,29 @@ import 'package:school_app/core/rbac/api_rbac.dart';
 import 'package:school_app/core/role_modules.dart';
 import 'package:school_app/routes/app_routes.dart';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const _kSidebarBg       = Color(0xFFFFFFFF);
-const _kBorderColor     = Color(0xFFDDE6F5);
-const _kDividerColor    = Color(0xFFEAF0FB);
-const _kSelectedBg      = Color(0xFFEFF6FF);
-const _kSelectedColor   = Color(0xFF2563EB);
-const _kDefaultIcon     = Color(0xFF8A9FC0);
-const _kDefaultText     = Color(0xFF1A2A3A);
-const _kSectionLabel    = Color(0xFF90A4BE);
-const _kFooterBg        = Color(0xFFF5F9FF);
-const _kLogoutColor     = Color(0xFFDC2626);
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const _kBg           = Color(0xFFFFFFFF);
+const _kBorderColor  = Color(0xFFDDE6F5);
+const _kDividerColor = Color(0xFFEAF0FB);
+const _kSelectedBg   = Color(0xFFEFF6FF);
+const _kSelectedClr  = Color(0xFF2563EB);
+const _kIconDefault  = Color(0xFF8A9FC0);
+const _kTextDefault  = Color(0xFF1A2A3A);
+const _kSectionLabel = Color(0xFF90A4BE);
+const _kFooterBg     = Color(0xFFF5F9FF);
+const _kLogoutClr    = Color(0xFFDC2626);
 
 const double _kRailWidth     = 64.0;
 const double _kExpandedWidth = 248.0;
-const Duration _kAnimDuration = Duration(milliseconds: 260);
-const Curve _kAnimCurve = Curves.easeInOutCubic;
+const _kDuration = Duration(milliseconds: 260);
+const _kCurve    = Curves.easeInOutCubic;
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
 class AdminSidebar extends StatefulWidget {
-  const AdminSidebar({super.key});
+  /// Shared notifier from [SidebarWrapper] so the backdrop can react.
+  final ValueNotifier<bool>? expandedNotifier;
+  const AdminSidebar({super.key, this.expandedNotifier});
 
   @override
   State<AdminSidebar> createState() => _AdminSidebarState();
@@ -34,25 +36,37 @@ class AdminSidebar extends StatefulWidget {
 class _AdminSidebarState extends State<AdminSidebar>
     with SingleTickerProviderStateMixin {
   bool _expanded = false;
-  late final AnimationController _ctrl;
+  late final AnimationController _anim;
   late final Animation<double> _progress;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: _kAnimDuration);
-    _progress = CurvedAnimation(parent: _ctrl, curve: _kAnimCurve);
+    _anim = AnimationController(vsync: this, duration: _kDuration);
+    _progress = CurvedAnimation(parent: _anim, curve: _kCurve);
+    widget.expandedNotifier?.addListener(_onExternal);
+  }
+
+  void _onExternal() {
+    final v = widget.expandedNotifier?.value ?? false;
+    if (v != _expanded) _setExpanded(v);
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    widget.expandedNotifier?.removeListener(_onExternal);
+    _anim.dispose();
     super.dispose();
   }
 
+  void _setExpanded(bool v) {
+    setState(() => _expanded = v);
+    v ? _anim.forward() : _anim.reverse();
+  }
+
   void _toggle() {
-    setState(() => _expanded = !_expanded);
-    _expanded ? _ctrl.forward() : _ctrl.reverse();
+    _setExpanded(!_expanded);
+    widget.expandedNotifier?.value = _expanded;
   }
 
   void _collapse() {
@@ -62,6 +76,7 @@ class _AdminSidebarState extends State<AdminSidebar>
   void _navigate(String route) {
     _collapse();
     Future.delayed(const Duration(milliseconds: 140), () {
+      if (!mounted) return;
       if (route.contains('?')) {
         final parts = route.split('?');
         final params = <String, dynamic>{};
@@ -78,24 +93,27 @@ class _AdminSidebarState extends State<AdminSidebar>
 
   @override
   Widget build(BuildContext context) {
-    final auth  = Get.find<AuthController>();
-    final role  = auth.user.value?.role.toLowerCase() ?? '';
+    // Safe role resolution — never throws.
+    String role = '';
+    try {
+      role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+    } catch (_) {}
 
     return AnimatedBuilder(
       animation: _progress,
-      builder: (context, _) {
+      builder: (_, __) {
         final w = _kRailWidth + (_kExpandedWidth - _kRailWidth) * _progress.value;
         return Container(
           width: w,
           decoration: BoxDecoration(
-            color: _kSidebarBg,
-            border: Border(
+            color: _kBg,
+            border: const Border(
               right: BorderSide(color: _kBorderColor, width: 1),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 20,
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 24,
                 offset: const Offset(6, 0),
               ),
             ],
@@ -103,7 +121,7 @@ class _AdminSidebarState extends State<AdminSidebar>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TopHeader(
+              _Header(
                 expanded: _expanded,
                 progress: _progress.value,
                 role: role,
@@ -117,10 +135,9 @@ class _AdminSidebarState extends State<AdminSidebar>
                   onNavigate: _navigate,
                 ),
               ),
-              _FooterBar(
+              _Footer(
                 expanded: _expanded,
                 progress: _progress.value,
-                auth: auth,
               ),
             ],
           ),
@@ -132,18 +149,13 @@ class _AdminSidebarState extends State<AdminSidebar>
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-class _TopHeader extends StatelessWidget {
+class _Header extends StatelessWidget {
   final bool expanded;
   final double progress;
   final String role;
   final VoidCallback onToggle;
-
-  const _TopHeader({
-    required this.expanded,
-    required this.progress,
-    required this.role,
-    required this.onToggle,
-  });
+  const _Header({required this.expanded, required this.progress,
+      required this.role, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {
@@ -151,20 +163,13 @@ class _TopHeader extends StatelessWidget {
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: const BoxDecoration(
-        color: _kSidebarBg,
-        border: Border(bottom: BorderSide(color: _kDividerColor, width: 1)),
+        color: _kBg,
+        border: Border(bottom: BorderSide(color: _kDividerColor)),
       ),
       child: Row(
         children: [
-          // Toggle chevron button
-          _SidebarIconButton(
-            icon: Icons.menu_rounded,
-            active: expanded,
-            onTap: onToggle,
-            tooltip: expanded ? 'Collapse' : 'Expand menu',
-          ),
-
-          // App label (visible when expanding) – no school name here
+          _IconBtn(icon: Icons.menu_rounded, active: expanded, onTap: onToggle,
+              tooltip: expanded ? 'Collapse' : 'Expand menu'),
           if (progress > 0.2)
             Expanded(
               child: Opacity(
@@ -175,27 +180,15 @@ class _TopHeader extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'School Portal',
-                        style: TextStyle(
-                          color: _kDefaultText,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      const Text('School Portal',
+                          style: TextStyle(color: _kTextDefault, fontSize: 13,
+                              fontWeight: FontWeight.w700),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
-                      Text(
-                        role.toUpperCase(),
-                        style: const TextStyle(
-                          color: _kSectionLabel,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
+                      Text(role.toUpperCase(),
+                          style: const TextStyle(color: _kSectionLabel,
+                              fontSize: 9, fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1)),
                     ],
                   ),
                 ),
@@ -207,52 +200,40 @@ class _TopHeader extends StatelessWidget {
   }
 }
 
-// ─── Menu Body ────────────────────────────────────────────────────────────────
+// ─── Menu body ────────────────────────────────────────────────────────────────
 
 class _MenuBody extends StatelessWidget {
   final String role;
   final bool expanded;
   final double progress;
   final void Function(String) onNavigate;
-
-  const _MenuBody({
-    required this.role,
-    required this.expanded,
-    required this.progress,
-    required this.onNavigate,
-  });
+  const _MenuBody({required this.role, required this.expanded,
+      required this.progress, required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
-    final sections = _getSections(role);
     return ClipRect(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 10),
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: sections
-              .map((s) => _SectionBlock(
-                    section: s,
-                    expanded: expanded,
-                    progress: progress,
-                    onNavigate: onNavigate,
-                  ))
-              .toList(),
+          children: _getSections(role).map((s) => _SectionBlock(
+            section: s, expanded: expanded,
+            progress: progress, onNavigate: onNavigate,
+          )).toList(),
         ),
       ),
     );
   }
 
-  // ─── Section Definitions ─────────────────────────────────────────────────
-
   static List<_Section> _getSections(String role) {
     if (role == 'accountant') {
       return [
-        _Section(title: 'Menu', items: [
+        _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
         ]),
-        _Section(title: 'Finance', items: [
+        _Section('Finance', [
           if (RoleModules.hasModule(role, 'feeCollection'))
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           if (RoleModules.hasModule(role, 'feeStructure'))
@@ -264,15 +245,15 @@ class _MenuBody extends StatelessWidget {
           if (RoleModules.hasModule(role, 'studentRecords'))
             _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
         ]),
-        _Section(title: 'Other', items: [
+        _Section('Other', [
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
       ];
     }
 
-    // Correspondent (default admin)
+    // Correspondent
     return [
-      _Section(title: 'Menu', items: [
+      _Section('Menu', [
         _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
         if (RoleModules.hasModule(role, 'schoolManagement'))
           _Item('School', Icons.business_rounded, AppRoutes.SCHOOL_MANAGEMENT),
@@ -280,7 +261,7 @@ class _MenuBody extends StatelessWidget {
             ApiPermissions.canCreateAnnouncement(role))
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
       ]),
-      _Section(title: 'Finance', items: [
+      _Section('Finance', [
         if (RoleModules.hasModule(role, 'feeCollection'))
           _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
         if (RoleModules.hasModule(role, 'feeStructure'))
@@ -290,9 +271,10 @@ class _MenuBody extends StatelessWidget {
         if (RoleModules.hasModule(role, 'reports'))
           _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
       ]),
-      _Section(title: 'Manage', items: [
+      _Section('Manage', [
         if (ApiPermissions.hasApiAccess(role, 'POST /api/user/create'))
-          _Item('Users', Icons.people_rounded, '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=users'),
+          _Item('Users', Icons.people_rounded,
+              '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=users'),
         if (RoleModules.hasModule(role, 'students'))
           _Item('Students', Icons.school_rounded,
               '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=students'),
@@ -303,7 +285,7 @@ class _MenuBody extends StatelessWidget {
         if (RoleModules.hasModule(role, 'clubs'))
           _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
       ]),
-      _Section(title: 'Other', items: [
+      _Section('Other', [
         if (RoleModules.hasModule(role, 'subscription'))
           _Item('Subscription', Icons.subscriptions_rounded,
               AppRoutes.SUBSCRIPTION_MANAGEMENT),
@@ -314,41 +296,29 @@ class _MenuBody extends StatelessWidget {
   }
 }
 
-// ─── Section Block ────────────────────────────────────────────────────────────
+// ─── Section block ────────────────────────────────────────────────────────────
 
 class _SectionBlock extends StatelessWidget {
   final _Section section;
   final bool expanded;
   final double progress;
   final void Function(String) onNavigate;
-
-  const _SectionBlock({
-    required this.section,
-    required this.expanded,
-    required this.progress,
-    required this.onNavigate,
-  });
+  const _SectionBlock({required this.section, required this.expanded,
+      required this.progress, required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section title or thin divider
         if (expanded && progress > 0.5)
           Opacity(
             opacity: ((progress - 0.5) / 0.5).clamp(0.0, 1.0),
             child: Padding(
               padding: const EdgeInsets.only(left: 20, top: 18, bottom: 6),
-              child: Text(
-                section.title.toUpperCase(),
-                style: const TextStyle(
-                  color: _kSectionLabel,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.3,
-                ),
-              ),
+              child: Text(section.title.toUpperCase(),
+                  style: const TextStyle(color: _kSectionLabel, fontSize: 9,
+                      fontWeight: FontWeight.w700, letterSpacing: 1.3)),
             ),
           )
         else if (!expanded)
@@ -356,50 +326,39 @@ class _SectionBlock extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Divider(height: 1, thickness: 1, color: _kDividerColor),
           ),
-
-        // Items
         ...section.items.map((item) => _NavItem(
-              item: item,
-              expanded: expanded,
-              progress: progress,
-              onNavigate: onNavigate,
-            )),
+          item: item, expanded: expanded,
+          progress: progress, onNavigate: onNavigate,
+        )),
       ],
     );
   }
 }
 
-// ─── Nav Item ─────────────────────────────────────────────────────────────────
+// ─── Nav item ─────────────────────────────────────────────────────────────────
 
 class _NavItem extends StatelessWidget {
   final _Item item;
   final bool expanded;
   final double progress;
   final void Function(String) onNavigate;
-
-  const _NavItem({
-    required this.item,
-    required this.expanded,
-    required this.progress,
-    required this.onNavigate,
-  });
+  const _NavItem({required this.item, required this.expanded,
+      required this.progress, required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
-    // Determine active route
-    final currentRoute = Get.currentRoute;
-    final itemBase = item.route.split('?')[0];
-    final isActive = currentRoute == itemBase ||
-        (currentRoute.contains('?') && currentRoute.split('?')[0] == itemBase);
+    final cur  = Get.currentRoute;
+    final base = item.route.split('?')[0];
+    final active = cur == base ||
+        (cur.contains('?') && cur.split('?')[0] == base);
 
     return Tooltip(
       message: expanded ? '' : item.label,
       preferBelow: false,
       verticalOffset: 4,
       decoration: BoxDecoration(
-        color: const Color(0xFF2D3142),
-        borderRadius: BorderRadius.circular(6),
-      ),
+          color: const Color(0xFF2D3142),
+          borderRadius: BorderRadius.circular(6)),
       textStyle: const TextStyle(color: Colors.white, fontSize: 11),
       child: GestureDetector(
         onTap: () => onNavigate(item.route),
@@ -407,80 +366,51 @@ class _NavItem extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
           padding: EdgeInsets.symmetric(
-            horizontal: expanded ? 12 : 0,
-            vertical: 10,
-          ),
+              horizontal: expanded ? 12 : 0, vertical: 10),
           decoration: BoxDecoration(
-            color: isActive ? _kSelectedBg : Colors.transparent,
+            color: active ? _kSelectedBg : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             mainAxisAlignment:
                 expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
             children: [
-              // Icon with active indicator dot
               SizedBox(
                 width: 24,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      item.icon,
-                      size: 20,
-                      color: isActive ? _kSelectedColor : _kDefaultIcon,
-                    ),
-                    if (isActive && !expanded)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: 6,
-                          height: 6,
+                child: Stack(alignment: Alignment.center, children: [
+                  Icon(item.icon, size: 20,
+                      color: active ? _kSelectedClr : _kIconDefault),
+                  if (active && !expanded)
+                    Positioned(right: 0, top: 0,
+                      child: Container(width: 6, height: 6,
                           decoration: const BoxDecoration(
-                            color: _kSelectedColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                              color: _kSelectedClr, shape: BoxShape.circle))),
+                ]),
               ),
-
-              // Label (fades in as sidebar expands)
               if (progress > 0.25)
                 Expanded(
                   child: Opacity(
                     opacity: ((progress - 0.25) / 0.75).clamp(0.0, 1.0),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 12),
-                      child: Text(
-                        item.label,
+                      child: Text(item.label,
                         style: TextStyle(
-                          color: isActive ? _kSelectedColor : _kDefaultText,
+                          color: active ? _kSelectedClr : _kTextDefault,
                           fontSize: 13,
-                          fontWeight:
-                              isActive ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                           letterSpacing: 0.1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
                 ),
-
-              // Active dot on the right when expanded
-              if (isActive && progress > 0.6)
+              if (active && progress > 0.6)
                 Opacity(
                   opacity: ((progress - 0.6) / 0.4).clamp(0.0, 1.0),
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: _kSelectedColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  child: Container(width: 6, height: 6,
+                      decoration: const BoxDecoration(
+                          color: _kSelectedClr, shape: BoxShape.circle)),
                 ),
             ],
           ),
@@ -490,219 +420,151 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ─── Footer Bar ───────────────────────────────────────────────────────────────
+// ─── Footer ───────────────────────────────────────────────────────────────────
 
-class _FooterBar extends StatelessWidget {
+class _Footer extends StatelessWidget {
   final bool expanded;
   final double progress;
-  final AuthController auth;
-
-  const _FooterBar({
-    required this.expanded,
-    required this.progress,
-    required this.auth,
-  });
+  const _Footer({required this.expanded, required this.progress});
 
   @override
   Widget build(BuildContext context) {
+    AuthController? auth;
+    try { auth = Get.find<AuthController>(); } catch (_) {}
+
     return Container(
       decoration: const BoxDecoration(
         color: _kFooterBg,
-        border: Border(top: BorderSide(color: _kDividerColor, width: 1)),
+        border: Border(top: BorderSide(color: _kDividerColor)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // User avatar row
-          Tooltip(
-            message: expanded ? '' : auth.user.value?.userName ?? 'User',
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: expanded ? 10 : 0,
-                vertical: 8,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Avatar row
+        Container(
+          padding: EdgeInsets.symmetric(
+              horizontal: expanded ? 10 : 0, vertical: 8),
+          child: Row(
+            mainAxisAlignment:
+                expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 8, offset: const Offset(0, 2))],
+                ),
+                child: Center(
+                  child: auth == null
+                      ? const Icon(Icons.person, color: Colors.white, size: 16)
+                      : Obx(() => Text(
+                          (auth!.user.value?.userName ?? 'U')
+                              .substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.w700, fontSize: 13))),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment:
-                    expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
-                children: [
-                  // Avatar circle
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+              if (progress > 0.25 && auth != null)
+                Expanded(
+                  child: Opacity(
+                    opacity: ((progress - 0.25) / 0.75).clamp(0.0, 1.0),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Obx(() => Text(auth!.user.value?.userName ?? 'User',
+                              style: const TextStyle(color: _kTextDefault,
+                                  fontSize: 12, fontWeight: FontWeight.w600),
+                              maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          Obx(() => Text(auth!.user.value?.email ?? '',
+                              style: const TextStyle(color: _kSectionLabel,
+                                  fontSize: 10),
+                              maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        ],
                       ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF2563EB).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Obx(() => Text(
-                        (auth.user.value?.userName ?? 'U')
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      )),
                     ),
                   ),
+                ),
+            ],
+          ),
+        ),
 
-                  if (progress > 0.25)
-                    Expanded(
-                      child: Opacity(
-                        opacity: ((progress - 0.25) / 0.75).clamp(0.0, 1.0),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Obx(() => Text(
-                                auth.user.value?.userName ?? 'User',
-                                style: const TextStyle(
-                                  color: _kDefaultText,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              )),
-                              Obx(() => Text(
-                                auth.user.value?.email ?? '',
-                                style: const TextStyle(
-                                  color: _kSectionLabel,
-                                  fontSize: 10,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              )),
-                            ],
-                          ),
-                        ),
-                      ),
+        const SizedBox(height: 2),
+
+        // Logout
+        GestureDetector(
+          onTap: () => _confirmLogout(auth),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: expanded ? 10 : 0, vertical: 8),
+            child: Row(
+              mainAxisAlignment:
+                  expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.logout_rounded, size: 18, color: _kLogoutClr),
+                if (progress > 0.3)
+                  Opacity(
+                    opacity: ((progress - 0.3) / 0.7).clamp(0.0, 1.0),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 10),
+                      child: Text('Logout', style: TextStyle(
+                          color: _kLogoutClr, fontSize: 12,
+                          fontWeight: FontWeight.w500)),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
-
-          const SizedBox(height: 2),
-
-          // Logout row
-          Tooltip(
-            message: expanded ? '' : 'Logout',
-            child: GestureDetector(
-              onTap: () => _confirmLogout(auth),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: expanded ? 10 : 0,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: expanded
-                      ? MainAxisAlignment.start
-                      : MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.logout_rounded,
-                        size: 18, color: _kLogoutColor),
-                    if (progress > 0.3)
-                      Opacity(
-                        opacity: ((progress - 0.3) / 0.7).clamp(0.0, 1.0),
-                        child: const Padding(
-                          padding: EdgeInsets.only(left: 10),
-                          child: Text(
-                            'Logout',
-                            style: TextStyle(
-                              color: _kLogoutColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 
-  void _confirmLogout(AuthController auth) {
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Logout',
-          style: TextStyle(
-              color: _kDefaultText, fontSize: 16, fontWeight: FontWeight.w700),
-        ),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(color: _kSectionLabel, fontSize: 13),
-        ),
-        actionsPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
+  void _confirmLogout(AuthController? auth) {
+    Get.dialog(AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Logout', style: TextStyle(
+          color: _kTextDefault, fontSize: 16, fontWeight: FontWeight.w700)),
+      content: const Text('Are you sure you want to logout?',
+          style: TextStyle(color: _kSectionLabel, fontSize: 13)),
+      actionsPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      actions: [
+        TextButton(onPressed: () => Get.back(),
             child: const Text('Cancel',
-                style: TextStyle(color: _kSectionLabel, fontSize: 13)),
+                style: TextStyle(color: _kSectionLabel, fontSize: 13))),
+        ElevatedButton(
+          onPressed: () { Get.back(); auth?.logout(); },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _kLogoutClr, foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              auth.logout();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kLogoutColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            child:
-                const Text('Logout', style: TextStyle(fontSize: 13)),
-          ),
-        ],
-      ),
-    );
+          child: const Text('Logout', style: TextStyle(fontSize: 13)),
+        ),
+      ],
+    ));
   }
 }
 
-// ─── Small Icon Button ────────────────────────────────────────────────────────
+// ─── Small icon button ────────────────────────────────────────────────────────
 
-class _SidebarIconButton extends StatelessWidget {
+class _IconBtn extends StatelessWidget {
   final IconData icon;
   final bool active;
   final VoidCallback onTap;
   final String tooltip;
-
-  const _SidebarIconButton({
-    required this.icon,
-    required this.active,
-    required this.onTap,
-    required this.tooltip,
-  });
+  const _IconBtn({required this.icon, required this.active,
+      required this.onTap, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
@@ -711,18 +573,14 @@ class _SidebarIconButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: _kAnimDuration,
-          width: 40,
-          height: 40,
+          duration: _kDuration,
+          width: 40, height: 40,
           decoration: BoxDecoration(
             color: active ? _kSelectedBg : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: active ? _kSelectedColor : _kDefaultIcon,
-          ),
+          child: Icon(icon, size: 20,
+              color: active ? _kSelectedClr : _kIconDefault),
         ),
       ),
     );
@@ -734,7 +592,7 @@ class _SidebarIconButton extends StatelessWidget {
 class _Section {
   final String title;
   final List<_Item> items;
-  _Section({required this.title, required this.items});
+  _Section(this.title, this.items);
 }
 
 class _Item {

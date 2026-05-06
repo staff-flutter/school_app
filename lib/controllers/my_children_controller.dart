@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:school_app/constants/api_constants.dart';
-import 'package:school_app/services/api_service.dart';
-import 'package:school_app/controllers/auth_controller.dart';
-import 'package:school_app/models/school_models.dart';
+import '../constants/api_constants.dart';
+import '../services/api_service.dart';
+import 'auth_controller.dart';
+import '../models/school_models.dart';
 
 class MyChildrenController extends GetxController {
+
+
+ // --------------My Changes -----------------
+  final selectedChild = <String, dynamic>{}.obs;
+
+ //--------------------------------------------
   final ApiService _apiService = Get.find();
   final AuthController _authController = Get.find();
   
@@ -17,7 +23,15 @@ class MyChildrenController extends GetxController {
     super.onInit();
     loadMyChildren();
   }
+  //---------My Changes-------------------
+  // --- Selection Method ---
+  void selectChild(Map<String, dynamic> child) {
+    selectedChild.value = child; //
+    print("Selection Saved: ${child['studentName']}");
 
+    update();
+  }
+ //------------------------------------------
   Future<void> loadMyChildren() async {
     try {
       isLoading.value = true;
@@ -86,6 +100,7 @@ class MyChildrenController extends GetxController {
 
           if (recordResponse.data['ok'] == true) {
             final recordData = recordResponse.data['data'];
+            print("recordData:$recordData");
 
             // Parse the student record to extract proper IDs and names
             studentRecord = StudentRecord.fromJson(recordData);
@@ -137,6 +152,7 @@ class MyChildrenController extends GetxController {
           'studentName': studentDetails['name'] ?? studentDetails['studentName'] ?? 'Unknown Student',
           'studentImage': studentDetails['studentImage'],
           'classId': studentRecord?.classId ?? '', // Store the actual MongoDB ObjectId
+          'sectionId': studentRecord?.sectionId ?? '',
           'className': teacherDetails['className'] ?? 'Unknown Class',
           'rollNumber': teacherDetails['rollNumber'] ?? studentDetails['nonMandatory']?['rollNumber']?.toString() ?? 'N/A',
           'email': studentDetails['email'] ?? '',
@@ -176,7 +192,9 @@ class MyChildrenController extends GetxController {
     }
 
     children.value = childrenData;
-
+    //-------My Changes--------
+    update();
+    //-------------------------
   }
 
   Future<void> viewChildAttendance(String studentId, String studentName) async {
