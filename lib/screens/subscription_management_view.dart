@@ -108,7 +108,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
   //     ),
   //     child: TabBar(
   //       indicator: BoxDecoration(
-  //         color: AppTheme.primaryBlue,
+  //         color: const Color(0xFF2563EB),
   //         borderRadius: BorderRadius.circular(12),
   //       ),
   //       labelColor: Colors.white,
@@ -157,7 +157,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: AppTheme.primaryBlue),
+              CircularProgressIndicator(color: const Color(0xFF2563EB)),
               const SizedBox(height: 16),
               Text('Loading subscription...', style: TextStyle(color: Colors.grey.shade600)),
             ],
@@ -193,10 +193,10 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                     prefixIcon: Container(
                       margin: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withOpacity(0.1),
+                        color: const Color(0xFF2563EB).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 20),
+                      child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
                     ),
                     border: InputBorder.none,
                   ),
@@ -229,11 +229,11 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
   Widget _buildCurrentSubscriptionCard(BuildContext context, bool isTablet) {
     return Container(
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
+        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.TealColor.withOpacity(0.3),
+            color: const Color(0xFF2563EB).withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -369,20 +369,20 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
       fallback: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.orange.shade50,
+          color: const Color(0xFFEFF6FF),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.orange.shade200),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
         ),
         child: Row(
           children: [
-            Icon(Icons.lock_outline, color: Colors.orange.shade600, size: 32),
+            Icon(Icons.lock_outline, color: const Color(0xFF2563EB), size: 32),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 'Only correspondents can manage subscriptions.',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.orange.shade700,
+                  color: const Color(0xFF1D4ED8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -395,7 +395,11 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
 
   Widget _buildPlanCards(bool isTablet, String? schoolId) {
     final plans = ['basic', 'standard', 'premium'];
-    final gradients = [AppTheme.successGradient, AppTheme.warningGradient, AppTheme.primaryGradient];
+    final gradients = [
+      const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+      const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+      const LinearGradient(colors: [Color(0xFF1E40AF), Color(0xFF1E3A8A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+    ];
 
     return Column(
       children: plans.asMap().entries.map((entry) {
@@ -528,7 +532,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.tune, color: Colors.white, size: 24),
@@ -548,10 +552,10 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
             ...modules.map((module) => Obx(() => Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: customModules[module] == true ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.grey.shade50,
+                color: customModules[module] == true ? const Color(0xFF2563EB).withOpacity(0.1) : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: customModules[module] == true ? AppTheme.primaryBlue.withOpacity(0.3) : Colors.grey.shade200,
+                  color: customModules[module] == true ? const Color(0xFF2563EB).withOpacity(0.3) : Colors.grey.shade200,
                 ),
               ),
               child: CheckboxListTile(
@@ -559,11 +563,11 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                   _formatModuleName(module),
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
-                    color: customModules[module] == true ? AppTheme.primaryBlue : AppTheme.primaryText,
+                    color: customModules[module] == true ? const Color(0xFF2563EB) : AppTheme.primaryText,
                   ),
                 ),
                 value: customModules[module] ?? false,
-                activeColor: AppTheme.TealColor,
+                activeColor: const Color(0xFF2563EB),
                 onChanged: (value) {
                   customModules[module] = value ?? false;
                 },
@@ -575,7 +579,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
               width: double.infinity,
               height: 48,
               decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
+                gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Material(
@@ -610,14 +614,14 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
             padding: EdgeInsets.all(isTablet ? 24 : 20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.white, AppTheme.successGreen.withOpacity(0.05)],
+                colors: [Colors.white, const Color(0xFF2563EB).withOpacity(0.03)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.successGreen.withOpacity(0.1),
+                  color: const Color(0xFF2563EB).withOpacity(0.08),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
@@ -630,7 +634,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.successGradient,
+                        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.access_time, color: Colors.white, size: 24),
@@ -642,7 +646,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                         style: TextStyle(
                           fontSize: isTablet ? 24 : 20,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.successGreen,
+                          color: const Color(0xFF2563EB),
                         ),
                       ),
                     ),
@@ -653,7 +657,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: AppTheme.successGreen.withOpacity(0.2)),
+                    border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.2)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.05),
@@ -669,10 +673,10 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                       prefixIcon: Container(
                         margin: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppTheme.successGreen.withOpacity(0.1),
+                          color: const Color(0xFF2563EB).withOpacity(0.08),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.search, color: AppTheme.successGreen),
+                        child: Icon(Icons.search, color: const Color(0xFF2563EB)),
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -690,15 +694,15 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                         padding: const EdgeInsets.only(right: 12),
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: isSelected ? AppTheme.successGradient : null,
+                            gradient: isSelected ? const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
                             color: isSelected ? null : Colors.white,
                             borderRadius: BorderRadius.circular(25),
                             border: Border.all(
-                              color: isSelected ? Colors.transparent : AppTheme.successGreen.withOpacity(0.3),
+                              color: isSelected ? Colors.transparent : const Color(0xFF2563EB).withOpacity(0.2),
                             ),
                             boxShadow: isSelected ? [
                               BoxShadow(
-                                color: AppTheme.successGreen.withOpacity(0.3),
+                                color: const Color(0xFF2563EB).withOpacity(0.2),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -714,7 +718,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
                                 child: Text(
                                   filter,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : AppTheme.successGreen,
+                                    color: isSelected ? Colors.white : const Color(0xFF2563EB),
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                   ),
@@ -877,13 +881,13 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Present':
-        return AppTheme.successGreen;
+        return const Color(0xFF2563EB);
       case 'Absent':
         return AppTheme.errorRed;
       case 'Late':
-        return AppTheme.warningYellow;
+        return const Color(0xFF0EA5E9);
       default:
-        return AppTheme.primaryBlue;
+        return const Color(0xFF2563EB);
     }
   }
 

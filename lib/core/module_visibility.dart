@@ -20,6 +20,10 @@ class ModuleVisibility {
       'auditLogs',
       'deleteArchive',
       'subscription',
+      'communications',
+      'reports',
+      'userManagement',
+      'transactions',
     ],
     'administrator': [
       'dashboard',

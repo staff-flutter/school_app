@@ -20,6 +20,7 @@ class DashboardView extends GetView<DashboardController> {
     return Scaffold(
       backgroundColor: AppTheme.appBackground,
       body: SafeArea(
+        top: true,
         child: ResponsiveWrapper(
           child: isTablet && !isLandscape
               ? Row(
@@ -140,7 +141,13 @@ class DashboardView extends GetView<DashboardController> {
       ),
       selected: controller.selectedModule.value == item.id,
       selectedTileColor: Colors.white24,
-      onTap: () => controller.selectModule(item.id),
+      onTap: () {
+        if (item.navigatesToRoute) {
+          Get.toNamed(item.route);
+        } else {
+          controller.selectModule(item.id);
+        }
+      },
     ));
   }
 
@@ -838,6 +845,10 @@ class DashboardView extends GetView<DashboardController> {
       case 'history': return Icons.history;
       case 'delete_forever': return Icons.delete_forever;
       case 'card_membership': return Icons.card_membership;
+      case 'chat': return Icons.chat;
+      case 'assessment': return Icons.assessment;
+      case 'manage_accounts': return Icons.manage_accounts;
+      case 'swap_horiz': return Icons.swap_horiz;
       default: return Icons.help;
     }
   }
@@ -866,6 +877,10 @@ class DashboardView extends GetView<DashboardController> {
       case 'auditLogs': return 'Audit Logs';
       case 'deleteArchive': return 'Delete Archive';
       case 'subscription': return 'Subscription';
+      case 'communications': return 'Communications';
+      case 'reports': return 'Reports & Analytics';
+      case 'userManagement': return 'User Management';
+      case 'transactions': return 'Transactions';
       default: return 'Unknown Module';
     }
   }

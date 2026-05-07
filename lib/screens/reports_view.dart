@@ -1,674 +1,431 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:school_app/controllers/accounting_controller.dart';
-import 'package:school_app/core/theme/app_theme.dart';
+
+// Professional light-blue theme constants
+const _kBg = Color(0xFFF0F5FF);
+const _kBlue = Color(0xFF2563EB);
+const _kBlueDark = Color(0xFF1A2A3A);
+const _kBlueMuted = Color(0xFF90A4BE);
+const _kBlueBorder = Color(0xFFDDE6F5);
 
 class ReportsView extends GetView<AccountingController> {
   const ReportsView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reports & Analytics'),
-        automaticallyImplyLeading: false,
-      ),
+      backgroundColor: _kBg,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Report Type Selection
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Select Report Type',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Obx(
-                        () => Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _buildReportChip('Fee Pending', 'fee_pending'),
-                            _buildReportChip(
-                                'Fee Collection', 'fee_collection'),
-                            _buildReportChip('Expenses', 'expenses'),
-                            _buildReportChip('Concessions', 'concessions'),
-                            _buildReportChip(
-                                'Income vs Expense', 'income_expense'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+        top: true,
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isTablet ? 20 : 12,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildReportTypeSelector(),
+                    const SizedBox(height: 12),
+                    _buildDateRangeSelector(),
+                    const SizedBox(height: 12),
+                    _buildGenerateButton(context),
+                    const SizedBox(height: 16),
+                    _buildReportContent(context, isTablet),
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // Filters
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Filters',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Date Range',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Obx(
-                        () => Wrap(
-                          spacing: 8,
-                          children: [
-                            _buildDateRangeChip('This Month', 'this_month'),
-                            _buildDateRangeChip('Last Month', 'last_month'),
-                            _buildDateRangeChip('This Year', 'this_year'),
-                            _buildDateRangeChip('Custom', 'custom'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Generate Report Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _generateReport(context),
-                  icon: const Icon(Icons.analytics),
-                  label: const Text('Generate Report'),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Report Content
-              _buildReportContent(context),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildReportChip(String label, String value) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: controller.selectedReportType.value == value,
-      onSelected: (selected) {
-        if (selected) controller.selectedReportType.value = value;
-      },
+  Widget _buildHeader() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBlueBorder),
+        boxShadow: [BoxShadow(color: _kBlueBorder.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Get.back(),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(color: _kBlue.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.arrow_back_ios_new_rounded, color: _kBlue, size: 16),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: _kBlue.withOpacity(0.10), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.assessment_rounded, color: _kBlue, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Reports & Analytics', style: TextStyle(color: _kBlueDark, fontSize: 15, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+                Text('Financial insights & summaries', style: TextStyle(color: _kBlueMuted, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildDateRangeChip(String label, String value) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: controller.selectedDateRange.value == value,
-      onSelected: (selected) {
-        if (selected) controller.selectedDateRange.value = value;
-      },
+  Widget _buildReportTypeSelector() {
+    final reports = [
+      ('Fee Pending', 'fee_pending', Icons.pending_actions_rounded),
+      ('Fee Collection', 'fee_collection', Icons.account_balance_wallet_rounded),
+      ('Expenses', 'expenses', Icons.receipt_long_rounded),
+      ('Concessions', 'concessions', Icons.discount_rounded),
+      ('Income vs Expense', 'income_expense', Icons.analytics_rounded),
+    ];
+    return _card(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('Select Report Type', Icons.bar_chart_rounded),
+        const SizedBox(height: 12),
+        Obx(() => Wrap(spacing: 8, runSpacing: 8, children: reports.map((r) => _reportChip(r.$1, r.$2, r.$3)).toList())),
+      ],
+    ));
+  }
+
+  Widget _reportChip(String label, String value, IconData icon) {
+    return Obx(() {
+      final selected = controller.selectedReportType.value == value;
+      return GestureDetector(
+        onTap: () => controller.selectedReportType.value = value,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? _kBlue : _kBg,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? _kBlue : _kBlueBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: selected ? Colors.white : _kBlueMuted),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? Colors.white : _kBlueDark)),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildDateRangeSelector() {
+    final ranges = [('This Month', 'this_month'), ('Last Month', 'last_month'), ('This Year', 'this_year'), ('Custom', 'custom')];
+    return _card(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('Date Range', Icons.calendar_month_rounded),
+        const SizedBox(height: 12),
+        Obx(() => Wrap(spacing: 8, runSpacing: 8, children: ranges.map((r) => _dateChip(r.$1, r.$2)).toList())),
+      ],
+    ));
+  }
+
+  Widget _dateChip(String label, String value) {
+    return Obx(() {
+      final selected = controller.selectedDateRange.value == value;
+      return GestureDetector(
+        onTap: () => controller.selectedDateRange.value = value,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? _kBlue.withOpacity(0.12) : _kBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? _kBlue : _kBlueBorder),
+          ),
+          child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? _kBlue : _kBlueDark)),
+        ),
+      );
+    });
+  }
+
+  Widget _buildGenerateButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [BoxShadow(color: _kBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          onPressed: () => _generateReport(context),
+          icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+          label: const Text('Generate Report', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+        ),
+      ),
     );
   }
 
-  Widget _buildReportContent(BuildContext context) {
+  Widget _buildReportContent(BuildContext context, bool isTablet) {
     return Obx(() {
       switch (controller.selectedReportType.value) {
-        case 'fee_pending':
-          return _buildFeePendingReport(context);
-        case 'fee_collection':
-          return _buildFeeCollectionReport(context);
-        case 'expenses':
-          return _buildExpensesReport(context);
-        case 'concessions':
-          return _buildConcessionsReport(context);
-        case 'income_expense':
-          return _buildIncomeExpenseReport(context);
-        default:
-          return _buildDefaultReport(context);
+        case 'fee_pending': return _buildFeePendingReport(isTablet);
+        case 'fee_collection': return _buildFeeCollectionReport(isTablet);
+        case 'expenses': return _buildExpensesReport(isTablet);
+        case 'concessions': return _buildConcessionsReport(isTablet);
+        case 'income_expense': return _buildIncomeExpenseReport(isTablet);
+        default: return _buildDefaultReport();
       }
     });
   }
 
-  Widget _buildFeePendingReport(BuildContext context) {
-    return Card(
-      child: Padding(
+  Widget _buildFeePendingReport(bool isTablet) {
+    return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _reportHeader('Fee Pending Report', Icons.pending_actions_rounded, const Color(0xFFF59E0B)),
+      const SizedBox(height: 14),
+      _statsRow([_stat('Total Pending', '₹2,45,000', const Color(0xFFEF4444), Icons.money_off_rounded), _stat('Students', '156', const Color(0xFFF59E0B), Icons.people_rounded)]),
+      const SizedBox(height: 14),
+      _sectionLabel('Class-wise Breakdown'),
+      const SizedBox(height: 8),
+      _classRow('Class 10', '₹45,000', 25),
+      _classRow('Class 9', '₹38,000', 22),
+      _classRow('Class 8', '₹32,000', 18),
+    ]));
+  }
+
+  Widget _buildFeeCollectionReport(bool isTablet) {
+    return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _reportHeader('Fee Collection Report', Icons.account_balance_wallet_rounded, const Color(0xFF22C55E)),
+      const SizedBox(height: 14),
+      _statsRow([_stat('Total Collected', '₹8,75,000', const Color(0xFF22C55E), Icons.trending_up_rounded), _stat('Receipts', '342', _kBlue, Icons.receipt_rounded)]),
+      const SizedBox(height: 14),
+      _sectionLabel('Payment Mode Breakdown'),
+      const SizedBox(height: 8),
+      _progressRow('Cash', '₹4,25,000', 48.6, const Color(0xFF2563EB)),
+      _progressRow('UPI', '₹2,85,000', 32.6, const Color(0xFF7C3AED)),
+      _progressRow('Cheque', '₹1,45,000', 16.6, const Color(0xFF0891B2)),
+      _progressRow('Bank Transfer', '₹20,000', 2.2, const Color(0xFF059669)),
+    ]));
+  }
+
+  Widget _buildExpensesReport(bool isTablet) {
+    return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _reportHeader('Expenses Report', Icons.receipt_long_rounded, const Color(0xFFEF4444)),
+      const SizedBox(height: 14),
+      _statsRow([_stat('Total Expenses', '₹3,45,000', const Color(0xFFEF4444), Icons.money_off_rounded), _stat('Pending', '12', const Color(0xFFF59E0B), Icons.pending_rounded)]),
+      const SizedBox(height: 14),
+      _sectionLabel('Category-wise Expenses'),
+      const SizedBox(height: 8),
+      _progressRow('Salary', '₹1,85,000', 53.6, const Color(0xFF2563EB)),
+      _progressRow('EB', '₹65,000', 18.8, const Color(0xFF0891B2)),
+      _progressRow('Maintenance', '₹45,000', 13.0, const Color(0xFF7C3AED)),
+      _progressRow('Fuel', '₹35,000', 10.1, const Color(0xFF059669)),
+      _progressRow('Operations', '₹15,000', 4.3, const Color(0xFFF59E0B)),
+    ]));
+  }
+
+  Widget _buildConcessionsReport(bool isTablet) {
+    return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _reportHeader('Concessions Report', Icons.discount_rounded, const Color(0xFF8B5CF6)),
+      const SizedBox(height: 14),
+      _statsRow([_stat('Total Concessions', '₹85,000', const Color(0xFF8B5CF6), Icons.discount_rounded), _stat('Students', '28', _kBlue, Icons.people_rounded)]),
+      const SizedBox(height: 14),
+      _sectionLabel('Concession Types'),
+      const SizedBox(height: 8),
+      _concessionRow('Staff Child – 50%', '₹25,000', 'With Proof'),
+      _concessionRow('Sibling Discount – 25%', '₹18,000', 'With Proof'),
+      _concessionRow('Merit Scholarship – 30%', '₹22,000', 'With Proof'),
+      _concessionRow('Financial Aid – 100%', '₹20,000', 'Verified'),
+    ]));
+  }
+
+  Widget _buildIncomeExpenseReport(bool isTablet) {
+    return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _reportHeader('Income vs Expense', Icons.analytics_rounded, _kBlue),
+      const SizedBox(height: 14),
+      _statsRow([_stat('Total Income', '₹8,75,000', const Color(0xFF22C55E), Icons.trending_up_rounded), _stat('Total Expense', '₹3,45,000', const Color(0xFFEF4444), Icons.trending_down_rounded)]),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.pending_actions, color: AppTheme.warningYellow),
-                const SizedBox(width: 8),
-                Text(
-                  'Fee Pending Report',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(
-                    context,
-                    'Total Pending',
-                    '₹2,45,000',
-                    AppTheme.errorRed,
-                    Icons.money_off,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryCard(
-                    context,
-                    'Students',
-                    '156',
-                    AppTheme.warningYellow,
-                    Icons.people,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Column(
-              children: [
-                _buildClassPendingItem(context, 'Class 10', '₹45,000', 25),
-                _buildClassPendingItem(context, 'Class 9', '₹38,000', 22),
-                _buildClassPendingItem(context, 'Class 8', '₹32,000', 18),
-              ],
-            ),
-          ],
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [_kBlue.withOpacity(0.08), _kBlue.withOpacity(0.04)]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _kBlue.withOpacity(0.2)),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFeeCollectionReport(BuildContext context) {
-    return SingleChildScrollView(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.account_balance_wallet,
-                      color: AppTheme.successGreen),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Fee Collection Report',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Total Collected',
-                      '₹8,75,000',
-                      AppTheme.successGreen,
-                      Icons.trending_up,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Receipts',
-                      '342',
-                      AppTheme.primaryBlue,
-                      Icons.receipt,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Payment mode breakdown
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Payment Mode Breakdown',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPaymentModeItem('Cash', '₹4,25,000', 48.6),
-                  _buildPaymentModeItem('UPI', '₹2,85,000', 32.6),
-                  _buildPaymentModeItem('Cheque', '₹1,45,000', 16.6),
-                  _buildPaymentModeItem('Bank Transfer', '₹20,000', 2.2),
-                ],
-              ),
-            ],
+        child: Column(children: [
+          const Text('Net Profit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kBlueDark)),
+          const SizedBox(height: 6),
+          const Text('₹5,30,000', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: _kBlue)),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+            child: const Text('Profit Margin: 60.6%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF16A34A))),
           ),
-        ),
+        ]),
       ),
-    );
+    ]));
   }
 
-  Widget _buildExpensesReport(BuildContext context) {
-    return SingleChildScrollView(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.receipt_long, color: AppTheme.errorRed),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Expenses Report',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Total Expenses',
-                      '₹3,45,000',
-                      AppTheme.errorRed,
-                      Icons.money_off,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Pending Verification',
-                      '12',
-                      AppTheme.warningYellow,
-                      Icons.pending,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Category-wise breakdown
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Category-wise Expenses',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildExpenseCategoryItem('Salary', '₹1,85,000', 53.6),
-                  _buildExpenseCategoryItem('EB', '₹65,000', 18.8),
-                  _buildExpenseCategoryItem('Maintenance', '₹45,000', 13.0),
-                  _buildExpenseCategoryItem('Fuel', '₹35,000', 10.1),
-                  _buildExpenseCategoryItem('Operations', '₹15,000', 4.3),
-                ],
-              ),
-            ],
-          ),
+  Widget _buildDefaultReport() {
+    return _card(child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: _kBlue.withOpacity(0.08), shape: BoxShape.circle),
+          child: const Icon(Icons.analytics_rounded, size: 48, color: _kBlue),
         ),
-      ),
-    );
+        const SizedBox(height: 16),
+        const Text('Select a report type above', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _kBlueDark)),
+        const SizedBox(height: 4),
+        const Text('Choose a report and date range to generate insights', style: TextStyle(fontSize: 12, color: _kBlueMuted), textAlign: TextAlign.center),
+      ])),
+    ));
   }
 
-  Widget _buildConcessionsReport(BuildContext context) {
-    return SingleChildScrollView(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.discount, color: AppTheme.mathOrange),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Concessions Report',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Total Concessions',
-                      '₹85,000',
-                      AppTheme.mathOrange,
-                      Icons.discount,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Students',
-                      '28',
-                      AppTheme.primaryBlue,
-                      Icons.people,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Column(
-                children: [
-                  _buildConcessionItem(
-                      context, 'Staff Child - 50%', '₹25,000', 'With Proof'),
-                  _buildConcessionItem(
-                      context, 'Sibling Discount - 25%', '₹18,000', 'With Proof'),
-                  _buildConcessionItem(context, 'Merit Scholarship - 30%',
-                      '₹22,000', 'With Proof'),
-                  _buildConcessionItem(
-                      context, 'Financial Aid - 100%', '₹20,000', 'Verified'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIncomeExpenseReport(BuildContext context) {
-    return SingleChildScrollView(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.analytics, color: AppTheme.primaryBlue),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Income vs Expense',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Total Income',
-                      '₹8,75,000',
-                      AppTheme.successGreen,
-                      Icons.trending_up,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      context,
-                      'Total Expense',
-                      '₹3,45,000',
-                      AppTheme.errorRed,
-                      Icons.trending_down,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildSummaryCard(
-                context,
-                'Net Profit',
-                '₹5,30,000',
-                AppTheme.primaryBlue,
-                Icons.account_balance,
-              ),
-              const SizedBox(height: 16),
-
-              // Profit margin indicator
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.successGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Profit Margin',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '60.6%',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppTheme.successGreen,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDefaultReport(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.analytics,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Select a report type to view analytics',
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(BuildContext context, String title, String value,
-      Color color, IconData icon) {
+  // ─── Shared helpers ──────────────────────────────────────────────────────────
+  Widget _card({required Widget child}) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBlueBorder),
+        boxShadow: [BoxShadow(color: _kBlueBorder.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 2))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 
-  Widget _buildClassPendingItem(
-      BuildContext context, String className, String amount, int students) {
-    return ListTile(
-      leading: Container(
+  Widget _sectionTitle(String title, IconData icon) {
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(color: _kBlue.withOpacity(0.10), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, color: _kBlue, size: 16),
+      ),
+      const SizedBox(width: 8),
+      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kBlueDark)),
+    ]);
+  }
+
+  Widget _sectionLabel(String label) {
+    return Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kBlueMuted, letterSpacing: 0.4));
+  }
+
+  Widget _reportHeader(String title, IconData icon, Color color) {
+    return Row(children: [
+      Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppTheme.warningYellow.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(Icons.class_, color: AppTheme.warningYellow),
+        decoration: BoxDecoration(color: color.withOpacity(0.10), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(className),
-      subtitle: Text('$students students'),
-      trailing: Text(
-        amount,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.errorRed,
-            ),
-      ),
+      const SizedBox(width: 10),
+      Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kBlueDark))),
+    ]);
+  }
+
+  Widget _statsRow(List<Widget> stats) {
+    return Row(
+      children: stats.expand((w) => [Expanded(child: w), const SizedBox(width: 10)]).toList()..removeLast(),
     );
   }
 
-  Widget _buildPaymentModeItem(String mode, String amount, double percentage) {
+  Widget _stat(String label, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 11, color: _kBlueMuted), maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ]),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+      ]),
+    );
+  }
+
+  Widget _progressRow(String label, String amount, double pct, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(mode),
-          ),
-          Expanded(
-            flex: 3,
-            child: LinearProgressIndicator(
-              value: percentage / 100,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: Text(
-              amount,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(children: [
+        SizedBox(width: 90, child: Text(label, style: const TextStyle(fontSize: 12, color: _kBlueDark), maxLines: 1, overflow: TextOverflow.ellipsis)),
+        Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: pct / 100, backgroundColor: _kBlueBorder, valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 6))),
+        const SizedBox(width: 8),
+        SizedBox(width: 72, child: Text(amount, textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color))),
+      ]),
     );
   }
 
-  Widget _buildExpenseCategoryItem(
-      String category, String amount, double percentage) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(category),
-          ),
-          Expanded(
-            flex: 3,
-            child: LinearProgressIndicator(
-              value: percentage / 100,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.errorRed),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: Text(
-              amount,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
+  Widget _classRow(String cls, String amount, int students) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: _kBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: _kBlueBorder)),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFFF59E0B).withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.class_rounded, color: Color(0xFFF59E0B), size: 16)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(cls, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kBlueDark)),
+          Text('$students students', style: const TextStyle(fontSize: 10, color: _kBlueMuted)),
+        ])),
+        Text(amount, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFEF4444))),
+      ]),
     );
   }
 
-  Widget _buildConcessionItem(
-      BuildContext context, String type, String amount, String status) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppTheme.mathOrange.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(Icons.discount, color: AppTheme.mathOrange),
-      ),
-      title: Text(type),
-      subtitle: Text(status),
-      trailing: Text(
-        amount,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.mathOrange,
-            ),
-      ),
+  Widget _concessionRow(String type, String amount, String status) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: _kBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: _kBlueBorder)),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.discount_rounded, color: Color(0xFF8B5CF6), size: 16)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(type, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kBlueDark)),
+          Text(status, style: const TextStyle(fontSize: 10, color: _kBlueMuted)),
+        ])),
+        Text(amount, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF8B5CF6))),
+      ]),
     );
   }
 
   void _generateReport(BuildContext context) {
     Get.snackbar(
       'Report Generated',
-      'Report for ${controller.selectedReportType.value.replaceAll('_', ' ').toUpperCase()} has been generated',
+      'Report for ${controller.selectedReportType.value.replaceAll('_', ' ').toUpperCase()} is ready',
+      backgroundColor: _kBlue,
+      colorText: Colors.white,
+      borderRadius: 12,
+      margin: const EdgeInsets.all(12),
+      snackPosition: SnackPosition.TOP,
     );
   }
 }

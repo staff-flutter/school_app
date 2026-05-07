@@ -74,10 +74,10 @@ class ExpensesView extends GetView<AccountingController> {
           child: Center(
             child: Container(
               margin: EdgeInsets.all(isTablet ? 48 : 32),
-              padding: EdgeInsets.all(isTablet ? 48 : 32),
+              padding: EdgeInsets.all(isTablet ? 14 : 12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200, width: 1),
                 boxShadow: [
                   BoxShadow(
@@ -91,18 +91,18 @@ class ExpensesView extends GetView<AccountingController> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: AppTheme.errorGradient,
+                      gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.lock, size: 48, color: Colors.white),
+                    child: const Icon(Icons.lock, size: 28, color: Colors.white),
                   ),
                   const SizedBox(height: 24),
                   Text(
                     'Access Denied',
                     style: TextStyle(
-                      fontSize: isTablet ? 24 : 20,
+                      fontSize: isTablet ? 16 : 14,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryText,
                     ),
@@ -136,7 +136,7 @@ class ExpensesView extends GetView<AccountingController> {
           slivers: [
             _buildModernAppBar(context, isTablet),
             SliverPadding(
-              padding: EdgeInsets.all(isTablet ? 24 : 16),
+              padding: EdgeInsets.all(isTablet ? 14 : 12),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _buildSchoolSelection(isTablet),
@@ -253,7 +253,7 @@ class ExpensesView extends GetView<AccountingController> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
@@ -264,7 +264,7 @@ class ExpensesView extends GetView<AccountingController> {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
+        padding: EdgeInsets.all(isTablet ? 14 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -273,7 +273,7 @@ class ExpensesView extends GetView<AccountingController> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.school, color: Colors.white, size: 24),
@@ -282,7 +282,7 @@ class ExpensesView extends GetView<AccountingController> {
                 Text(
                   'Select School',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 15 : 13,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryText,
                   ),
@@ -359,10 +359,10 @@ class ExpensesView extends GetView<AccountingController> {
 
   Widget _buildEmptyStateWidget(BuildContext context, bool isTablet, String message, IconData icon) {
     return Container(
-      padding: EdgeInsets.all(isTablet ? 48 : 32),
+      padding: EdgeInsets.all(isTablet ? 14 : 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
@@ -375,7 +375,7 @@ class ExpensesView extends GetView<AccountingController> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               shape: BoxShape.circle,
@@ -403,10 +403,10 @@ class ExpensesView extends GetView<AccountingController> {
 
   Widget _buildUpgradeRequiredWidget(BuildContext context, String featureName, bool isTablet) {
     return Container(
-      padding: EdgeInsets.all(isTablet ? 48 : 32),
+      padding: EdgeInsets.all(isTablet ? 14 : 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
@@ -419,14 +419,14 @@ class ExpensesView extends GetView<AccountingController> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: AppTheme.warningGradient,
+              gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.lock_outline,
-              size: 48,
+              size: 28,
               color: Colors.white,
             ),
           ),
@@ -434,7 +434,7 @@ class ExpensesView extends GetView<AccountingController> {
           Text(
             'Upgrade Required',
             style: TextStyle(
-              fontSize: isTablet ? 24 : 20,
+              fontSize: isTablet ? 16 : 14,
               fontWeight: FontWeight.bold,
               color: AppTheme.primaryText,
             ),
@@ -451,7 +451,7 @@ class ExpensesView extends GetView<AccountingController> {
           const SizedBox(height: 24),
           Container(
             decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
+              gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(12),
             ),
             child: ElevatedButton(
@@ -496,7 +496,7 @@ class ExpensesView extends GetView<AccountingController> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
@@ -507,7 +507,7 @@ class ExpensesView extends GetView<AccountingController> {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
+        padding: EdgeInsets.all(isTablet ? 14 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -516,7 +516,7 @@ class ExpensesView extends GetView<AccountingController> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.receipt, color: Colors.white, size: 24),
@@ -525,7 +525,7 @@ class ExpensesView extends GetView<AccountingController> {
                 Text(
                   'Expense Details',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 15 : 13,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryText,
                   ),
@@ -554,7 +554,7 @@ class ExpensesView extends GetView<AccountingController> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
@@ -565,7 +565,7 @@ class ExpensesView extends GetView<AccountingController> {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
+        padding: EdgeInsets.all(isTablet ? 14 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -574,7 +574,7 @@ class ExpensesView extends GetView<AccountingController> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.errorGradient,
+                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.security, color: Colors.white, size: 24),
@@ -587,7 +587,7 @@ class ExpensesView extends GetView<AccountingController> {
                       Text(
                         'Evidence Section',
                         style: TextStyle(
-                          fontSize: isTablet ? 20 : 18,
+                          fontSize: isTablet ? 15 : 13,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryText,
                         ),
@@ -595,7 +595,7 @@ class ExpensesView extends GetView<AccountingController> {
                       Text(
                         'Upload proof',
                         style: TextStyle(
-                          color: AppTheme.errorRed,
+                          color: const Color(0xFF2563EB),
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
                         ),
@@ -632,13 +632,13 @@ class ExpensesView extends GetView<AccountingController> {
   Widget _buildSaveButton(bool isTablet) {
     return Container(
       width: double.infinity,
-      height: 56,
+      height: 48,
       decoration: BoxDecoration(
-        gradient: AppTheme.successGradient,
+        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.successGreen.withOpacity(0.3),
+            color: const Color(0xFF2563EB).withOpacity(0.2),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -769,7 +769,7 @@ class ExpensesView extends GetView<AccountingController> {
             final isSelected = selectedPaymentMode.value == mode;
             return Container(
               decoration: BoxDecoration(
-                gradient: isSelected ? AppTheme.primaryGradient : null,
+                gradient: isSelected ? const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
                 color: isSelected ? null : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(
@@ -777,7 +777,7 @@ class ExpensesView extends GetView<AccountingController> {
                 ),
                 boxShadow: isSelected ? [
                   BoxShadow(
-                    color: AppTheme.primaryBlue.withOpacity(0.3),
+                    color: const Color(0xFF2563EB).withOpacity(0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -896,7 +896,7 @@ class ExpensesView extends GetView<AccountingController> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, color: AppTheme.primaryBlue, size: 20),
+                Icon(Icons.calendar_today, color: const Color(0xFF2563EB), size: 20),
                 const SizedBox(width: 12),
                 Text(
                   DateFormat('yyyy-MM-dd').format(selectedDate.value),
@@ -983,8 +983,8 @@ class ExpensesView extends GetView<AccountingController> {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  AppTheme.primaryBlue.withOpacity(0.15),
-                                  AppTheme.primaryBlue.withOpacity(0.08),
+                                  const Color(0xFF2563EB).withOpacity(0.1),
+                                  const Color(0xFF2563EB).withOpacity(0.05),
                                 ],
                               ),
                               shape: BoxShape.circle,
@@ -992,7 +992,7 @@ class ExpensesView extends GetView<AccountingController> {
                             child: Icon(
                               Icons.cloud_upload,
                               size: 32,
-                              color: AppTheme.primaryBlue,
+                              color: const Color(0xFF2563EB),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -1021,7 +1021,7 @@ class ExpensesView extends GetView<AccountingController> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  gradient: AppTheme.successGradient,
+                                  gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
@@ -1032,7 +1032,7 @@ class ExpensesView extends GetView<AccountingController> {
                                   '${files.length} file(s) selected',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: AppTheme.successGreen,
+                                    color: const Color(0xFF2563EB),
                                   ),
                                 ),
                               ),
@@ -1054,7 +1054,7 @@ class ExpensesView extends GetView<AccountingController> {
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
                               children: [
-                                Icon(Icons.insert_drive_file, size: 16, color: AppTheme.primaryBlue),
+                                Icon(Icons.insert_drive_file, size: 16, color: const Color(0xFF2563EB)),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -1139,7 +1139,7 @@ class ExpensesView extends GetView<AccountingController> {
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.all(isTablet ? 24 : 20),
+              padding: EdgeInsets.all(isTablet ? 14 : 12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -1185,7 +1185,7 @@ class ExpensesView extends GetView<AccountingController> {
                           'Expenses History',
                           style: TextStyle(
                             color: AppTheme.primaryText,
-                            fontSize: isTablet ? 20 : 18,
+                            fontSize: isTablet ? 15 : 13,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1218,7 +1218,7 @@ class ExpensesView extends GetView<AccountingController> {
                   : controller.expenses.isEmpty
                       ? _buildEmptyState(context, isTablet)
                       : ListView.builder(
-                          padding: EdgeInsets.all(isTablet ? 24 : 16),
+                          padding: EdgeInsets.all(isTablet ? 14 : 12),
                           itemCount: controller.expenses.length,
                           itemBuilder: (context, index) {
                             final expense = controller.expenses[index];
@@ -1239,7 +1239,7 @@ class ExpensesView extends GetView<AccountingController> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               shape: BoxShape.circle,
@@ -1254,7 +1254,7 @@ class ExpensesView extends GetView<AccountingController> {
           Text(
             'No expenses recorded',
             style: TextStyle(
-              fontSize: isTablet ? 20 : 18,
+              fontSize: isTablet ? 15 : 13,
               fontWeight: FontWeight.bold,
               color: AppTheme.primaryText,
             ),
@@ -1274,10 +1274,10 @@ class ExpensesView extends GetView<AccountingController> {
 
   Widget _buildExpenseCard(BuildContext context, Expense expense, int index, bool isTablet) {
     final statusColor = expense.status == 'verified' 
-        ? AppTheme.successGreen
+        ? const Color(0xFF2563EB)
         : expense.status == 'rejected'
             ? AppTheme.errorRed
-            : AppTheme.warningYellow;
+            : const Color(0xFF0EA5E9);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1310,19 +1310,19 @@ class ExpensesView extends GetView<AccountingController> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.primaryBlue.withOpacity(0.15),
-                            AppTheme.primaryBlue.withOpacity(0.08),
+                            const Color(0xFF2563EB).withOpacity(0.1),
+                            const Color(0xFF2563EB).withOpacity(0.05),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppTheme.primaryBlue.withOpacity(0.2),
+                          color: const Color(0xFF2563EB).withOpacity(0.2),
                           width: 1,
                         ),
                       ),
                       child: Icon(
                         _getCategoryIcon(expense.category),
-                        color: AppTheme.primaryBlue,
+                        color: const Color(0xFF2563EB),
                         size: 24,
                       ),
                     ),
@@ -1364,9 +1364,9 @@ class ExpensesView extends GetView<AccountingController> {
                         Text(
                           '₹${expense.amount.toStringAsFixed(0)}',
                           style: TextStyle(
-                            fontSize: isTablet ? 20 : 18,
+                            fontSize: isTablet ? 15 : 13,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryBlue,
+                            color: const Color(0xFF2563EB),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1410,7 +1410,7 @@ class ExpensesView extends GetView<AccountingController> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1446,10 +1446,10 @@ class ExpensesView extends GetView<AccountingController> {
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1460,7 +1460,7 @@ class ExpensesView extends GetView<AccountingController> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
+                      gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -1490,7 +1490,7 @@ class ExpensesView extends GetView<AccountingController> {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                  gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextButton(

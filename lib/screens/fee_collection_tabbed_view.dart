@@ -131,7 +131,7 @@ class FeeCollectionTabbedView extends StatelessWidget {
       ),
       child: TabBar(
         indicator: BoxDecoration(
-          color: AppTheme.primaryBlue,
+          color: const Color(0xFF2563EB),
           borderRadius: BorderRadius.circular(12),
         ),
         labelColor: Colors.white,
@@ -243,7 +243,7 @@ class _FeeCollectionTab extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.3)),
             gradient: LinearGradient(
               colors: [Colors.white, Colors.blue.shade50],
               begin: Alignment.topLeft,
@@ -257,10 +257,10 @@ class _FeeCollectionTab extends StatelessWidget {
               prefixIcon: Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  color: const Color(0xFF2563EB).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.category, color: AppTheme.primaryBlue, size: 20),
+                child: Icon(Icons.category, color: const Color(0xFF2563EB), size: 20),
               ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -270,7 +270,7 @@ class _FeeCollectionTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             icon: Container(
               margin: const EdgeInsets.only(right: 12),
-              child: Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryBlue),
+              child: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF2563EB)),
             ),
             style: TextStyle(
               color: Colors.grey.shade800,
@@ -337,10 +337,10 @@ class _FeeCollectionTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    color: const Color(0xFF2563EB).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 20),
+                  child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -348,7 +348,7 @@ class _FeeCollectionTab extends StatelessWidget {
                   style: TextStyle(
                     fontSize: isTablet ? 18 : 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryBlue,
+                    color: const Color(0xFF2563EB),
                   ),
                 ),
               ],
@@ -359,7 +359,7 @@ class _FeeCollectionTab extends StatelessWidget {
                 return Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.3)),
                     gradient: LinearGradient(
                       colors: [Colors.white, Colors.blue.shade50],
                       begin: Alignment.topLeft,
@@ -373,10 +373,10 @@ class _FeeCollectionTab extends StatelessWidget {
                       prefixIcon: Container(
                         margin: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryBlue.withOpacity(0.1),
+                          color: const Color(0xFF2563EB).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 20),
+                        child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -386,7 +386,7 @@ class _FeeCollectionTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     icon: Container(
                       margin: const EdgeInsets.only(right: 12),
-                      child: Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryBlue),
+                      child: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF2563EB)),
                     ),
                     style: TextStyle(
                       color: Colors.grey.shade800,
@@ -418,10 +418,10 @@ class _FeeCollectionTab extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                                  color: const Color(0xFF2563EB).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 16),
+                                child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 16),
                               ),
                               const SizedBox(width: 12),
                               Flexible(
@@ -504,10 +504,10 @@ class _FeeCollectionTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withOpacity(0.1),
+              color: const Color(0xFF2563EB).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.person, color: AppTheme.primaryBlue, size: 18),
+            child: Icon(Icons.person, color: const Color(0xFF2563EB), size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -538,10 +538,10 @@ class _FeeCollectionTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  color: const Color(0xFF2563EB).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.person, color: AppTheme.primaryBlue, size: 20),
+                child: Icon(Icons.person, color: const Color(0xFF2563EB), size: 20),
               ),
               const SizedBox(width: 12),
               Text(
@@ -549,7 +549,7 @@ class _FeeCollectionTab extends StatelessWidget {
                 style: TextStyle(
                   fontSize: isTablet ? 18 : 16,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryBlue,
+                  color: const Color(0xFF2563EB),
                 ),
               ),
             ],
@@ -615,15 +615,15 @@ class _FeeCollectionTab extends StatelessWidget {
                             return Container(
                               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: isSelected ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.white,
+                                color: isSelected ? const Color(0xFF2563EB).withOpacity(0.1) : Colors.white,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade200,
+                                  color: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade200,
                                 ),
                               ),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: isSelected ? AppTheme.primaryBlue : Colors.grey.shade300,
+                                  backgroundColor: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade300,
                                   child: Text(
                                     (student['studentName'] ?? 'U').substring(0, 1).toUpperCase(),
                                     style: TextStyle(
@@ -705,7 +705,7 @@ class _FeeCollectionTab extends StatelessWidget {
           icon: const Icon(Icons.payment, size: 18),
           label: const Text('Collect Fee'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryBlue,
+            backgroundColor: const Color(0xFF2563EB),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
@@ -898,7 +898,7 @@ class _FeeCollectionTab extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.directions_bus, color: AppTheme.primaryBlue),
+                        Icon(Icons.directions_bus, color: const Color(0xFF2563EB)),
                         const SizedBox(width: 12),
                         Text(
                           'Bus Fee Applicable',
@@ -914,7 +914,7 @@ class _FeeCollectionTab extends StatelessWidget {
                   Obx(() => Switch(
                     value: isBusApplicable.value,
                     onChanged: (value) => isBusApplicable.value = value,
-                    activeColor: AppTheme.primaryBlue,
+                    activeColor: const Color(0xFF2563EB),
                   )),
                 ],
               ),
@@ -961,7 +961,7 @@ class _FeeCollectionTab extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.calculate, color: AppTheme.primaryBlue),
+                  Icon(Icons.calculate, color: const Color(0xFF2563EB)),
                   const SizedBox(width: 12),
                   Flexible(
                     fit: FlexFit.loose,
@@ -979,7 +979,7 @@ class _FeeCollectionTab extends StatelessWidget {
               Obx(() => Switch(
                 value: manualDueAllocation.value,
                 onChanged: (value) => manualDueAllocation.value = value,
-                activeColor: AppTheme.primaryBlue,
+                activeColor: const Color(0xFF2563EB),
               )),
             ],
           ),
@@ -1018,8 +1018,8 @@ class _FeeCollectionTab extends StatelessWidget {
                   icon: const Icon(Icons.upload_file),
                   label: const Text('Select Images'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
-                    foregroundColor: AppTheme.primaryBlue,
+                    backgroundColor: const Color(0xFF2563EB).withOpacity(0.1),
+                    foregroundColor: const Color(0xFF2563EB),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -1119,10 +1119,10 @@ class _FeeCollectionTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    color: const Color(0xFF2563EB).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.payment, color: AppTheme.primaryBlue, size: 20),
+                  child: Icon(Icons.payment, color: const Color(0xFF2563EB), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1130,7 +1130,7 @@ class _FeeCollectionTab extends StatelessWidget {
                   style: TextStyle(
                     fontSize: isTablet ? 18 : 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryBlue,
+                    color: const Color(0xFF2563EB),
                   ),
                 ),
               ],
@@ -1204,14 +1204,14 @@ class _FeeCollectionTab extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: isSelected 
                         ? LinearGradient(
-                            colors: [AppTheme.primaryBlue, AppTheme.primaryBlue.withOpacity(0.8)],
+                            colors: [const Color(0xFF2563EB), const Color(0xFF2563EB).withOpacity(0.8)],
                           )
                         : LinearGradient(
                             colors: [Colors.grey.shade100, Colors.grey.shade50],
                           ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade300,
+                      color: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade300,
                     ),
                   ),
                   child: FilterChip(
@@ -1274,12 +1274,12 @@ class _FeeCollectionTab extends StatelessWidget {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppTheme.primaryBlue, Colors.blue.shade700],
+                    colors: [const Color(0xFF2563EB), Colors.blue.shade700],
                   ),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryBlue.withOpacity(0.3),
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -1897,10 +1897,10 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.1),
+                color: const Color(0xFF2563EB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 18),
+              child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1934,10 +1934,10 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  color: const Color(0xFF2563EB).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.filter_list, color: AppTheme.primaryBlue, size: 20),
+                child: Icon(Icons.filter_list, color: const Color(0xFF2563EB), size: 20),
               ),
               const SizedBox(width: 12),
               Text(
@@ -1945,7 +1945,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
                 style: TextStyle(
                   fontSize: isTablet ? 18 : 16,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryBlue,
+                  color: const Color(0xFF2563EB),
                 ),
               ),
               const Spacer(),
@@ -1987,7 +1987,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
         return DropdownButtonFormField<School>(
           decoration: InputDecoration(
             labelText: 'Select School',
-            prefixIcon: Icon(Icons.school, color: AppTheme.primaryBlue),
+            prefixIcon: Icon(Icons.school, color: const Color(0xFF2563EB)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -2033,7 +2033,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
     return Obx(() => DropdownButtonFormField<SchoolClass>(
       decoration: InputDecoration(
         labelText: 'Select Class',
-        prefixIcon: Icon(Icons.class_, color: AppTheme.primaryBlue),
+        prefixIcon: Icon(Icons.class_, color: const Color(0xFF2563EB)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -2055,10 +2055,10 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  color: const Color(0xFF2563EB).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Icon(Icons.class_, color: AppTheme.primaryBlue, size: 16),
+                child: Icon(Icons.class_, color: const Color(0xFF2563EB), size: 16),
               ),
               const SizedBox(width: 12),
               Text(cls.name),

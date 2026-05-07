@@ -233,7 +233,9 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> with 
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: const Color(0xFFF0F5FF),
-        body: Padding(
+        body: SafeArea(
+          top: true,
+          child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Column(
             children: [
@@ -258,6 +260,7 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> with 
               ),
             ],
           ),
+        ),
         ),
     );
   }
@@ -354,12 +357,12 @@ Widget _buildFinanceStatsSection() {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withOpacity(0.12),
+                        color: const Color(0xFF2563EB).withOpacity(0.10),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.analytics,
-                        color: AppTheme.primaryBlue,
+                        color: const Color(0xFF2563EB),
                         size: 16,
                       ),
                     ),
@@ -391,25 +394,25 @@ Widget _buildFinanceStatsSection() {
                     _buildCompactStatCard(
                       'Income',
                       stats['totalIncome'] ?? 0,
-                      Colors.blue[700]!,
+                      const Color(0xFF1D4ED8),
                       Icons.trending_up,
                     ),
                     _buildCompactStatCard(
                       'Expense',
                       stats['totalExpense'] ?? 0,
-                      Colors.blue[400]!,
+                      const Color(0xFF60A5FA),
                       Icons.trending_down,
                     ),
                     _buildCompactStatCard(
                       'Balance',
                       stats['netBalance'] ?? 0,
-                      Colors.blue[900]!,
+                      const Color(0xFF1E3A8A),
                       Icons.account_balance,
                     ),
                     _buildCompactStatCard(
                       'Count',
                       stats['transactionCount'] ?? 0,
-                      Colors.blue[600]!,
+                      const Color(0xFF2563EB),
                       Icons.countertops,
                     ),
                   ],
@@ -500,7 +503,7 @@ Widget _buildCompactStatCard(
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(gradient:  LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(gradient:  LinearGradient(colors: [const Color(0xFF1D4ED8), const Color(0xFF3B82F6)]), borderRadius: BorderRadius.circular(8)),
                 child: const Icon(Icons.pie_chart, color: Colors.white, size: 16),
               ),
               const SizedBox(width: 6),
@@ -528,7 +531,7 @@ Widget _buildCompactStatCard(
   }
 
   Widget _buildCompactExpenseLegend() {
-    final colors = [Colors.blue[900]!, Colors.blue[700]!, Colors.blue[600]!, Colors.blue[400]!, Colors.blue[300]!, Colors.blue[200]!];
+    final colors = [const Color(0xFF1E3A8A), const Color(0xFF1D4ED8), const Color(0xFF2563EB), const Color(0xFF60A5FA), const Color(0xFF93C5FD), const Color(0xFFBFDBFE)];
     int index = 0;
     return SingleChildScrollView(
       child: Column(
@@ -565,7 +568,7 @@ Widget _buildCompactStatCard(
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(gradient:  LinearGradient(colors: [Colors.blue[800]!, Colors.blue[500]!]), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(gradient:  LinearGradient(colors: [const Color(0xFF1E40AF), const Color(0xFF3B82F6)]), borderRadius: BorderRadius.circular(8)),
                 child: const Icon(Icons.bar_chart, color: Colors.white, size: 16),
               ),
               const SizedBox(width: 6),
@@ -600,7 +603,7 @@ Widget _buildCompactStatCard(
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(gradient:  LinearGradient(colors: [Colors.blue[700]!, Colors.blue[400]!]), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(gradient:  LinearGradient(colors: [const Color(0xFF1D4ED8), const Color(0xFF60A5FA)]), borderRadius: BorderRadius.circular(8)),
                 child: const Icon(Icons.receipt_long, color: Colors.white, size: 16),
               ),
               const SizedBox(width: 6),
@@ -627,7 +630,7 @@ Widget _buildCompactStatCard(
 
   Widget _buildCompactTransactionRow(dynamic txn) {
     final isIncome = (txn['type'] ?? '').toString().toLowerCase() == 'income';
-    final color = isIncome ? Colors.blue[700]! : Colors.blue[400]!;
+    final color = isIncome ? const Color(0xFF1D4ED8) : const Color(0xFF60A5FA);
     final icon = isIncome ? Icons.arrow_downward : Icons.arrow_upward;
     
     return Padding(
@@ -680,7 +683,7 @@ class ExpensePieChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - (small ? 8 : 20);
-    final colors = [Colors.blue[900]!, Colors.blue[700]!, Colors.blue[600]!, Colors.blue[400]!, Colors.blue[300]!, Colors.blue[200]!];
+    final colors = [const Color(0xFF1E3A8A), const Color(0xFF1D4ED8), const Color(0xFF2563EB), const Color(0xFF60A5FA), const Color(0xFF93C5FD), const Color(0xFFBFDBFE)];
     double startAngle = -math.pi / 2;
     final total = categories.values.fold<double>(0, (sum, val) => sum + val);
     int index = 0;
@@ -720,7 +723,7 @@ class MonthlyBarChartPainter extends CustomPainter {
     final chartHeight = size.height - padding * 2 - (small ? 12 : 20);
     final maxValue = data.values.reduce(math.max);
     final barWidth = chartWidth / data.length - (small ? 4 : 12);
-    final colors = [Colors.blue[900]!, Colors.blue[700]!, Colors.blue[600]!, Colors.blue[400]!, Colors.blue[300]!, Colors.blue[200]!];
+    final colors = [const Color(0xFF1E3A8A), const Color(0xFF1D4ED8), const Color(0xFF2563EB), const Color(0xFF60A5FA), const Color(0xFF93C5FD), const Color(0xFFBFDBFE)];
     
     int index = 0;
     double startX = padding;

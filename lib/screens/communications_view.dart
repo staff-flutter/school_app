@@ -62,7 +62,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.appBackground,
+      backgroundColor: const Color(0xFFF0F5FF),
       appBar: AppBar(
         title: const Text('Communications'),
         flexibleSpace: Container(
@@ -171,7 +171,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.school, color: Colors.white, size: 20),
@@ -206,7 +206,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
+                        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.business, color: Colors.white, size: 16),
@@ -257,7 +257,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                       margin: const EdgeInsets.only(left: 12, right: 8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
+                        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
@@ -362,7 +362,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
+                gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.school_outlined, size: 32, color: Colors.white),
@@ -503,7 +503,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
       
       return Container(
         decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
+          gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -577,7 +577,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
             const SizedBox(height: 24),
             GradientButton(
               text: 'View Plans',
-              gradient: AppTheme.primaryGradient,
+              gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               icon: Icons.upgrade,
               onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (_)=>SubscriptionManagementView()));},
             ),
@@ -953,7 +953,7 @@ class _AnnouncementsList extends StatelessWidget {
                       // For parents, show a view icon button instead of popup menu
                       Container(
                         decoration: BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
+                          gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(

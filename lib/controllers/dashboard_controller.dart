@@ -116,6 +116,22 @@ class DashboardController extends GetxController {
       items.add(NavigationItem('subscription', 'Subscription', 'card_membership'));
     }
 
+    if (hasModule('communications')) {
+      items.add(NavigationItem('communications', 'Communications', 'chat'));
+    }
+
+    if (hasModule('reports')) {
+      items.add(NavigationItem('reports', 'Reports & Analytics', 'assessment'));
+    }
+
+    if (hasModule('userManagement')) {
+      items.add(NavigationItem('userManagement', 'User Management', 'manage_accounts'));
+    }
+
+    if (hasModule('transactions')) {
+      items.add(NavigationItem('transactions', 'Transactions', 'swap_horiz'));
+    }
+
     return items;
   }
 }
@@ -126,6 +142,18 @@ class NavigationItem {
   final String icon;
 
   NavigationItem(this.id, this.title, this.icon);
+
+  /// These modules have dedicated full screens — tap navigates instead of showing inline content.
+  bool get navigatesToRoute {
+    const routeModules = {
+      'communications',
+      'reports',
+      'userManagement',
+      'transactions',
+      'subscription',
+    };
+    return routeModules.contains(id);
+  }
 
   String get route {
     switch (id) {
@@ -150,7 +178,11 @@ class NavigationItem {
       case 'financeLedger': return '/finance-ledger';
       case 'auditLogs': return '/audit-logs';
       case 'deleteArchive': return '/delete-archive';
-      case 'subscription': return '/subscription';
+      case 'subscription': return '/subscription-management';
+      case 'communications': return '/communications';
+      case 'reports': return '/reports';
+      case 'userManagement': return '/user-management';
+      case 'transactions': return '/transactions';
       default: return '/dashboard';
     }
   }
