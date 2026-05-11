@@ -25,7 +25,6 @@ const _kCurve    = Curves.easeInOutCubic;
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
 class AdminSidebar extends StatefulWidget {
-  /// Shared notifier from [SidebarWrapper] so the backdrop can react.
   final ValueNotifier<bool>? expandedNotifier;
   const AdminSidebar({super.key, this.expandedNotifier});
 
@@ -39,12 +38,17 @@ class _AdminSidebarState extends State<AdminSidebar>
   late final AnimationController _anim;
   late final Animation<double> _progress;
 
+  // ── Tracks which route key was last tapped — full route string incl. query
+  final ValueNotifier<String> _selectedKey = ValueNotifier<String>('');
+
   @override
   void initState() {
     super.initState();
     _anim = AnimationController(vsync: this, duration: _kDuration);
     _progress = CurvedAnimation(parent: _anim, curve: _kCurve);
     widget.expandedNotifier?.addListener(_onExternal);
+    // Seed with current route so active state is correct on first render
+    _selectedKey.value = Get.currentRoute;
   }
 
   void _onExternal() {
@@ -56,6 +60,7 @@ class _AdminSidebarState extends State<AdminSidebar>
   void dispose() {
     widget.expandedNotifier?.removeListener(_onExternal);
     _anim.dispose();
+    _selectedKey.dispose();
     super.dispose();
   }
 
@@ -74,11 +79,13 @@ class _AdminSidebarState extends State<AdminSidebar>
   }
 
   void _navigate(String route) {
+    // Update selected key BEFORE navigating so the highlight is instant
+    _selectedKey.value = route;
     _collapse();
     Future.delayed(const Duration(milliseconds: 140), () {
       if (!mounted) return;
       if (route.contains('?')) {
-        final parts = route.split('?');
+        final parts  = route.split('?');
         final params = <String, dynamic>{};
         for (final seg in parts[1].split('&')) {
           final kv = seg.split('=');
@@ -93,7 +100,9 @@ class _AdminSidebarState extends State<AdminSidebar>
 
   @override
   Widget build(BuildContext context) {
-    // Safe role resolution — never throws.
+    // Status-bar height — pushes header content below the notch
+    final topPad = MediaQuery.of(context).padding.top;
+
     String role = '';
     try {
       role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
@@ -105,16 +114,14 @@ class _AdminSidebarState extends State<AdminSidebar>
         final w = _kRailWidth + (_kExpandedWidth - _kRailWidth) * _progress.value;
         return Container(
           width: w,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: _kBg,
-            border: const Border(
-              right: BorderSide(color: _kBorderColor, width: 1),
-            ),
+            border: Border(right: BorderSide(color: _kBorderColor, width: 1)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Color(0x14000000),
                 blurRadius: 24,
-                offset: const Offset(6, 0),
+                offset: Offset(6, 0),
               ),
             ],
           ),
@@ -122,6 +129,7 @@ class _AdminSidebarState extends State<AdminSidebar>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Header(
+                topPad: topPad,
                 expanded: _expanded,
                 progress: _progress.value,
                 role: role,
@@ -133,12 +141,10 @@ class _AdminSidebarState extends State<AdminSidebar>
                   expanded: _expanded,
                   progress: _progress.value,
                   onNavigate: _navigate,
+                  selectedKey: _selectedKey,
                 ),
               ),
-              _Footer(
-                expanded: _expanded,
-                progress: _progress.value,
-              ),
+              _Footer(expanded: _expanded, progress: _progress.value),
             ],
           ),
         );
@@ -150,26 +156,37 @@ class _AdminSidebarState extends State<AdminSidebar>
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
+  final double topPad;
   final bool expanded;
   final double progress;
   final String role;
   final VoidCallback onToggle;
-  const _Header({required this.expanded, required this.progress,
-      required this.role, required this.onToggle});
+  const _Header({
+    required this.topPad,
+    required this.expanded,
+    required this.progress,
+    required this.role,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      // 64 px of actual content + status bar height so burger sits below notch
+      height: 64 + topPad,
+      padding: EdgeInsets.only(left: 10, right: 10, top: topPad + 12, bottom: 4),
       decoration: const BoxDecoration(
         color: _kBg,
         border: Border(bottom: BorderSide(color: _kDividerColor)),
       ),
       child: Row(
         children: [
-          _IconBtn(icon: Icons.menu_rounded, active: expanded, onTap: onToggle,
-              tooltip: expanded ? 'Collapse' : 'Expand menu'),
+          _IconBtn(
+            icon: Icons.menu_rounded,
+            active: expanded,
+            onTap: onToggle,
+            tooltip: expanded ? 'Collapse' : 'Expand menu',
+          ),
           if (progress > 0.2)
             Expanded(
               child: Opacity(
@@ -180,15 +197,24 @@ class _Header extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('School Portal',
-                          style: TextStyle(color: _kTextDefault, fontSize: 13,
-                              fontWeight: FontWeight.w700),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const Text(
+                        'School Portal',
+                        style: TextStyle(
+                            color: _kTextDefault,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 2),
-                      Text(role.toUpperCase(),
-                          style: const TextStyle(color: _kSectionLabel,
-                              fontSize: 9, fontWeight: FontWeight.w700,
-                              letterSpacing: 1.1)),
+                      Text(
+                        role.toUpperCase(),
+                        style: const TextStyle(
+                            color: _kSectionLabel,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1),
+                      ),
                     ],
                   ),
                 ),
@@ -207,8 +233,15 @@ class _MenuBody extends StatelessWidget {
   final bool expanded;
   final double progress;
   final void Function(String) onNavigate;
-  const _MenuBody({required this.role, required this.expanded,
-      required this.progress, required this.onNavigate});
+  final ValueNotifier<String> selectedKey;
+
+  const _MenuBody({
+    required this.role,
+    required this.expanded,
+    required this.progress,
+    required this.onNavigate,
+    required this.selectedKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -218,10 +251,15 @@ class _MenuBody extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: _getSections(role).map((s) => _SectionBlock(
-            section: s, expanded: expanded,
-            progress: progress, onNavigate: onNavigate,
-          )).toList(),
+          children: _getSections(role)
+              .map((s) => _SectionBlock(
+                    section: s,
+                    expanded: expanded,
+                    progress: progress,
+                    onNavigate: onNavigate,
+                    selectedKey: selectedKey,
+                  ))
+              .toList(),
         ),
       ),
     );
@@ -251,7 +289,7 @@ class _MenuBody extends StatelessWidget {
       ];
     }
 
-    // Correspondent
+    // Correspondent & others
     return [
       _Section('Menu', [
         _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
@@ -303,8 +341,15 @@ class _SectionBlock extends StatelessWidget {
   final bool expanded;
   final double progress;
   final void Function(String) onNavigate;
-  const _SectionBlock({required this.section, required this.expanded,
-      required this.progress, required this.onNavigate});
+  final ValueNotifier<String> selectedKey;
+
+  const _SectionBlock({
+    required this.section,
+    required this.expanded,
+    required this.progress,
+    required this.onNavigate,
+    required this.selectedKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -316,9 +361,14 @@ class _SectionBlock extends StatelessWidget {
             opacity: ((progress - 0.5) / 0.5).clamp(0.0, 1.0),
             child: Padding(
               padding: const EdgeInsets.only(left: 20, top: 18, bottom: 6),
-              child: Text(section.title.toUpperCase(),
-                  style: const TextStyle(color: _kSectionLabel, fontSize: 9,
-                      fontWeight: FontWeight.w700, letterSpacing: 1.3)),
+              child: Text(
+                section.title.toUpperCase(),
+                style: const TextStyle(
+                    color: _kSectionLabel,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.3),
+              ),
             ),
           )
         else if (!expanded)
@@ -327,9 +377,12 @@ class _SectionBlock extends StatelessWidget {
             child: Divider(height: 1, thickness: 1, color: _kDividerColor),
           ),
         ...section.items.map((item) => _NavItem(
-          item: item, expanded: expanded,
-          progress: progress, onNavigate: onNavigate,
-        )),
+              item: item,
+              expanded: expanded,
+              progress: progress,
+              onNavigate: onNavigate,
+              selectedKey: selectedKey,
+            )),
       ],
     );
   }
@@ -342,80 +395,112 @@ class _NavItem extends StatelessWidget {
   final bool expanded;
   final double progress;
   final void Function(String) onNavigate;
-  const _NavItem({required this.item, required this.expanded,
-      required this.progress, required this.onNavigate});
+  final ValueNotifier<String> selectedKey;
+
+  const _NavItem({
+    required this.item,
+    required this.expanded,
+    required this.progress,
+    required this.onNavigate,
+    required this.selectedKey,
+  });
+
+  /// True when this item's route exactly matches the selected key, OR
+  /// when the item has no query params and its base route matches.
+  bool _isActive(String sel) {
+    if (sel == item.route) return true;
+    // Items with query params must match exactly (handled above)
+    if (item.route.contains('?')) return false;
+    // Plain routes match if their base equals sel's base
+    return sel.split('?')[0] == item.route;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final cur  = Get.currentRoute;
-    final base = item.route.split('?')[0];
-    final active = cur == base ||
-        (cur.contains('?') && cur.split('?')[0] == base);
-
-    return Tooltip(
-      message: expanded ? '' : item.label,
-      preferBelow: false,
-      verticalOffset: 4,
-      decoration: BoxDecoration(
-          color: const Color(0xFF2D3142),
-          borderRadius: BorderRadius.circular(6)),
-      textStyle: const TextStyle(color: Colors.white, fontSize: 11),
-      child: GestureDetector(
-        onTap: () => onNavigate(item.route),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-          padding: EdgeInsets.symmetric(
-              horizontal: expanded ? 12 : 0, vertical: 10),
+    return ValueListenableBuilder<String>(
+      valueListenable: selectedKey,
+      builder: (context, sel, _) {
+        final active = _isActive(sel);
+        return Tooltip(
+          message: expanded ? '' : item.label,
+          preferBelow: false,
+          verticalOffset: 4,
           decoration: BoxDecoration(
-            color: active ? _kSelectedBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment:
-                expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 24,
-                child: Stack(alignment: Alignment.center, children: [
-                  Icon(item.icon, size: 20,
-                      color: active ? _kSelectedClr : _kIconDefault),
-                  if (active && !expanded)
-                    Positioned(right: 0, top: 0,
-                      child: Container(width: 6, height: 6,
-                          decoration: const BoxDecoration(
-                              color: _kSelectedClr, shape: BoxShape.circle))),
-                ]),
+              color: const Color(0xFF2D3142),
+              borderRadius: BorderRadius.circular(6)),
+          textStyle: const TextStyle(color: Colors.white, fontSize: 11),
+          child: GestureDetector(
+            onTap: () => onNavigate(item.route),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              padding: EdgeInsets.symmetric(
+                  horizontal: expanded ? 12 : 0, vertical: 10),
+              decoration: BoxDecoration(
+                color: active ? _kSelectedBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
               ),
-              if (progress > 0.25)
-                Expanded(
-                  child: Opacity(
-                    opacity: ((progress - 0.25) / 0.75).clamp(0.0, 1.0),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: Text(item.label,
-                        style: TextStyle(
-                          color: active ? _kSelectedClr : _kTextDefault,
-                          fontSize: 13,
-                          fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                          letterSpacing: 0.1,
+              child: Row(
+                mainAxisAlignment: expanded
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: Stack(alignment: Alignment.center, children: [
+                      Icon(item.icon,
+                          size: 20,
+                          color: active ? _kSelectedClr : _kIconDefault),
+                      if (active && !expanded)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                  color: _kSelectedClr,
+                                  shape: BoxShape.circle)),
                         ),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ]),
+                  ),
+                  if (progress > 0.25)
+                    Expanded(
+                      child: Opacity(
+                        opacity: ((progress - 0.25) / 0.75).clamp(0.0, 1.0),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Text(
+                            item.label,
+                            style: TextStyle(
+                              color: active ? _kSelectedClr : _kTextDefault,
+                              fontSize: 13,
+                              fontWeight: active
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              letterSpacing: 0.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              if (active && progress > 0.6)
-                Opacity(
-                  opacity: ((progress - 0.6) / 0.4).clamp(0.0, 1.0),
-                  child: Container(width: 6, height: 6,
-                      decoration: const BoxDecoration(
-                          color: _kSelectedClr, shape: BoxShape.circle)),
-                ),
-            ],
+                  if (active && progress > 0.6)
+                    Opacity(
+                      opacity: ((progress - 0.6) / 0.4).clamp(0.0, 1.0),
+                      child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                              color: _kSelectedClr, shape: BoxShape.circle)),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -439,7 +524,6 @@ class _Footer extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        // Avatar row
         Container(
           padding: EdgeInsets.symmetric(
               horizontal: expanded ? 10 : 0, vertical: 8),
@@ -452,21 +536,28 @@ class _Footer extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(
-                      color: const Color(0xFF2563EB).withOpacity(0.3),
-                      blurRadius: 8, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: const Color(0xFF2563EB).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
                 ),
                 child: Center(
                   child: auth == null
                       ? const Icon(Icons.person, color: Colors.white, size: 16)
                       : Obx(() => Text(
                           (auth!.user.value?.userName ?? 'U')
-                              .substring(0, 1).toUpperCase(),
-                          style: const TextStyle(color: Colors.white,
-                              fontWeight: FontWeight.w700, fontSize: 13))),
+                              .substring(0, 1)
+                              .toUpperCase(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13))),
                 ),
               ),
               if (progress > 0.25 && auth != null)
@@ -479,14 +570,20 @@ class _Footer extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Obx(() => Text(auth!.user.value?.userName ?? 'User',
-                              style: const TextStyle(color: _kTextDefault,
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                              maxLines: 1, overflow: TextOverflow.ellipsis)),
-                          Obx(() => Text(auth!.user.value?.email ?? '',
-                              style: const TextStyle(color: _kSectionLabel,
-                                  fontSize: 10),
-                              maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          Obx(() => Text(
+                              auth!.user.value?.userName ?? 'User',
+                              style: const TextStyle(
+                                  color: _kTextDefault,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis)),
+                          Obx(() => Text(
+                              auth!.user.value?.email ?? '',
+                              style: const TextStyle(
+                                  color: _kSectionLabel, fontSize: 10),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                     ),
@@ -495,10 +592,7 @@ class _Footer extends StatelessWidget {
             ],
           ),
         ),
-
         const SizedBox(height: 2),
-
-        // Logout
         GestureDetector(
           onTap: () => _confirmLogout(auth),
           child: Container(
@@ -514,9 +608,11 @@ class _Footer extends StatelessWidget {
                     opacity: ((progress - 0.3) / 0.7).clamp(0.0, 1.0),
                     child: const Padding(
                       padding: EdgeInsets.only(left: 10),
-                      child: Text('Logout', style: TextStyle(
-                          color: _kLogoutClr, fontSize: 12,
-                          fontWeight: FontWeight.w500)),
+                      child: Text('Logout',
+                          style: TextStyle(
+                              color: _kLogoutClr,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
                     ),
                   ),
               ],
@@ -530,24 +626,28 @@ class _Footer extends StatelessWidget {
   void _confirmLogout(AuthController? auth) {
     Get.dialog(AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Logout', style: TextStyle(
-          color: _kTextDefault, fontSize: 16, fontWeight: FontWeight.w700)),
+      title: const Text('Logout',
+          style: TextStyle(
+              color: _kTextDefault, fontSize: 16, fontWeight: FontWeight.w700)),
       content: const Text('Are you sure you want to logout?',
           style: TextStyle(color: _kSectionLabel, fontSize: 13)),
       actionsPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       actions: [
-        TextButton(onPressed: () => Get.back(),
+        TextButton(
+            onPressed: () => Get.back(),
             child: const Text('Cancel',
                 style: TextStyle(color: _kSectionLabel, fontSize: 13))),
         ElevatedButton(
           onPressed: () { Get.back(); auth?.logout(); },
           style: ElevatedButton.styleFrom(
-            backgroundColor: _kLogoutClr, foregroundColor: Colors.white,
+            backgroundColor: _kLogoutClr,
+            foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8)),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),
           child: const Text('Logout', style: TextStyle(fontSize: 13)),
         ),
@@ -563,8 +663,12 @@ class _IconBtn extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
   final String tooltip;
-  const _IconBtn({required this.icon, required this.active,
-      required this.onTap, required this.tooltip});
+  const _IconBtn({
+    required this.icon,
+    required this.active,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -574,12 +678,14 @@ class _IconBtn extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: _kDuration,
-          width: 40, height: 40,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: active ? _kSelectedBg : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 20,
+          child: Icon(icon,
+              size: 20,
               color: active ? _kSelectedClr : _kIconDefault),
         ),
       ),

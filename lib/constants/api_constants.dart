@@ -67,6 +67,12 @@ class ApiConstants {
   static const String getStudentRecords = '/api/studentrecord/getall';
   static const String getStudentsByClass = '/api/student/getbyclass';
 
+  // Finance Ledger / Reports Endpoints
+  static const String financeLedgerStats    = '/api/financeledger/stats';
+  static const String financeLedgerTimeline = '/api/financeledger/timeline';
+  static const String financeLedgerGetAll   = '/api/financeledger/getall';
+  static const String financeLedgerGetById  = '/api/financeledger/get';
+
   // Expense Endpoints
   static const String addExpense = '/api/expense/add';
   static const String getAllExpenses = '/api/expense/getall';

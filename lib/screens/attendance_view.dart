@@ -1290,54 +1290,86 @@ class AttendanceView extends GetView<ParentAttendanceController> {
 
   Widget _buildMarkingTableHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey.shade50,
-      child: const Row(
-        children: [
-          Expanded(flex: 2, child: Text('Student', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(child: Text('Roll No', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(child: Text('Section', style: TextStyle(fontWeight: FontWeight.bold))),
-          SizedBox(width: 120, child: Text('Mark Attendance', style: TextStyle(fontWeight: FontWeight.bold))),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF0F5FF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
+      child: Row(children: [
+        const SizedBox(width: 36),
+        const SizedBox(width: 8),
+        const Expanded(
+            flex: 3,
+            child: Text('Student',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: Color(0xFF1A2A3A)))),
+        const Expanded(
+            flex: 2,
+            child: Text('Roll / Class',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: Color(0xFF1A2A3A)))),
+        const SizedBox(
+            width: 90,
+            child: Text('Mark',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: Color(0xFF1A2A3A)),
+                textAlign: TextAlign.center)),
+      ]),
     );
   }
 
   Widget _buildMarkingRow(BuildContext context, AttendanceRecord record, int index) {
+    final isPresent = record.status == 'Present';
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: Text(record.studentName, style: const TextStyle(fontWeight: FontWeight.w500))),
-          Expanded(child: Text(record.rollNumber)),
-          Expanded(child: Text(record.className)),
-          Expanded(child: Text(record.section)),
-          SizedBox(
-            width: 120,
-            child: Row(
-              children: [
-                Radio<String>(
-                  value: 'Present',
-                  groupValue: record.status,
-                  onChanged: (v) => controller.markAttendance(record.studentId, v!),
-                  activeColor: AppTheme.successGreen,
-                ),
-                const Text('P', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 8),
-                Radio<String>(
-                  value: 'Absent',
-                  groupValue: record.status,
-                  onChanged: (v) => controller.markAttendance(record.studentId, v!),
-                  activeColor: AppTheme.errorRed,
-                ),
-                const Text('A', style: TextStyle(fontSize: 12)),
-              ],
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
+      child: Row(children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFFEFF6FF),
+          child: Text(
+            record.studentName.isNotEmpty ? record.studentName[0].toUpperCase() : '?',
+            style: const TextStyle(
+                color: Color(0xFF2563EB), fontWeight: FontWeight.w700, fontSize: 13),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 3,
+          child: Text(record.studentName,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF1A2A3A)),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        Expanded(
+          flex: 2,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(record.rollNumber,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF1A2A3A))),
+            Text('${record.className} · ${record.section}',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF90A4BE))),
+          ]),
+        ),
+        SizedBox(
+          width: 90,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            GestureDetector(
+              onTap: () => controller.markAttendance(record.studentId, 'Present'),
+              child: Icon(Icons.check_circle_rounded,
+                  color: isPresent ? const Color(0xFF059669) : Colors.grey.shade300,
+                  size: 22),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => controller.markAttendance(record.studentId, 'Absent'),
+              child: Icon(Icons.cancel_rounded,
+                  color: !isPresent ? const Color(0xFFEF4444) : Colors.grey.shade300,
+                  size: 22),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 
@@ -1558,80 +1590,265 @@ class AttendanceView extends GetView<ParentAttendanceController> {
 
   Widget _buildContent(BuildContext context) {
     return Obx(() {
-      if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
-      if (controller.attendanceRecords.isEmpty) {
-        return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.how_to_reg, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text('No attendance records found'),
-        ]));
+      if (controller.isLoading.value) {
+        return const Center(child: CircularProgressIndicator());
       }
-      return Container(
-        padding: const EdgeInsets.all(20),
-        child: Card(child: Column(children: [
-          _buildTableHeader(),
-          const Divider(height: 1),
-          Expanded(child: ListView.builder(
+      if (controller.attendanceRecords.isEmpty) {
+        return const Center(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.how_to_reg, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No attendance records found'),
+          ]),
+        );
+      }
+      return LayoutBuilder(builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 520;
+        if (isWide) {
+          // ── Wide: compact table layout ────────────────────────────────────
+          return Container(
+            padding: const EdgeInsets.all(12),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade200)),
+              child: Column(children: [
+                _buildTableHeader(),
+                const Divider(height: 1),
+                Expanded(child: ListView.builder(
+                  itemCount: controller.attendanceRecords.length,
+                  itemBuilder: (ctx, i) =>
+                      _buildAttendanceRow(ctx, controller.attendanceRecords[i], i),
+                )),
+              ]),
+            ),
+          );
+        } else {
+          // ── Narrow: responsive card list ──────────────────────────────────
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             itemCount: controller.attendanceRecords.length,
-            itemBuilder: (context, index) =>
-                _buildAttendanceRow(context, controller.attendanceRecords[index], index),
-          )),
-        ])),
-      );
+            itemBuilder: (ctx, i) =>
+                _buildAttendanceCard(ctx, controller.attendanceRecords[i]),
+          );
+        }
+      });
     });
   }
 
   Widget _buildTableHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey.shade50,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F5FF),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
       child: Row(children: [
-        const Expanded(flex: 2, child: Text('Student', style: TextStyle(fontWeight: FontWeight.bold))),
-        const Expanded(child: Text('Roll No', style: TextStyle(fontWeight: FontWeight.bold))),
-        const Expanded(child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold))),
-        const Expanded(child: Text('Section', style: TextStyle(fontWeight: FontWeight.bold))),
-        const Expanded(child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+        const SizedBox(width: 36),
+        const SizedBox(width: 8),
+        const Expanded(
+            flex: 3,
+            child: Text('Student',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: Color(0xFF1A2A3A)))),
+        const Expanded(
+            flex: 2,
+            child: Text('Roll / Class',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: Color(0xFF1A2A3A)))),
+        const SizedBox(
+            width: 70,
+            child: Text('Status',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: Color(0xFF1A2A3A)),
+                textAlign: TextAlign.center)),
         if (controller.canMark)
-          const SizedBox(width: 120, child: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+          const SizedBox(
+              width: 80,
+              child: Text('Mark',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                      color: Color(0xFF1A2A3A)),
+                  textAlign: TextAlign.center)),
       ]),
     );
   }
 
   Widget _buildAttendanceRow(BuildContext context, AttendanceRecord record, int index) {
+    final isPresent = record.status == 'Present';
+    final statusColor = isPresent ? const Color(0xFF059669) : const Color(0xFFEF4444);
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
       child: Row(children: [
-        Expanded(flex: 2, child: Text(record.studentName, style: const TextStyle(fontWeight: FontWeight.w500))),
-        Expanded(child: Text(record.rollNumber)),
-        Expanded(child: Text(record.className)),
-        Expanded(child: Text(record.section)),
-        Expanded(child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: record.status == 'Present' ? Colors.green : Colors.red,
-            borderRadius: BorderRadius.circular(12),
+        // Avatar
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFFEFF6FF),
+          child: Text(
+            record.studentName.isNotEmpty
+                ? record.studentName[0].toUpperCase()
+                : '?',
+            style: const TextStyle(
+                color: Color(0xFF2563EB), fontWeight: FontWeight.w700, fontSize: 13),
           ),
-          child: Text(record.status,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-              textAlign: TextAlign.center),
-        )),
+        ),
+        const SizedBox(width: 8),
+        // Name
+        Expanded(
+          flex: 3,
+          child: Text(
+            record.studentName,
+            style: const TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF1A2A3A)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        // Roll / Class
+        Expanded(
+          flex: 2,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(record.rollNumber,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF1A2A3A))),
+            Text('${record.className} · ${record.section}',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF90A4BE))),
+          ]),
+        ),
+        // Status badge
+        SizedBox(
+          width: 70,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                isPresent ? 'Present' : 'Absent',
+                style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+        // Mark buttons
         if (controller.canMark)
-          SizedBox(width: 120, child: Row(children: [
-            IconButton(
-              onPressed: () => controller.markAttendance(record.studentId, 'Present'),
-              icon: Icon(Icons.check_circle,
-                  color: record.status == 'Present' ? Colors.green : Colors.grey, size: 18),
-              tooltip: 'Mark Present',
-            ),
-            IconButton(
-              onPressed: () => controller.markAttendance(record.studentId, 'Absent'),
-              icon: Icon(Icons.cancel,
-                  color: record.status == 'Absent' ? Colors.red : Colors.grey, size: 18),
-              tooltip: 'Mark Absent',
-            ),
-          ])),
+          SizedBox(
+            width: 80,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _markBtn(Icons.check_circle_rounded,
+                  isPresent ? const Color(0xFF059669) : Colors.grey.shade300,
+                  () => controller.markAttendance(record.studentId, 'Present')),
+              const SizedBox(width: 4),
+              _markBtn(Icons.cancel_rounded,
+                  !isPresent ? const Color(0xFFEF4444) : Colors.grey.shade300,
+                  () => controller.markAttendance(record.studentId, 'Absent')),
+            ]),
+          ),
       ]),
+    );
+  }
+
+  /// Compact card shown in narrow/mobile layout
+  Widget _buildAttendanceCard(BuildContext context, AttendanceRecord record) {
+    final isPresent = record.status == 'Present';
+    final statusColor = isPresent ? const Color(0xFF059669) : const Color(0xFFEF4444);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDDE6F5)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: Row(children: [
+        // Avatar
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: const Color(0xFFEFF6FF),
+          child: Text(
+            record.studentName.isNotEmpty
+                ? record.studentName[0].toUpperCase()
+                : '?',
+            style: const TextStyle(
+                color: Color(0xFF2563EB),
+                fontWeight: FontWeight.w700,
+                fontSize: 15),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Info
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              record.studentName,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Color(0xFF1A2A3A)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Row(children: [
+              Text('Roll: ${record.rollNumber}',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF90A4BE))),
+              const SizedBox(width: 8),
+              Text('${record.className} · ${record.section}',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF90A4BE))),
+            ]),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        // Status + mark buttons stacked vertically
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              isPresent ? 'Present' : 'Absent',
+              style: TextStyle(
+                  color: statusColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700),
+            ),
+          ),
+          if (controller.canMark) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              _markBtn(Icons.check_circle_rounded,
+                  isPresent ? const Color(0xFF059669) : Colors.grey.shade300,
+                  () => controller.markAttendance(record.studentId, 'Present')),
+              const SizedBox(width: 4),
+              _markBtn(Icons.cancel_rounded,
+                  !isPresent ? const Color(0xFFEF4444) : Colors.grey.shade300,
+                  () => controller.markAttendance(record.studentId, 'Absent')),
+            ]),
+          ],
+        ]),
+      ]),
+    );
+  }
+
+  Widget _markBtn(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Icon(icon, color: color, size: 22),
     );
   }
 

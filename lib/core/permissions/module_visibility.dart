@@ -18,6 +18,7 @@ class ModuleVisibility {
       'clubs',
       'clubVideos',
       'financeLedger',
+      'reports',
       'auditLogs',
       'deleteArchive',
       'subscription',

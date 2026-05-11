@@ -98,6 +98,11 @@ class SidebarConfig {
       'icon': Icons.delete_forever,
       'route': '/delete-archive',
     },
+    'reports': {
+      'title': 'Reports & Analytics',
+      'icon': Icons.assessment_rounded,
+      'route': '/reports',
+    },
     'subscription': {
       'title': 'Subscription',
       'icon': Icons.subscriptions,
