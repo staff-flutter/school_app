@@ -89,10 +89,10 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                     ),
                   ),
                 ),
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Get.back(),
-                ),
+                // leading: IconButton(
+                //   icon: const Icon(Icons.arrow_back, color: Colors.white),
+                //   onPressed: () => Get.back(),
+                // ),
                 actions: [
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.date_range, color: Colors.white),

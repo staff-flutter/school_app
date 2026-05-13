@@ -25,7 +25,7 @@ class TimeTablePage extends StatefulWidget {
 class _MyHomePageState extends State<TimeTablePage> {
   static const double _chipWidth = 95.0;   // fixed width per chip
   static const double _chipMargin = 6.0;   // horizontal margin each side
-
+  late final MyChildrenController controller;
 
   final session = Get.find<UserSession>();
   final PageController _pageController = PageController();
@@ -54,6 +54,8 @@ class _MyHomePageState extends State<TimeTablePage> {
   void initState() {
     // TODO: implement initState
     super.initState();
+
+     controller = Get.put(MyChildrenController());
     _currentPageIndex=0;
     _timetableFutures[0] = fetchTimetable(days[0]);
     loginAndGetToken();
@@ -139,8 +141,9 @@ class _MyHomePageState extends State<TimeTablePage> {
 
   Future<List<TimetableListStrings>> fetchTimetable(String day) async {
     String baseUrl = ApiConstants.baseUrl;
-    final controller = Get.find<MyChildrenController>();
-    final selectedStudent = Get.find<MyChildrenController>().selectedChild;
+    // controller = Get.find<MyChildrenController>();
+    final selectedStudent = controller.selectedChild;
+ //   final selectedStudent = Get.find<MyChildrenController>().selectedChild;
    // final TimetableController timetableController = Get.find<TimetableController>();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     //String? token = prefs.getString('token');

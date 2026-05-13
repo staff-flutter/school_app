@@ -36,6 +36,7 @@ class _SidebarWrapperState extends State<SidebarWrapper> {
         child: Scaffold(
           backgroundColor: AppTheme.appBackground,
           body: Stack(
+            clipBehavior: Clip.hardEdge,
             children: [
               // ── 1. Main content — offset by collapsed sidebar width ──
               Positioned(

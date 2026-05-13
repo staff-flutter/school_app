@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
+import '../screens/clubs_&_activities_creating.dart';
+import '../screens/enhanced_profile_view.dart';
 import '../screens/finance_dashboard_view.dart';
 import '../screens/home_page.dart';
 import '../controllers/attendance_controller.dart';
@@ -161,12 +164,13 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.COMMUNICATIONS,
-      page: () => RoleAwareWrapper(child: CommunicationsView()),
+      page: () => RoleAwareWrapper(child:  CommunicationsView()),
       binding: CommunicationsBinding(),
-      middlewares: [RoleGuard()],
+      //middlewares: [RoleGuard()],
     ),
     GetPage(
       name: AppRoutes.CLUBS_ACTIVITIES,
+<<<<<<< Updated upstream
       page: () {
         // Correspondent/accountant see the new management view.
         // All other roles (parent, teacher, etc.) keep the old page.
@@ -184,6 +188,12 @@ GetPage(
         Get.lazyPut(() => ClubsController());
         // Register MyChildrenController safely so ClubAndActivitiesPage
         // doesn't crash for non-parent roles that don't have it.
+=======
+      page: () => RoleAwareWrapper(child: const ClubAndActivitiesPage()),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => ClubsController());
+        // Register MyChildrenController only if not already registered
+>>>>>>> Stashed changes
         if (!Get.isRegistered<MyChildrenController>()) {
           Get.lazyPut(() => MyChildrenController());
         }
@@ -191,6 +201,7 @@ GetPage(
       middlewares: [RoleGuard()],
     ),
     GetPage(
+<<<<<<< Updated upstream
       name: AppRoutes.CAMPUS_MANAGEMENT_PAGE,
       page: () => RoleAwareWrapper(child: const CampusManagementPage()),
       binding: BindingsBuilder(() {
@@ -198,6 +209,10 @@ GetPage(
           Get.lazyPut(() => MyChildrenController());
         }
       }),
+=======
+      name: AppRoutes.CAMPUS_MANAGEMENT,
+      page: () => RoleAwareWrapper(child: const CampusManagementView()),
+>>>>>>> Stashed changes
       middlewares: [RoleGuard()],
     ),
     GetPage(
@@ -212,7 +227,7 @@ GetPage(
         try {
           final auth = Get.find<AuthController>();
           final role = auth.user.value?.role?.toLowerCase() ?? '';
-          if (role == 'correspondent' || role == 'accountant') {
+          if (role == 'correspondent' || role == 'accountant' || role == 'principal' || role =='administrator' || role == 'teacher'|| role == 'viceprincipal' ) {
             return RoleAwareWrapper(child: const CorrespondentProfileView());
           }
         } catch (_) {}
@@ -221,6 +236,12 @@ GetPage(
       binding: AuthBinding(),
       middlewares: [RoleGuard()],
     ),
+    // GetPage(
+    //   name: '/profile',
+    //   page: () => MainWrapper(child: EnhancedProfileView()),
+    //   binding: AuthBinding(),
+    //   middlewares: [RoleGuard()],
+    // ),
     GetPage(
       name: '/privacy-policy',
       page: () => const PrivacyPolicyView(),

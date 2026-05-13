@@ -348,19 +348,82 @@ class SchoolManagementView extends GetView<SchoolController> {
       {required bool showBack}) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(70),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardBackground,
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(24),
-            bottomRight: Radius.circular(24),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.dividerColor.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardBackground,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.dividerColor.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: false,
+            // leading: showBack
+            //     ? IconButton(
+            //         icon: const Icon(Icons.arrow_back_ios_new,
+            //             color: AppTheme.primaryText, size: 20),
+            //         onPressed: () => Get.back(),
+            //       )
+            //     : IconButton(
+            //         icon: const Icon(Icons.menu,
+            //             color: AppTheme.primaryText, size: 28),
+            //         onPressed: () {},
+            //       ),
+            title: Row(
+              children: [
+                _buildSchoolLogo(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Obx(() {
+                        final school = controller.selectedSchool.value;
+                        String schoolName;
+        
+                        if (school is School) {
+                          schoolName = school.name;
+                        } else if (school is Map) {
+                          schoolName = school?['name'] ?? 'School Management';
+                        } else {
+                          schoolName = 'School Management';
+                        }
+        
+                        return Text(
+                          schoolName,
+                          style: const TextStyle(
+                            color: AppTheme.primaryText,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      }),
+                      Text(
+                        'Manage your school',
+                        style: const TextStyle(
+                          color: AppTheme.mutedText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+<<<<<<< Updated upstream
           ],
         ),
         child: AppBar(
@@ -374,35 +437,45 @@ class SchoolManagementView extends GetView<SchoolController> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+=======
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.white.withOpacity(0.3)),
+                ),
+                child: Row(
+>>>>>>> Stashed changes
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Obx(() {
-                      final school = controller.selectedSchool.value;
-                      String schoolName;
-
-                      if (school is School) {
-                        schoolName = school.name;
-                      } else if (school is Map) {
-                        schoolName = school?['name'] ?? 'School Management';
-                      } else {
-                        schoolName = 'School Management';
-                      }
-
-                      return Text(
-                        schoolName,
-                        style: const TextStyle(
-                          color: AppTheme.primaryText,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      onTap: _showFullScreenProfileImage,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.5)),
                         ),
-                      );
-                    }),
-                    Text(
-                      'Manage your school',
-                      style: const TextStyle(
-                        color: AppTheme.mutedText,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
+                        child: Center(
+                          child: Obx(() {
+                            final authController = Get.find<AuthController>();
+                            final userName =
+                                authController.user.value?.userName ?? 'U';
+                            return Text(
+                              userName.substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            );
+                          }),
+                        ),
                       ),
                     ),
                   ],
@@ -410,49 +483,6 @@ class SchoolManagementView extends GetView<SchoolController> {
               ),
             ],
           ),
-          actions: [
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: _showFullScreenProfileImage,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                        border:
-                            Border.all(color: Colors.white.withOpacity(0.5)),
-                      ),
-                      child: Center(
-                        child: Obx(() {
-                          final authController = Get.find<AuthController>();
-                          final userName =
-                              authController.user.value?.userName ?? 'U';
-                          return Text(
-                            userName.substring(0, 1).toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -809,7 +839,7 @@ class SchoolManagementView extends GetView<SchoolController> {
                       school.name,
                       style: const TextStyle(
                         color: AppTheme.primaryText,
-                        fontSize: 16,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -5030,9 +5060,9 @@ class _AttendanceTabState extends State<_AttendanceTab> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Attendance History',
+                'Attendance ',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Colors.blue.shade600,
                 ),
@@ -5073,30 +5103,37 @@ class _AttendanceTabState extends State<_AttendanceTab> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(8),
-        child: SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(
-              value: false,
-              label: Text('Mark Daily'),
-              icon: Icon(Icons.today, size: 18),
-            ),
-            ButtonSegment(
-              value: true,
-              label: Text('History'),
-              icon: Icon(Icons.history, size: 18),
+        child: Row(
+          children: [
+            Expanded(
+              child: SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    label: Text('Mark Daily', style: TextStyle(fontSize: 12)),
+                    icon: Icon(Icons.today, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text('History'),
+                    icon: Icon(Icons.history, size: 18),
+                  ),
+                ],
+                selected: {isHistoryMode},
+                onSelectionChanged: (v) {
+                  if (mounted) {
+                    setState(() => isHistoryMode = v.first);
+                    _onFilterChanged();
+                  }
+                },
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: Colors.blue.shade100,
+                  selectedForegroundColor: Colors.blue.shade700,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
             ),
           ],
-          selected: {isHistoryMode},
-          onSelectionChanged: (v) {
-            if (mounted) {
-              setState(() => isHistoryMode = v.first);
-              _onFilterChanged();
-            }
-          },
-          style: SegmentedButton.styleFrom(
-            selectedBackgroundColor: Colors.blue.shade100,
-            selectedForegroundColor: Colors.blue.shade700,
-          ),
         ),
       ),
     );

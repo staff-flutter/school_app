@@ -139,7 +139,7 @@ class ExpensesView extends GetView<AccountingController> {
               padding: EdgeInsets.all(isTablet ? 14 : 12),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSchoolSelection(isTablet),
+                  _buildSchoolSelection( context, isTablet),
                   const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
                 ]),
@@ -225,7 +225,7 @@ class ExpensesView extends GetView<AccountingController> {
     );
   }
 
-  Widget _buildSchoolSelection(bool isTablet) {
+  Widget _buildSchoolSelection(BuildContext context ,bool isTablet) {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
     final isReadOnly = !['correspondent'].contains(userRole);
@@ -297,6 +297,7 @@ class ExpensesView extends GetView<AccountingController> {
                 border: Border.all(color: Colors.grey.shade200),
               ),
               child: DropdownButtonFormField<School>(
+                isExpanded: true,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -305,11 +306,25 @@ class ExpensesView extends GetView<AccountingController> {
                 value: schoolController.schools.contains(selectedSchool.value)
                     ? selectedSchool.value
                     : null,
+                selectedItemBuilder: (BuildContext context) {
+                  return schoolController.schools.map<Widget>((School school) {
+                    return Text(
+                      school.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(fontSize: 14),
+                    );
+                  }).toList();
+                },
                 items: schoolController.schools.map((school) {
                   return DropdownMenuItem<School>(
                     value: school,
-                    child: Text(school.name),
-                  );
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.6,
+                        ),
+                    child: Text(school.name,overflow: TextOverflow.ellipsis,),
+                  ),);
                 }).toList(),
                 onChanged: (school) {
                   selectedSchool.value = school;

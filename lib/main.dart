@@ -1,3 +1,4 @@
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -60,7 +61,11 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]).then((_) {
 
-    runApp(SchoolApp());
+    runApp(
+        DevicePreview(
+          enabled: false,
+          builder: (context) => SchoolApp(),
+        ),);
   });}
 
 class SchoolApp extends StatelessWidget {
@@ -74,16 +79,16 @@ class SchoolApp extends StatelessWidget {
     return GetMaterialApp(
      // this below three lines are to check with all screen sizes
      // useInheritedMediaQuery: true,
-     //  locale: DevicePreview.locale(context),
-     //  builder: (context, child) {
-     //    // ✅ Wrap DevicePreview builder AND force status bar
-     //    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-     //      statusBarColor: Colors.black,
-     //      statusBarIconBrightness: Brightness.light,
-     //      statusBarBrightness: Brightness.dark,
-     //    ));
-     //    return DevicePreview.appBuilder(context, child);
-     //  },
+      locale: DevicePreview.locale(context),
+      builder: (context, child) {
+        // ✅ Wrap DevicePreview builder AND force status bar
+        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+          statusBarColor: Colors.black,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ));
+        return DevicePreview.appBuilder(context, child);
+      },
       title: 'School Management',
       //theme: AppTheme.lightTheme,
       theme: ThemeData(

@@ -18,14 +18,14 @@ import 'package:school_app/services/api_service.dart';
 
 class FeeCollectionTabbedView extends StatelessWidget {
   FeeCollectionTabbedView({super.key});
-  
+
   final AuthController _authController = Get.find();
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-    
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -35,10 +35,10 @@ class FeeCollectionTabbedView extends StatelessWidget {
             children: [
               // Modern Header
               _buildModernHeader(context, isTablet),
-              
+
               // Modern Tab Bar
               _buildModernTabBar(context),
-              
+
               // Tab Content
               Expanded(
                 child: TabBarView(
@@ -182,7 +182,7 @@ class _FeeCollectionTab extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
     final isLandscape = screenSize.width > screenSize.height;
-    
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -200,21 +200,21 @@ class _FeeCollectionTab extends StatelessWidget {
               children: [
                 // School Selection
                 _buildSchoolSelector(context, isTablet),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Collapsible Student Selection
                 _buildCollapsibleStudentSelector(context, isTablet, isLandscape),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Student Receipts
                 Obx(() => showReceipts.value && controller.selectedStudent.value != null
                     ? _buildStudentReceipts(context, isTablet)
                     : const SizedBox()),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Payment Details
                 Obx(() => showPaymentDetails.value
                     ? _buildPaymentDetails(context, isTablet, isLandscape)
@@ -367,6 +367,7 @@ class _FeeCollectionTab extends StatelessWidget {
                     ),
                   ),
                   child: DropdownButtonFormField<School>(
+                    isExpanded: true,
                     decoration: InputDecoration(
                       hintText: 'Choose School',
                       hintStyle: TextStyle(color: Colors.grey.shade600),
@@ -394,8 +395,8 @@ class _FeeCollectionTab extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                     value: selectedSchool.value,
-                    selectedItemBuilder: (context) {
-                      return schoolController.schools.map((school) {
+                    selectedItemBuilder: (BuildContext context) {
+                      return schoolController.schools.map<Widget>((School school) {
                         return Text(
                           school.name,
                           style: TextStyle(
@@ -403,38 +404,36 @@ class _FeeCollectionTab extends StatelessWidget {
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis, // 3. Truncates long names with "..."
                         );
                       }).toList();
                     },
                     items: schoolController.schools.map((school) {
                       return DropdownMenuItem<School>(
                         value: school,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2563EB).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 16),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Text(
-                                  school.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                              child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 16),
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                school.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       );
                     }).toList(),
@@ -474,7 +473,7 @@ class _FeeCollectionTab extends StatelessWidget {
   Widget _buildCollapsibleStudentSelector(BuildContext context, bool isTablet, bool isLandscape) {
     return Obx(() {
       final hasStudent = controller.selectedStudent.value != null;
-      
+
       return AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         height: isStudentSelectorCollapsed.value && hasStudent ? 60 : null,
@@ -762,7 +761,7 @@ class _FeeCollectionTab extends StatelessWidget {
               if (record == null) {
                 return const Center(child: CircularProgressIndicator());
               }
-              
+
               final receipts = record['receipts'] as List? ?? [];
               if (receipts.isEmpty) {
                 return _buildEmptyReceipts();
@@ -1060,7 +1059,7 @@ class _FeeCollectionTab extends StatelessWidget {
                                   child: Image.file(
                                     File(file.path!),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => 
+                                    errorBuilder: (context, error, stackTrace) =>
                                         Icon(Icons.image, color: Colors.grey),
                                   ),
                                 ),
@@ -1136,7 +1135,7 @@ class _FeeCollectionTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            
+
             // Amount Field
             Container(
               decoration: BoxDecoration(
@@ -1182,9 +1181,9 @@ class _FeeCollectionTab extends StatelessWidget {
                 },
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Payment Mode Selection
             Text(
               'Payment Mode',
@@ -1202,7 +1201,7 @@ class _FeeCollectionTab extends StatelessWidget {
                 final isSelected = controller.selectedPaymentMode.value == mode;
                 return Container(
                   decoration: BoxDecoration(
-                    gradient: isSelected 
+                    gradient: isSelected
                         ? LinearGradient(
                             colors: [const Color(0xFF2563EB), const Color(0xFF2563EB).withOpacity(0.8)],
                           )
@@ -1244,9 +1243,9 @@ class _FeeCollectionTab extends StatelessWidget {
                 );
               }).toList(),
             )),
-            
+
             const SizedBox(height: 20),
-            
+
             // Conditional Fields based on Payment Mode
             Obx(() => _buildPaymentModeFields(context, isTablet            )),
 
@@ -1264,9 +1263,9 @@ class _FeeCollectionTab extends StatelessWidget {
 
             // File Upload Section
             _buildFileUploadSection(context, isTablet),
-            
+
             const SizedBox(height: 24),
-            
+
             // Final Collect Button
             ApiRbacWrapper(
               apiEndpoint: 'POST /api/studentrecord/collectfee',
@@ -1339,7 +1338,7 @@ class _FeeCollectionTab extends StatelessWidget {
 
   Widget _buildPaymentModeFields(BuildContext context, bool isTablet) {
     final paymentMode = controller.selectedPaymentMode.value;
-    
+
     switch (paymentMode) {
       case 'cash':
         return _buildCashDenominationFields(context, isTablet);
@@ -1354,7 +1353,7 @@ class _FeeCollectionTab extends StatelessWidget {
 
   Widget _buildCashDenominationFields(BuildContext context, bool isTablet) {
     final denominations = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1450,7 +1449,7 @@ class _FeeCollectionTab extends StatelessWidget {
           final totalCash = controller.totalCashAmount;
           final enteredAmount = double.tryParse(_amountController.text) ?? 0;
           final isMatching = totalCash == enteredAmount;
-          
+
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1598,7 +1597,7 @@ class _FeeCollectionTab extends StatelessWidget {
       final response = await Get.find<ApiService>().get(
         '${ApiConstants.getAllStudents}?schoolId=$schoolId',
       );
-      
+
       if (response.data['ok'] == true) {
         final studentList = response.data['data'] as List;
         controller.students.value = studentList.cast<Map<String, dynamic>>();
@@ -1616,7 +1615,7 @@ class _FeeCollectionTab extends StatelessWidget {
       filteredStudents.value = controller.students;
       return;
     }
-    
+
     filteredStudents.value = controller.students.where((student) {
       final name = (student['studentName'] ?? '').toLowerCase();
       final roll = (student['rollNumber'] ?? '').toLowerCase();
@@ -1628,10 +1627,10 @@ class _FeeCollectionTab extends StatelessWidget {
   void _selectStudent(Map<String, dynamic> student) {
     String classId = '';
     String sectionId = '';
-    
+
     if (selectedSchool.value != null) {
       final schoolController = Get.find<SchoolController>();
-      
+
       if (schoolController.classes.isEmpty) {
         schoolController.getAllClasses(selectedSchool.value!.id).then((_) {
           if (schoolController.classes.isNotEmpty) {
@@ -1660,10 +1659,10 @@ class _FeeCollectionTab extends StatelessWidget {
         }
       }
     }
-    
+
     _updateSelectedStudent(student, classId, sectionId);
   }
-  
+
   void _updateSelectedStudent(Map<String, dynamic> student, String classId, String sectionId) {
     controller.selectedStudent.value = {
       'studentId': student['_id'],
@@ -1679,19 +1678,19 @@ class _FeeCollectionTab extends StatelessWidget {
       Get.snackbar('Error', 'No student selected');
       return;
     }
-    
+
     final studentId = student['studentId'];
     final schoolId = selectedSchool.value?.id;
-    
+
     if (studentId == null || schoolId == null) {
       Get.snackbar('Error', 'Student or School ID not found');
       return;
     }
-    
+
     showReceipts.value = true;
     showPaymentDetails.value = false;
     isStudentSelectorCollapsed.value = true;
-    
+
     final record = await controller.getStudentRecord(schoolId, studentId);
     if (record != null) {
       controller.studentRecord.value = record;
@@ -1702,17 +1701,17 @@ class _FeeCollectionTab extends StatelessWidget {
     if (_formKey.currentState!.validate()) {
       final student = controller.selectedStudent.value!;
       final amount = double.parse(_amountController.text);
-      
+
       final studentId = student['studentId']?.toString() ?? '';
       final classId = student['classId']?.toString() ?? '';
       final sectionId = student['sectionId']?.toString() ?? '';
       final schoolId = selectedSchool.value?.id ?? '';
-      
+
       if (studentId.isEmpty || schoolId.isEmpty || classId.isEmpty || sectionId.isEmpty) {
         Get.snackbar('Error', 'Missing required information');
         return;
       }
-      
+
       final additionalData = {
         'schoolId': schoolId,
         'studentId': studentId,
@@ -1737,7 +1736,7 @@ class _FeeCollectionTab extends StatelessWidget {
         if (controller.selectedPaymentMode.value == 'upi')
           'upiReference': _upiReferenceController.text,
       };
-      
+
       controller.collectFee(
         studentId: studentId,
         classId: classId,
@@ -2302,7 +2301,7 @@ class _StudentRecordsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-    
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(

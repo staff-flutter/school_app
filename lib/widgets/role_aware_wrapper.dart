@@ -14,7 +14,7 @@ class RoleAwareWrapper extends StatelessWidget {
   final Widget child;
   const RoleAwareWrapper({super.key, required this.child});
 
-  static const _sidebarRoles = {'correspondent', 'accountant'};
+  static const _sidebarRoles = {'correspondent', 'accountant','teacher','principal','administrator','viceprincipal',};
 
   @override
   Widget build(BuildContext context) {

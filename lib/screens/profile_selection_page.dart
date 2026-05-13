@@ -179,50 +179,41 @@ class _ProfileSelectionState extends State<ProfileSelection> {
             backgroundColor: Colors.white,
             body: SafeArea(
 
-             child:      Center(
-               child: GridView.builder(
-                      padding: const EdgeInsets.only(
-                        bottom: 110, // clears the nav bar (75 height + 18 margin + buffer)
-                      ),
-                      shrinkWrap: true, //  Makes the grid only take needed space
-                      itemCount: controller.children.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3, // 4 items per row makes 12 visible easily
-                        mainAxisSpacing: 20,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.8, // Adjust this to fit the Avatar + Text height
-                      ),
-                      itemBuilder: (context, index) {
-                        final child = controller.children[index];
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 110),
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 10,
+                    runSpacing: 20,
+                    children: List.generate(controller.children.length, (index) {
+                      final child = controller.children[index];
 
-                              final bool isSelected = controller.selectedChild['id'] == child['id'];
+                      final bool isSelected = controller.selectedChild['id'] == child['id'];
+                      final String name = child['studentName'] ?? "Unknown";
+                      final String className = child['className'] ?? "N/A";
 
+                      String? imageUrl;
+                      if (child['studentImage'] is Map) {
+                        imageUrl = child['studentImage']['url'];
+                      } else if (child['studentImage'] is String) {
+                        imageUrl = child['studentImage'];
+                      }
 
-                              final String name = child['studentName'] ?? "Unknown";
-                              final String className = child['className'] ?? "N/A";
-
-
-                              String? imageUrl;
-                              if (child['studentImage'] is Map) {
-                                imageUrl = child['studentImage']['url'];
-                              } else if (child['studentImage'] is String) {
-                                imageUrl = child['studentImage'];
-                              }
-                        return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  child: circleAvatarMethod(isSelected,name, className, imageUrl,() async {
-                                    controller.selectChild(child);
-
-                                    await Future.delayed(const Duration(milliseconds: 100));
-
-                                    Get.to(() =>  MainWrapper(child: HomePage()));
-                                  },),
-                                );
-                      },
-                    ),
-             ),
-
-
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: circleAvatarMethod(
+                          isSelected, name, className, imageUrl, () async {
+                          controller.selectChild(child);
+                          await Future.delayed(const Duration(milliseconds: 100));
+                          Get.to(() => MainWrapper(child: HomePage()));
+                        },
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
             ),
           ),
         );

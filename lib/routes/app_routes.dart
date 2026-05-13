@@ -30,7 +30,11 @@ class AppRoutes {
   static const String ACADEMICS = '/academics';
   static const String COMMUNICATIONS = '/communications';
   static const String CLUBS_ACTIVITIES = '/clubs-activities';
+<<<<<<< Updated upstream
   static const String CAMPUS_MANAGEMENT_PAGE = '/campus-management-page';
+=======
+  static const CAMPUS_MANAGEMENT = '/campus-management';
+>>>>>>> Stashed changes
   static const String CLUB_DETAIL = '/club-detail';
   static const String ATTENDANCE = '/attendance';
   static const String STUDENT_RECORDS = '/student-records';

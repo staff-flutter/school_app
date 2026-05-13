@@ -34,6 +34,7 @@ class RoleGuard extends GetMiddleware {
   
   String _getScreenNameFromRoute(String route) {
     switch (route) {
+      case '/campus-management': return 'campusmanagementview';
       case '/profile': return 'profileview';
       case '/student-management': return 'studentmanagementview';
       case '/academics': return 'academicsview';

@@ -4,8 +4,13 @@ class RoleModules {
       'dashboard', 'users', 'schools', 'schoolManagement', 'classes', 'sections', 'teacherAssignments',
       'students', 'studentRecords', 'feeStructure', 'feeCollection', 'attendance',
       'expenses', 'announcements', 'clubs', 'clubVideos', 'financeLedger',
+<<<<<<< Updated upstream
       'auditLogs', 'deleteArchive', 'subscription','userManagement','reports','transactions'
       'teachers', 'campusManagementPage'
+=======
+      'auditLogs', 'deleteArchive', 'subscription','userManagement','reports','transactions',
+      'teachers'
+>>>>>>> Stashed changes
     ],
     'administrator': [
       'dashboard', 'users', 'schoolManagement', 'classes', 'sections', 'teacherAssignments',
@@ -13,7 +18,7 @@ class RoleModules {
       'announcements', 'clubs', 'clubVideos', 'auditLogs','userManagement','teachers'
     ],
     'principal': [
-      'dashboard', 'students', 'studentRecords', 'feeStructure', 'attendance','transactions','teachers'
+      'dashboard', 'students', 'studentRecords', 'feeStructure', 'attendance','transactions','teachers',
       'expenses', 'announcements', 'clubs', 'clubVideos', 'financeLedger','userManagement','reports'
     ],
     'viceprincipal': [
@@ -148,6 +153,12 @@ class RoleModules {
         return roleModules.contains('subscription');
       case 'schoolmanagementview':
         return roleModules.contains('schoolManagement');
+
+      case 'campusmanagementview':
+        return roleModules.contains('clubs');
+
+      case 'clubsactivitiesview':
+        return roleModules.contains('clubs');
 
       default:
         return true;

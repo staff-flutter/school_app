@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 
+import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
@@ -21,7 +22,11 @@ class ClubAndActivitiesPage extends StatefulWidget {
 }
 
 class _ClubPageState extends State<ClubAndActivitiesPage> {
-  final controller = Get.find<MyChildrenController>();
+ // final controller = Get.find<MyChildrenController>();
+  MyChildrenController? get _childrenController =>
+      Get.isRegistered<MyChildrenController>()
+          ? Get.find<MyChildrenController>()
+          : null;
 
   List<ClubsAndActivitiesStrings> apiClubs = [];
   bool isLoading = true;
@@ -41,7 +46,18 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     String baseUrl = ApiConstants.baseUrl;
 
     final String? token = session.token;
-    final String? schoolId = session.schoolId ?? '';
+    String? schoolId = session.schoolId ?? '';
+    if (schoolId == null || schoolId.isEmpty) {
+      try {
+        schoolId = Get.find<AuthController>().user.value?.schoolId;
+      } catch (_) {}
+    }
+
+    if (schoolId == null || schoolId.isEmpty) {
+      setState(() => isLoading = false);
+      debugPrint('⚠️ No schoolId available for clubs fetch');
+      return;
+    }
 
     final queryParameters = {
       "schoolId": schoolId,
@@ -240,9 +256,12 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
 
   Widget _campusStars() {
-     String campusStarName= controller.selectedChild['studentName']?? 'Unknown';
-     String campusStarImage= controller.selectedChild['studentImage']?['url']?? '';
+    // String campusStarName= controller.selectedChild['studentName']?? 'Unknown';
+   // String campusStarImage= controller.selectedChild['studentImage']?['url']?? '';
 
+     final child = _childrenController?.selectedChild;
+     String campusStarName = child?['studentName'] ?? 'Unknown';
+     String campusStarImage = child?['studentImage']?['url'] ?? '';
      return Column(
       children: [
         Row(
