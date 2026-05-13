@@ -10,6 +10,8 @@ import 'package:school_app/controllers/parent_attendance_controller.dart';
 import 'package:school_app/bindings/old_attendance_binding.dart';
 import 'package:school_app/screens/simple_communications_view.dart';
 import 'package:school_app/bindings/communications_binding.dart';
+// ✅ Import the new Clubs & Activities page
+import 'package:school_app/screens/campus_management_view.dart';
 
 class AppRoutes {
   static const String TIMETABLE_MANAGEMENT = '/timetable-management';
@@ -63,7 +65,7 @@ class AppRoutes {
   static List<GetPage> routes = [
     GetPage(
       name: login,
-      page: () =>  LoginView(),
+      page: () => LoginView(),
     ),
     GetPage(
       name: dashboard,
@@ -72,7 +74,7 @@ class AppRoutes {
     ),
     GetPage(
       name: students,
-      page: () =>  StudentsView(),
+      page: () => StudentsView(),
       binding: StudentsBinding(),
     ),
     GetPage(
@@ -93,6 +95,11 @@ class AppRoutes {
       name: announcements,
       page: () => const SimpleCommunicationsView(),
       binding: CommunicationsBinding(),
+    ),
+    // ✅ New Clubs & Activities route — replaces the old clubs page
+    GetPage(
+      name: clubsActivities,
+      page: () => const CampusManagementView(),
     ),
   ];
 }

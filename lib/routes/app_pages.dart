@@ -11,6 +11,7 @@ import '../screens/simple_communications_view.dart';
 import '../screens/Assignments_page.dart';
 // import '../screens/Attendence_page.dart'; // TODO: file not provided
 import '../screens/clubs&activities_page.dart';
+import '../screens/campus_management_view.dart'; // ✅ New clubs page for management roles
 import '../screens/fee_details_page.dart';
 import '../screens/marks_list_page.dart';
 import '../screens/parent_profile_page.dart';
@@ -47,6 +48,7 @@ import '../screens/academics_view.dart';
 import '../bindings/communications_binding.dart';
 import '../screens/communications_view.dart';
 import '../bindings/clubs_binding.dart';
+import '../controllers/clubs_controller.dart'; // needed for BindingsBuilder inline
 import '../screens/clubs_activities_view.dart';
 import '../screens/club_detail_view.dart';
 import '../screens/correspondent_profile_view.dart';
@@ -164,8 +166,27 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.CLUBS_ACTIVITIES,
-      page: () => RoleAwareWrapper(child: const ClubAndActivitiesPage()),
-      binding: ClubsBinding(),
+      page: () {
+        // Correspondent/accountant see the new management view.
+        // All other roles (parent, teacher, etc.) keep the old page.
+        String role = '';
+        try {
+          role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+        } catch (_) {}
+        const managementRoles = {'correspondent', 'accountant', 'principal', 'viceprincipal', 'administrator'};
+        if (managementRoles.contains(role)) {
+          return RoleAwareWrapper(child: const CampusManagementView());
+        }
+        return RoleAwareWrapper(child: const ClubAndActivitiesPage());
+      },
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => ClubsController());
+        // Register MyChildrenController safely so ClubAndActivitiesPage
+        // doesn't crash for non-parent roles that don't have it.
+        if (!Get.isRegistered<MyChildrenController>()) {
+          Get.lazyPut(() => MyChildrenController());
+        }
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
