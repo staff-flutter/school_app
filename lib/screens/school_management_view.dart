@@ -367,17 +367,6 @@ class SchoolManagementView extends GetView<SchoolController> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: false,
-          leading: showBack
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new,
-                      color: AppTheme.primaryText, size: 20),
-                  onPressed: () => Get.back(),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.menu,
-                      color: AppTheme.primaryText, size: 28),
-                  onPressed: () {},
-                ),
           title: Row(
             children: [
               _buildSchoolLogo(),

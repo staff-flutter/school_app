@@ -11,6 +11,7 @@ import '../screens/simple_communications_view.dart';
 import '../screens/Assignments_page.dart';
 // import '../screens/Attendence_page.dart'; // TODO: file not provided
 import '../screens/clubs&activities_page.dart';
+import '../screens/campus_management_page.dart'; // ✅ New Campus Management page
 import '../screens/campus_management_view.dart'; // ✅ New clubs page for management roles
 import '../screens/fee_details_page.dart';
 import '../screens/marks_list_page.dart';
@@ -183,6 +184,16 @@ GetPage(
         Get.lazyPut(() => ClubsController());
         // Register MyChildrenController safely so ClubAndActivitiesPage
         // doesn't crash for non-parent roles that don't have it.
+        if (!Get.isRegistered<MyChildrenController>()) {
+          Get.lazyPut(() => MyChildrenController());
+        }
+      }),
+      middlewares: [RoleGuard()],
+    ),
+    GetPage(
+      name: AppRoutes.CAMPUS_MANAGEMENT_PAGE,
+      page: () => RoleAwareWrapper(child: const CampusManagementPage()),
+      binding: BindingsBuilder(() {
         if (!Get.isRegistered<MyChildrenController>()) {
           Get.lazyPut(() => MyChildrenController());
         }

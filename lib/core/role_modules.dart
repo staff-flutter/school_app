@@ -5,7 +5,7 @@ class RoleModules {
       'students', 'studentRecords', 'feeStructure', 'feeCollection', 'attendance',
       'expenses', 'announcements', 'clubs', 'clubVideos', 'financeLedger',
       'auditLogs', 'deleteArchive', 'subscription','userManagement','reports','transactions'
-      'teachers'
+      'teachers', 'campusManagementPage'
     ],
     'administrator': [
       'dashboard', 'users', 'schoolManagement', 'classes', 'sections', 'teacherAssignments',

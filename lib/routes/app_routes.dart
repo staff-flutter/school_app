@@ -30,6 +30,7 @@ class AppRoutes {
   static const String ACADEMICS = '/academics';
   static const String COMMUNICATIONS = '/communications';
   static const String CLUBS_ACTIVITIES = '/clubs-activities';
+  static const String CAMPUS_MANAGEMENT_PAGE = '/campus-management-page';
   static const String CLUB_DETAIL = '/club-detail';
   static const String ATTENDANCE = '/attendance';
   static const String STUDENT_RECORDS = '/student-records';
@@ -52,6 +53,7 @@ class AppRoutes {
   static const String academics = ACADEMICS;
   static const String communications = COMMUNICATIONS;
   static const String clubsActivities = CLUBS_ACTIVITIES;
+  static const String campusManagementPage = CAMPUS_MANAGEMENT_PAGE;
   static const String clubDetail = CLUB_DETAIL;
   static const String attendance = ATTENDANCE;
   static const String studentRecords = STUDENT_RECORDS;
@@ -96,7 +98,6 @@ class AppRoutes {
       page: () => const SimpleCommunicationsView(),
       binding: CommunicationsBinding(),
     ),
-    // ✅ New Clubs & Activities route — replaces the old clubs page
     GetPage(
       name: clubsActivities,
       page: () => const CampusManagementView(),

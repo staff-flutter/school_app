@@ -35,19 +35,51 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
-        backgroundColor: AppTheme.navBarSelectedDeep,
-        foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'Delete Archive'),
-            Tab(text: 'Audit Logs'),
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 20,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.assessment_rounded, color: Color(0xFF2563EB), size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Reports',
+              style: TextStyle(color: Color(0xFF1A2A3A), fontSize: 17, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(49),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: const Color(0xFF2563EB),
+              indicatorWeight: 3,
+              labelColor: const Color(0xFF2563EB),
+              unselectedLabelColor: const Color(0xFF8A9FC0),
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              tabs: const [
+                Tab(text: 'Delete Archive'),
+                Tab(text: 'Audit Logs'),
+              ],
+            ),
+          ),
+        ),
       ),
+      backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
         child: TabBarView(
           controller: _tabController,
@@ -230,7 +262,7 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
 
   Widget _buildItemCard(Map<String, dynamic> item, String category, String itemTitle, String itemSubtitle, String deletedBy) {
     return Card(
-      color: AppTheme.chemistryYellow.withOpacity(0.2),
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       child: ExpansionTile(
@@ -337,9 +369,10 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
     }
     
     return Card(
-      color: actionColor.withOpacity(0.2),
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
       child: InkWell(
         onTap: () => _showAuditLogDetails(log),
         borderRadius: BorderRadius.circular(8),

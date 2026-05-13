@@ -64,17 +64,34 @@ class CommunicationsView extends GetView<CommunicationsController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F5FF),
       appBar: AppBar(
-        title: const Text('Communications'),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 20,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.campaign_rounded, color: Color(0xFF2563EB), size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Communications',
+              style: TextStyle(color: Color(0xFF1A2A3A), fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFE2E8F0)),
         ),
         actions: [
           Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            margin: const EdgeInsets.only(right: 12),
             child: IconButton(
               onPressed: () {
                 if (announcementController.selectedSchool.value != null) {
@@ -85,7 +102,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                   announcementController.refreshSchools();
                 }
               },
-              icon: const Icon(Icons.refresh, color: Colors.white),
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF8A9FC0)),
             ),
           ),
         ],
@@ -452,8 +469,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            gradient: isSelected ? AppTheme.primaryGradient : null,
-            color: isSelected ? null : AppTheme.appBackground,
+            color: isSelected ? const Color(0xFF2563EB) : null,
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
               color: isSelected ? Colors.transparent : AppTheme.dividerColor,
@@ -1023,7 +1039,7 @@ class _AnnouncementsList extends StatelessWidget {
   Gradient _getTypeGradient(String? type) {
     switch (type) {
       case 'urgent': return AppTheme.errorGradient;
-      case 'event': return AppTheme.primaryGradient;
+      case 'event': return const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight);
       case 'holiday': return AppTheme.successGradient;
       default: return const LinearGradient(
         colors: [Color(0xFF6B7280), Color(0xFF4B5563)],
@@ -1036,7 +1052,7 @@ class _AnnouncementsList extends StatelessWidget {
   Gradient _getCardGradient(String? type) {
     switch (type) {
       case 'urgent': return AppTheme.errorGradient;
-      case 'event': return AppTheme.primaryGradient;
+      case 'event': return const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight);
       case 'holiday': return AppTheme.successGradient;
       default: return const LinearGradient(
         colors: [Color(0xFF2196F3), Color(0xFF1976D2)],

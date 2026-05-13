@@ -322,6 +322,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
         if (RoleModules.hasModule(role, 'clubs'))
           _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
+        if (RoleModules.hasModule(role, 'campusManagementPage'))
+          _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
       ]),
       _Section('Other', [
         if (RoleModules.hasModule(role, 'subscription'))

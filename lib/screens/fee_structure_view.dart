@@ -69,20 +69,6 @@ class FeeStructureView extends GetView<AccountingController> {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Get.back(),
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: _kBlue.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, color: _kBlue, size: 16),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: _kBlue.withOpacity(0.10), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.account_balance_rounded, color: _kBlue, size: 20),
-          ),
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
