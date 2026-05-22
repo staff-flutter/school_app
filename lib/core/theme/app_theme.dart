@@ -90,7 +90,7 @@ class AppTheme {
 
   // 🎯 Primary System Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -99,7 +99,7 @@ class AppTheme {
   static const LinearGradient navBarSelectedGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
   );
 
   static const LinearGradient successGradient = LinearGradient(
@@ -133,12 +133,12 @@ class AppTheme {
   static const Color subtitleOnWhite = Color(0xFF6E6E73);
 
   // Legacy colors (Updated but preserved)
-  static const Color primaryBlue = Color(0xFF8E7CFF);
+  static const Color primaryBlue = Color(0xFF2563EB);
   static const Color successGreen = Color(0xFF8EDB4F);
   static const Color warningYellow = Color(0xFFFF8A3D);
   static const Color errorRed = Color(0xFFEF4444);
   static const Color mathOrange = Color(0xFFFF8A3D);
-  static const Color geographyBlue = Color(0xFF8E7CFF);
+  static const Color geographyBlue = Color(0xFF8E7CFF); // intentional purple for geography subject
   static const Color biologyGreen = Color(0xFF8EDB4F);
   static const Color chemistryYellow = Color(0xFF4CC9F0);
 

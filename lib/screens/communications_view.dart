@@ -36,14 +36,12 @@ class CommunicationsView extends GetView<CommunicationsController> {
     if (announcementController.schools.isEmpty && !announcementController.isLoading.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         announcementController.getAllSchools().then((_) {
-          // Auto-select school for non-correspondent users
-          if (userRole != 'correspondent' && userSchoolId != null) {
-            final userSchool = announcementController.schools.firstWhereOrNull(
-              (school) => school.id == userSchoolId,
-            );
-            if (userSchool != null) {
-              announcementController.selectedSchool.value = userSchool;
-            }
+          // Auto-select school for ALL users based on their schoolId
+          final school = userSchoolId != null
+              ? announcementController.schools.firstWhereOrNull((s) => s.id == userSchoolId)
+              : announcementController.schools.isNotEmpty ? announcementController.schools.first : null;
+          if (school != null) {
+            announcementController.selectedSchool.value = school;
           }
         });
       });
@@ -111,15 +109,8 @@ class CommunicationsView extends GetView<CommunicationsController> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              Container(
-                margin: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
-                child: Obx(() => announcementController.schools.isNotEmpty
-                    ? _buildSchoolSelector(context, announcementController)
-                    : _buildLoadingCard(context)),
-              ),
-              
               SizedBox(
-                height: MediaQuery.of(context).size.height - 200,
+                height: MediaQuery.of(context).size.height - 120,
                 child: Obx(() {
                   final selectedSchool = announcementController.selectedSchool.value;
                   if (selectedSchool == null) {

@@ -198,11 +198,7 @@ class _FeeCollectionTab extends StatelessWidget {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // School Selection
-                _buildSchoolSelector(context, isTablet),
-                
-                const SizedBox(height: 16),
-                
+                // Auto-select school — no selector card needed
                 // Collapsible Student Selection
                 _buildCollapsibleStudentSelector(context, isTablet, isLandscape),
                 
@@ -312,163 +308,20 @@ class _FeeCollectionTab extends StatelessWidget {
   }
 
   Widget _buildSchoolSelector(BuildContext context, bool isTablet) {
-    final userRole = _authController.user.value?.role?.toLowerCase() ?? '';
-    final isCorrespondent = userRole == 'correspondent';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 20 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Select School',
-                  style: TextStyle(
-                    fontSize: isTablet ? 18 : 16,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF2563EB),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Obx(() {
-              if (isCorrespondent) {
-                return Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.3)),
-                    gradient: LinearGradient(
-                      colors: [Colors.white, Colors.blue.shade50],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: DropdownButtonFormField<School>(
-                    decoration: InputDecoration(
-                      hintText: 'Choose School',
-                      hintStyle: TextStyle(color: Colors.grey.shade600),
-                      prefixIcon: Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                    dropdownColor: Colors.white,
-                    menuMaxHeight: 300,
-                    borderRadius: BorderRadius.circular(12),
-                    icon: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      child: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF2563EB)),
-                    ),
-                    style: TextStyle(
-                      color: Colors.grey.shade800,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    value: selectedSchool.value,
-                    selectedItemBuilder: (context) {
-                      return schoolController.schools.map((school) {
-                        return Text(
-                          school.name,
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        );
-                      }).toList();
-                    },
-                    items: schoolController.schools.map((school) {
-                      return DropdownMenuItem<School>(
-                        value: school,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2563EB).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 16),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Text(
-                                  school.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (school) {
-                      selectedSchool.value = school;
-                      controller.selectedStudent.value = null;
-                      showPaymentDetails.value = false;
-                      showReceipts.value = false;
-                      isStudentSelectorCollapsed.value = false;
-                      if (school != null) {
-                        _loadStudentsForSchool(school.id);
-                      }
-                    },
-                  ),
-                );
-              } else {
-                // Readonly for non-correspondent: auto-select silently
-                final userSchoolId = _authController.user.value?.schoolId;
-                final userSchool = schoolController.schools.firstWhereOrNull(
-                  (school) => school.id == userSchoolId,
-                );
-                if (userSchool != null && selectedSchool.value == null) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    selectedSchool.value = userSchool;
-                    _loadStudentsForSchool(userSchool.id);
-                  });
-                }
-                return const SizedBox.shrink();
-              }
-            }),
-          ],
-        ),
-      ),
-    );
+    // Auto-select school from auth for all users — no UI shown
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userSchoolId = _authController.user.value?.schoolId;
+      if (userSchoolId != null && selectedSchool.value == null) {
+        final userSchool = schoolController.schools.firstWhereOrNull(
+          (school) => school.id == userSchoolId,
+        );
+        if (userSchool != null) {
+          selectedSchool.value = userSchool;
+          _loadStudentsForSchool(userSchool.id);
+        }
+      }
+    });
+    return const SizedBox.shrink();
   }
 
   Widget _buildCollapsibleStudentSelector(BuildContext context, bool isTablet, bool isLandscape) {

@@ -139,8 +139,6 @@ class ExpensesView extends GetView<AccountingController> {
               padding: EdgeInsets.all(isTablet ? 14 : 12),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSchoolSelection(isTablet),
-                  const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
                 ]),
               ),
@@ -330,8 +328,24 @@ class ExpensesView extends GetView<AccountingController> {
 
     Widget _buildContentArea(BuildContext context, bool isTablet) {
     return Obx(() {
+      // Auto-select school from auth
       if (selectedSchool.value == null) {
-        return _buildEmptyStateWidget(context, isTablet, 'Please select a school', Icons.school);
+        final authController = Get.find<AuthController>();
+        final userSchoolId = authController.user.value?.schoolId;
+        if (userSchoolId != null && schoolController.schools.isNotEmpty) {
+          final userSchool = schoolController.schools.firstWhereOrNull(
+            (school) => school.id == userSchoolId,
+          );
+          if (userSchool != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              selectedSchool.value = userSchool;
+              if (Get.isRegistered<SubscriptionController>()) {
+                Get.find<SubscriptionController>().loadSubscription(userSchool.id);
+              }
+            });
+          }
+        }
+        return const Center(child: CircularProgressIndicator());
       }
       
       final subscriptionController = Get.isRegistered<SubscriptionController>() 

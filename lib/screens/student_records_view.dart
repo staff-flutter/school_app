@@ -98,8 +98,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               padding: EdgeInsets.all(isTablet ? 24 : 16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSchoolSelectionCard(context, isTablet),
-                  const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
                 ]),
               ),
@@ -375,8 +373,21 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
 
   Widget _buildContentArea(BuildContext context, bool isTablet) {
     return Obx(() {
+      // Auto-initialize school from auth if not set
       if (selectedSchool.value == null) {
-        return _buildEmptyState(context, isTablet, 'Please select a school', Icons.school);
+        final userSchoolId = authController.user.value?.schoolId;
+        if (userSchoolId != null && schoolController.schools.isNotEmpty) {
+          final userSchool = schoolController.schools.firstWhereOrNull(
+            (s) => s.id == userSchoolId,
+          );
+          if (userSchool != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              selectedSchool.value = userSchool;
+              schoolController.getAllClasses(userSchool.id);
+            });
+          }
+        }
+        return const Center(child: CircularProgressIndicator());
       }
 
       final subscriptionController = Get.isRegistered<SubscriptionController>()

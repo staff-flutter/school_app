@@ -189,15 +189,6 @@ class SchoolManagementView extends GetView<SchoolController> {
           'icon': Icons.assignment_ind,
           'builder': _buildTeacherAssignmentTab
         },
-      if (ApiPermissions.hasApiAccess(
-              currentUserRole, 'POST /api/feestructure/set') ||
-          ApiPermissions.hasApiAccess(
-              currentUserRole, 'GET /api/feestructure/getbyclass'))
-        {
-          'title': 'Fees',
-          'icon': Icons.payment,
-          'builder': _buildFeeStructureTab
-        },
       if (ApiPermissions
               .hasApiAccess(currentUserRole, 'GET /api/attendance/sheet') ||
           ApiPermissions.hasApiAccess(
@@ -634,89 +625,59 @@ class SchoolManagementView extends GetView<SchoolController> {
       length: canSetFeeStructure ? 2 : 1,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
+        body: Column(
+          children: [
+            // Compact header
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.payment, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Fee Structure',
+                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (canSetFeeStructure)
               Container(
-                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: [Colors.blue[700]!, Colors.blue[500]!]),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+                  ],
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.payment, color: Colors.white, size: 22),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Fee Structure Management',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold),
-                    ),
+                child: TabBar(
+                  indicator: BoxDecoration(
+                    gradient: LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: AppTheme.mutedText,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  tabs: const [
+                    Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add, size: 16), SizedBox(width: 4), Text('Set Fee')])),
+                    Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.list, size: 16), SizedBox(width: 4), Text('All Fees')])),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              if (canSetFeeStructure)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TabBar(
-                    indicator: BoxDecoration(
-                      gradient: LinearGradient(
-                          colors: [Colors.blue[700]!, Colors.blue[500]!]),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: AppTheme.mutedText,
-                    labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13),
-                    tabs: const [
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add, size: 18),
-                            SizedBox(width: 6),
-                            Text('Set Fee'),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.list, size: 18),
-                            SizedBox(width: 6),
-                            Text('All Fees'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 500,
-                child: canSetFeeStructure
-                    ? TabBarView(
-                        children: [_FeeStructureTab(), AllFeeStructuresTab()])
-                    : AllFeeStructuresTab(),
-              ),
-            ],
-          ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: canSetFeeStructure
+                  ? TabBarView(children: [_FeeStructureTab(), AllFeeStructuresTab()])
+                  : AllFeeStructuresTab(),
+            ),
+          ],
         ),
       ),
     );
@@ -997,11 +958,10 @@ class SchoolManagementView extends GetView<SchoolController> {
     final authController = Get.find<AuthController>();
     final currentUserRole =
         authController.user.value?.role?.toLowerCase() ?? '';
-    final isCorrespondent = currentUserRole == 'correspondent';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.schools.isEmpty) {
-        controller.getAllSchools();
+        controller.getAllSchools().then((_) => _initializeSchoolForUser());
       }
       if (controller.selectedSchool.value != null) {
         controller.getAllClasses(controller.selectedSchool.value!.id);
@@ -1012,164 +972,25 @@ class SchoolManagementView extends GetView<SchoolController> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // School Selector
-          _compactCard(
-            child: Obx(() {
-              if (controller.schools.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final selectedSchool =
-                  controller.schools.contains(controller.selectedSchool.value)
-                      ? controller.selectedSchool.value
-                      : null;
-
-              if (isCorrespondent) {
-                return DropdownButtonFormField<School>(
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    hintText: 'Choose School',
-                    hintStyle: TextStyle(color: Colors.grey.shade600),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[700]!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child:
-                          Icon(Icons.school, color: Colors.blue[700], size: 20),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 16),
-                  ),
-                  dropdownColor: Colors.white,
-                  menuMaxHeight: 300,
-                  borderRadius: BorderRadius.circular(12),
-                  icon: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    child: Icon(Icons.keyboard_arrow_down,
-                        color: Colors.blue[700]),
-                  ),
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  value: selectedSchool,
-                  selectedItemBuilder: (context) {
-                    return controller.schools.map((school) {
-                      return Text(
-                        school.name,
-                        style: TextStyle(
-                          color: Colors.grey.shade800,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      );
-                    }).toList();
-                  },
-                  items: controller.schools.map((school) {
-                    return DropdownMenuItem<School>(
-                      value: school,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[700]!.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Icon(Icons.school,
-                                  color: Colors.blue[700], size: 16),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                school.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (School? school) {
-                    controller.selectedSchool.value = school;
-                    if (school != null) {
-                      controller.getAllClasses(school.id);
-                    } else {
-                      controller.classes.clear();
-                    }
-                  },
-                );
-              } else {
-                if (controller.selectedSchool.value != null &&
-                    controller.classes.isEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    controller
-                        .getAllClasses(controller.selectedSchool.value!.id);
-                  });
-                }
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[700]!.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.school,
-                            color: Colors.blue[700], size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          controller.selectedSchool.value?.name ?? 'Loading...',
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            }),
-          ),
           // Add Class Button
           if (ApiPermissions.hasApiAccess(
               currentUserRole, 'POST /api/class/create'))
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _showCreateClassDialog,
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Class'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[700],
+                  backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
             ),
@@ -1296,15 +1117,13 @@ class SchoolManagementView extends GetView<SchoolController> {
     final authController = Get.find<AuthController>();
     final currentUserRole =
         authController.user.value?.role?.toLowerCase() ?? '';
-    final isCorrespondent = currentUserRole == 'correspondent';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.schools.isEmpty) {
-        controller.getAllSchools();
+        controller.getAllSchools().then((_) => _initializeSchoolForUser());
       }
       if (controller.selectedSchool.value != null) {
-        controller.getAllSections(
-            schoolId: controller.selectedSchool.value!.id);
+        controller.getAllSections(schoolId: controller.selectedSchool.value!.id);
       }
     });
 
@@ -1312,151 +1131,25 @@ class SchoolManagementView extends GetView<SchoolController> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // School selector
-          _compactCard(
-            child: Obx(() {
-              if (controller.schools.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (isCorrespondent) {
-                return DropdownButtonFormField<School>(
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    hintText: 'Choose School',
-                    hintStyle: TextStyle(color: Colors.grey.shade600),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[700]!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child:
-                          Icon(Icons.school, color: Colors.blue[700], size: 20),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 16),
-                  ),
-                  dropdownColor: Colors.white,
-                  menuMaxHeight: 300,
-                  borderRadius: BorderRadius.circular(12),
-                  icon: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    child: Icon(Icons.keyboard_arrow_down,
-                        color: Colors.blue[700]),
-                  ),
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  value: controller.selectedSchool.value,
-                  selectedItemBuilder: (context) {
-                    return controller.schools.map((school) {
-                      return Text(
-                        school.name,
-                        style: TextStyle(
-                          color: Colors.grey.shade800,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      );
-                    }).toList();
-                  },
-                  items: controller.schools.isEmpty
-                      ? []
-                      : controller.schools
-                          .map<DropdownMenuItem<School>>((school) {
-                          return DropdownMenuItem<School>(
-                            value: school,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue[700]!.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Icon(Icons.school,
-                                        color: Colors.blue[700], size: 16),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    school.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w500),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                  onChanged: (School? school) {
-                    controller.selectedSchool.value = school;
-                    if (school != null) {
-                      controller.getAllSections(schoolId: school.id);
-                    }
-                  },
-                );
-              } else {
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[700]!.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.school,
-                            color: Colors.blue[700], size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          controller.selectedSchool.value?.name ?? 'Loading...',
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            }),
-          ),
           // Add Section Button
           if (ApiPermissions.hasApiAccess(
               currentUserRole, 'POST /api/section/create'))
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () => _showCreateSectionDialog(),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Section'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[700],
+                  backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
             ),
@@ -1648,19 +1341,21 @@ class SchoolManagementView extends GetView<SchoolController> {
           if (ApiPermissions.hasApiAccess(
               currentUserRole, 'POST /api/student/create'))
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () => _showCreateStudentDialog(),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.person_add_rounded, size: 18),
                 label: const Text('Add Student'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[700],
+                  backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
             ),
@@ -1702,14 +1397,17 @@ class SchoolManagementView extends GetView<SchoolController> {
                             }
                           }
                         },
-                        icon: const Icon(Icons.group_add, size: 18),
-                        label: Text('Add ${students.length} students to clubs'),
+                        icon: const Icon(Icons.group_add, size: 16),
+                        label: Text('Bulk Club (${students.length})'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[700],
+                          backgroundColor: const Color(0xFF2563EB),
                           foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+                          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                         ),
                       ),
                     )
@@ -1917,31 +1615,27 @@ class SchoolManagementView extends GetView<SchoolController> {
   Widget _buildCompactStudentFilters(Rxn<SchoolClass> selectedClass,
       Rxn<Section> selectedSection, RxBool isFiltersExpanded) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
-          Icon(Icons.school, color: Colors.blue[700], size: 18),
+          Icon(Icons.filter_list, color: Colors.blue[700], size: 16),
           const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              controller.selectedSchool.value?.name ?? '',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
           if (selectedClass.value != null) ...[
-            const SizedBox(width: 12),
-            Icon(Icons.class_, color: Colors.blue[700], size: 18),
-            const SizedBox(width: 6),
+            Icon(Icons.class_, color: Colors.blue[700], size: 15),
+            const SizedBox(width: 4),
             Text(
               selectedClass.value!.name,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
             ),
-          ],
+          ] else
+            Text(
+              'All Classes',
+              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: Colors.grey.shade600),
+            ),
           if (selectedSection.value != null) ...[
-            const SizedBox(width: 12),
-            Icon(Icons.group, color: Colors.blue[700], size: 18),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
+            Icon(Icons.group, color: Colors.blue[700], size: 15),
+            const SizedBox(width: 4),
             Text(
               selectedSection.value!.name,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
@@ -1952,6 +1646,8 @@ class SchoolManagementView extends GetView<SchoolController> {
             onPressed: () => isFiltersExpanded.value = true,
             icon: const Icon(Icons.expand_more, size: 18),
             tooltip: 'Expand Filters',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),
@@ -2201,19 +1897,18 @@ class SchoolManagementView extends GetView<SchoolController> {
   Widget _buildFullStudentFilters(Rxn<SchoolClass> selectedClass,
       Rxn<Section> selectedSection, RxBool isFiltersExpanded) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          // Header with collapse button
           Row(
             children: [
-              Icon(Icons.filter_list, color: Colors.blue[700], size: 20),
-              const SizedBox(width: 8),
+              Icon(Icons.filter_list, color: Colors.blue[700], size: 18),
+              const SizedBox(width: 6),
               Text(
-                'Filters',
+                'Filter Students',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                   color: Colors.blue[700],
                 ),
               ),
@@ -2221,148 +1916,16 @@ class SchoolManagementView extends GetView<SchoolController> {
               if (controller.selectedSchool.value != null)
                 IconButton(
                   onPressed: () => isFiltersExpanded.value = false,
-                  icon: const Icon(Icons.expand_less, size: 20),
-                  tooltip: 'Collapse Filters',
+                  icon: const Icon(Icons.expand_less, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Collapse',
                 ),
             ],
           ),
-          const SizedBox(height: 16),
-          // School Dropdown
-          Obx(() {
-            final authController = Get.find<AuthController>();
-            final currentUserRole =
-                authController.user.value?.role?.toLowerCase() ?? '';
-            final isCorrespondent = currentUserRole == 'correspondent';
-            if (isCorrespondent) {
-              return DropdownButtonFormField<School>(
-                isExpanded: true,
-                decoration: InputDecoration(
-                  hintText: 'Choose School',
-                  hintStyle: TextStyle(color: Colors.grey.shade600),
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[700]!.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child:
-                        Icon(Icons.school, color: Colors.blue[700], size: 20),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
-                dropdownColor: Colors.white,
-                menuMaxHeight: 300,
-                borderRadius: BorderRadius.circular(12),
-                icon: Container(
-                  margin: const EdgeInsets.only(right: 12),
-                  child:
-                      Icon(Icons.keyboard_arrow_down, color: Colors.blue[700]),
-                ),
-                style: TextStyle(
-                  color: Colors.grey.shade800,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                value: controller.selectedSchool.value,
-                selectedItemBuilder: (context) {
-                  return controller.schools.map((school) {
-                    return Text(
-                      school.name,
-                      style: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  }).toList();
-                },
-                items: controller.schools.map((school) {
-                  return DropdownMenuItem<School>(
-                    value: school,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[700]!.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(Icons.school,
-                                color: Colors.blue[700], size: 16),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              school.name,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w500),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (School? school) {
-                  controller.selectedSchool.value = school;
-                  selectedClass.value = null;
-                  selectedSection.value = null;
-                  if (school != null) {
-                    controller.getAllClasses(school.id);
-                  }
-                },
-              );
-            } else {
-              if (controller.selectedSchool.value != null &&
-                  controller.sections.isEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  controller.getAllSections(
-                      schoolId: controller.selectedSchool.value!.id);
-                });
-              }
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[700]!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child:
-                          Icon(Icons.school, color: Colors.blue[700], size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        controller.selectedSchool.value?.name ?? 'Loading...',
-                        style: TextStyle(
-                          color: Colors.grey.shade800,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-          }),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // School auto-loaded — no dropdown needed
+          // School is auto-selected — no school dropdown needed
           // Class Dropdown
           Obx(() {
             final sortedClasses = ClassUtils.sortClasses(controller.classes);
@@ -2625,284 +2188,103 @@ class SchoolManagementView extends GetView<SchoolController> {
     final authController = Get.find<AuthController>();
     final currentUserRole =
         authController.user.value?.role?.toLowerCase() ?? '';
-    final isReadOnly = !['correspondent'].contains(currentUserRole);
+
+    // Auto-load users when tab opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final schoolId = controller.selectedSchool.value?.id ??
+          authController.user.value?.schoolId;
+      if (schoolId != null && userController.users.isEmpty) {
+        userController.loadUsers(
+          schoolId: schoolId,
+          role: userController.selectedRole.value,
+        );
+      }
+    });
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // School selector
-          _compactCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                if (isReadOnly)
-                  Obx(() {
-                    final userSchoolId = authController.user.value?.schoolId;
-                    final userSchool = controller.schools.firstWhereOrNull(
-                      (school) => school.id == userSchoolId,
-                    );
-                    final schoolName = controller.selectedSchool.value?.name ??
-                        userSchool?.name ??
-                        'Loading...';
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.blue[700]!.withOpacity(0.05),
-                            Colors.blue[700]!.withOpacity(0.02)
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: Colors.blue[700]!.withOpacity(0.2),
-                            width: 1.5),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: [
-                                Colors.blue[700]!,
-                                Colors.blue[500]!
-                              ]),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.business,
-                                color: Colors.white, size: 16),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              schoolName,
-                              style: TextStyle(
-                                color: AppTheme.primaryText,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  })
-                else
-                  Obx(() => DropdownButtonFormField<School>(
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          hintText: 'Choose School',
-                          hintStyle: TextStyle(color: Colors.grey.shade600),
-                          prefixIcon: Container(
-                            margin: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[700]!.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(Icons.school,
-                                color: Colors.blue[700], size: 20),
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 16),
-                        ),
-                        dropdownColor: Colors.white,
-                        menuMaxHeight: 300,
-                        borderRadius: BorderRadius.circular(12),
-                        icon: Container(
-                          margin: const EdgeInsets.only(right: 12),
-                          child: Icon(Icons.keyboard_arrow_down,
-                              color: Colors.blue[700]),
-                        ),
-                        style: TextStyle(
-                          color: Colors.grey.shade800,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        value: controller.selectedSchool.value,
-                        selectedItemBuilder: (context) {
-                          return controller.schools.map((school) {
-                            return Text(
-                              school.name,
-                              style: TextStyle(
-                                color: Colors.grey.shade800,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            );
-                          }).toList();
-                        },
-                        items: controller.schools
-                            .map((school) => DropdownMenuItem<School>(
-                                  value: school,
-                                  child: Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 8),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue[700]!
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: Icon(Icons.school,
-                                              color: Colors.blue[700],
-                                              size: 16),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          school.name,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w500),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: (school) {
-                          controller.selectedSchool.value = school;
-                          if (school != null) {
-                            userController.loadUsers(
-                              schoolId: school.id,
-                              role: userController.selectedRole.value,
-                            );
-                          }
-                        },
-                      )),
-              ],
-            ),
-          ),
-          // Role filter
+          // Role filter only — school is auto-detected
           Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
+                  blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              decoration: InputDecoration(
-                hintText: 'Filter by Role',
-                hintStyle: TextStyle(color: Colors.grey.shade600),
-                prefixIcon: Container(
-                  margin: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.blue[700]!.withOpacity(0.1),
+                    color: const Color(0xFF2563EB).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.filter_list,
-                      color: Colors.blue[700], size: 20),
+                  child: const Icon(Icons.filter_list, color: Color(0xFF2563EB), size: 16),
                 ),
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              ),
-              dropdownColor: Colors.white,
-              menuMaxHeight: 300,
-              borderRadius: BorderRadius.circular(12),
-              icon: Container(
-                margin: const EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, color: Colors.blue[700]),
-              ),
-              style: TextStyle(
-                color: Colors.grey.shade800,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              value: userController.selectedRole.value,
-              selectedItemBuilder: (context) {
-                return const [
-                  'all',
-                  'correspondent',
-                  'teacher',
-                  'principal',
-                  'viceprincipal',
-                  'administrator',
-                  'accountant',
-                  'parent'
-                ].map((r) {
-                  return Text(
-                    r.toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.grey.shade800,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  );
-                }).toList();
-              },
-              items: const [
-                'all',
-                'correspondent',
-                'teacher',
-                'principal',
-                'viceprincipal',
-                'administrator',
-                'accountant',
-                'parent'
-              ].map((r) {
-                return DropdownMenuItem<String>(
-                  value: r,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[700]!.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(_getRoleIcon(r),
-                              color: Colors.blue[700], size: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Obx(() => DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          hintText: 'Filter by Role',
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          r.toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
+                        dropdownColor: Colors.white,
+                        menuMaxHeight: 300,
+                        borderRadius: BorderRadius.circular(12),
+                        icon: Icon(Icons.keyboard_arrow_down, color: Colors.blue[700], size: 18),
+                        style: TextStyle(
+                          color: Colors.grey.shade800,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-              onChanged: (role) {
-                if (role != null) {
-                  userController.selectedRole.value = role;
-                  final schoolId = controller.selectedSchool.value?.id ??
-                      authController.user.value?.schoolId;
-                  if (schoolId != null) {
-                    userController.loadUsers(
-                      schoolId: schoolId,
-                      role: role,
-                    );
-                  }
-                }
-              },
+                        value: userController.selectedRole.value,
+                        selectedItemBuilder: (context) {
+                          return const [
+                            'all', 'correspondent', 'teacher', 'principal',
+                            'viceprincipal', 'administrator', 'accountant', 'parent'
+                          ].map((r) => Text(r.toUpperCase(),
+                              style: TextStyle(color: Colors.grey.shade800, fontSize: 14, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis)).toList();
+                        },
+                        items: const [
+                          'all', 'correspondent', 'teacher', 'principal',
+                          'viceprincipal', 'administrator', 'accountant', 'parent'
+                        ].map((r) => DropdownMenuItem<String>(
+                              value: r,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_getRoleIcon(r), color: Colors.blue[700], size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(r.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                                ],
+                              ),
+                            )).toList(),
+                        onChanged: (role) {
+                          if (role != null) {
+                            userController.selectedRole.value = role;
+                            final schoolId = controller.selectedSchool.value?.id ??
+                                authController.user.value?.schoolId;
+                            if (schoolId != null) {
+                              userController.loadUsers(schoolId: schoolId, role: role);
+                            }
+                          }
+                        },
+                      )),
+                ),
+              ],
             ),
           ),
           // User list
@@ -3589,38 +2971,36 @@ class SchoolManagementView extends GetView<SchoolController> {
 
   void _showCreateUserDialog() {
     final authController = Get.find<AuthController>();
-    final currentUserRole =
-        authController.user.value?.role?.toLowerCase() ?? '';
-    final isCorrespondent = currentUserRole == 'correspondent';
     final emailController = TextEditingController();
     final userNameController = TextEditingController();
     final passwordController = TextEditingController();
     final phoneController = TextEditingController();
+
+    // Always use the current user's school code — no selection needed
     String? selectedSchoolCode;
-
-    controller.getAllSchools();
-
-    if (!isCorrespondent) {
-      controller.getAllSchools();
+    final userSchoolId = authController.user.value?.schoolId;
+    if (userSchoolId != null && controller.schools.isNotEmpty) {
+      final userSchool = controller.schools.firstWhereOrNull(
+        (school) => school.id == userSchoolId,
+      );
+      if (userSchool?.schoolCode != null) {
+        selectedSchoolCode = userSchool!.schoolCode;
+      }
     }
 
     Get.dialog(
       AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Create User'),
         content: StatefulBuilder(
           builder: (context, setState) {
-            if (!isCorrespondent &&
-                selectedSchoolCode == null &&
-                controller.schools.isNotEmpty) {
-              final userSchoolId = authController.user.value?.schoolId;
+            // Re-check school code if schools loaded asynchronously
+            if (selectedSchoolCode == null && controller.schools.isNotEmpty) {
               final userSchool = controller.schools.firstWhereOrNull(
                 (school) => school.id == userSchoolId,
               );
-              if (userSchool != null && userSchool.schoolCode != null) {
-                selectedSchoolCode = userSchool.schoolCode;
+              if (userSchool?.schoolCode != null) {
+                selectedSchoolCode = userSchool!.schoolCode;
               }
             }
             return SingleChildScrollView(
@@ -3631,9 +3011,7 @@ class SchoolManagementView extends GetView<SchoolController> {
                     controller: emailController,
                     decoration: InputDecoration(
                       labelText: 'Email',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -3641,9 +3019,7 @@ class SchoolManagementView extends GetView<SchoolController> {
                     controller: userNameController,
                     decoration: InputDecoration(
                       labelText: 'User Name',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -3652,9 +3028,7 @@ class SchoolManagementView extends GetView<SchoolController> {
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -3662,142 +3036,32 @@ class SchoolManagementView extends GetView<SchoolController> {
                     controller: phoneController,
                     decoration: InputDecoration(
                       labelText: 'Phone',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  if (isCorrespondent)
-                    DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      value: selectedSchoolCode,
-                      decoration: InputDecoration(
-                        hintText: 'Choose School',
-                        hintStyle: TextStyle(color: Colors.grey.shade600),
-                        prefixIcon: Icon(
-                          Icons.school,
-                          color: Colors.blue[700],
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.blue[700],
-                      ),
-                      dropdownColor: Colors.white,
-                      menuMaxHeight: 300,
-                      selectedItemBuilder: (context) {
-                        return controller.schools.map((school) {
-                          return Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              '${school.name} (${school.schoolCode})',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.grey.shade800,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList();
-                      },
-                      items: controller.schools.map((school) {
-                        return DropdownMenuItem<String>(
-                          value: school.schoolCode,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.school,
-                                size: 16,
-                                color: Colors.blue[700],
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '${school.name} (${school.schoolCode})',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() => selectedSchoolCode = value);
-                      },
-                    )
-                  else
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey.shade50,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.school,
-                            color: Colors.blue[700],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              controller.schools
-                                      .firstWhereOrNull(
-                                        (school) =>
-                                            school.schoolCode ==
-                                            selectedSchoolCode,
-                                      )
-                                      ?.name ??
-                                  'Loading...',
-                              style: TextStyle(
-                                color: Colors.grey.shade800,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // School is auto-locked — no dropdown shown
                 ],
               ),
             );
           },
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           Obx(
             () => ElevatedButton(
               onPressed: userController.isLoading.value
                   ? null
                   : () async {
+                      // Load schools if not yet loaded to get school code
                       if (selectedSchoolCode == null) {
-                        Get.snackbar(
-                          'Error',
-                          'Please select a school',
+                        await controller.getAllSchools();
+                        final userSchool = controller.schools.firstWhereOrNull(
+                          (school) => school.id == userSchoolId,
                         );
+                        selectedSchoolCode = userSchool?.schoolCode;
+                      }
+                      if (selectedSchoolCode == null) {
+                        Get.snackbar('Error', 'Could not determine school');
                         return;
                       }
                       await userController.createUser(
@@ -3811,14 +3075,11 @@ class SchoolManagementView extends GetView<SchoolController> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue[700],
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: userController.isLoading.value
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Create'),
@@ -4949,56 +4210,18 @@ class _AttendanceTabState extends State<_AttendanceTab> {
 
   Widget _buildHeader(bool isTablet) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.blue, Colors.blue],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        gradient: LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.how_to_reg,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Attendance Management',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isTablet ? 24 : 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Track and manage student attendance',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: isTablet ? 16 : 14,
-                  ),
-                ),
-              ],
-            ),
+          const Icon(Icons.how_to_reg, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          const Text(
+            'Attendance Management',
+            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -5130,35 +4353,23 @@ class _AttendanceTabState extends State<_AttendanceTab> {
 
   Widget _buildCompactAttendanceSelectors() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
-          Icon(Icons.school, color: Colors.blue.shade600, size: 18),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              schoolController.selectedSchool.value?.name ?? '',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(Icons.class_, color: Colors.blue.shade600, size: 18),
+          Icon(Icons.class_, color: Colors.blue.shade600, size: 16),
           const SizedBox(width: 6),
           Text(
-            selectedClass?.name ?? '',
+            selectedClass?.name ?? 'All Classes',
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           ),
           const Spacer(),
           IconButton(
             onPressed: () {
-              if (mounted) {
-                setState(() {
-                  _isFiltersExpanded = true;
-                });
-              }
+              if (mounted) setState(() { _isFiltersExpanded = true; });
             },
             icon: const Icon(Icons.expand_more, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
             tooltip: 'Expand Filters',
           ),
         ],
@@ -5203,15 +4414,11 @@ class _AttendanceTabState extends State<_AttendanceTab> {
           isLandscape && isTablet
               ? Row(
                   children: [
-                    Expanded(child: _buildSchoolSelector()),
-                    const SizedBox(width: 16),
                     Expanded(child: _buildClassSelector()),
                   ],
                 )
               : Column(
                   children: [
-                    _buildSchoolSelector(),
-                    const SizedBox(height: 12),
                     _buildClassSelector(),
                   ],
                 ),
@@ -6068,56 +5275,18 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Colors.blue, Colors.blue],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    gradient: const LinearGradient(colors: [Colors.blue, Colors.blue]),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.payment,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Fee Structure Management',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: isTablet ? 24 : 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Configure fees for different classes',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: isTablet ? 16 : 14,
-                              ),
-                            ),
-                          ],
-                        ),
+                      Icon(Icons.payment, color: Colors.white, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        'Set Fee Structure',
+                        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -6400,11 +5569,10 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
     final isTablet = screenSize.width > 600;
     final isLandscape = screenSize.width > screenSize.height;
     return Obx(() {
-      final hasSelections = schoolController.selectedSchool.value != null &&
-          selectedClass.value != null;
+      final hasSelections = selectedClass.value != null;
       return AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        height: hasSelections ? 60 : null,
+        height: hasSelections ? 50 : null,
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -6427,36 +5595,27 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
 
   Widget _buildCompactSelectors() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
-          Icon(Icons.school, color: Colors.blue[700], size: 20),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              schoolController.selectedSchool.value?.name ?? '',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Icon(Icons.class_, color: Colors.blue[700], size: 20),
+          Icon(Icons.class_, color: Colors.blue[700], size: 18),
           const SizedBox(width: 8),
           Text(
-            selectedClass.value?.name ?? '',
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            selectedClass.value?.name ?? 'Class',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           const Spacer(),
           IconButton(
             onPressed: () {
               setState(() {
-                schoolController.selectedSchool.value = null;
                 selectedClass.value = null;
                 _clearForm();
               });
             },
-            icon: const Icon(Icons.edit, size: 20),
-            tooltip: 'Change Selection',
+            icon: const Icon(Icons.edit, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Change Class',
           ),
         ],
       ),
@@ -6466,21 +5625,7 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
   Widget _buildFullSelectors(bool isLandscape, bool isTablet) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: isLandscape && isTablet
-          ? Row(
-              children: [
-                Expanded(child: _buildSchoolDropdown()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildClassDropdown()),
-              ],
-            )
-          : Column(
-              children: [
-                _buildSchoolDropdown(),
-                const SizedBox(height: 16),
-                _buildClassDropdown(),
-              ],
-            ),
+      child: _buildClassDropdown(),
     );
   }
 

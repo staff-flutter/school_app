@@ -359,52 +359,22 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header Section
+            // Compact Header
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                gradient:  LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                gradient: LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.assignment_ind, color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Teacher Assignments',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Assign classes and sections to teachers',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                  const Icon(Icons.assignment_ind, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Teacher Assignments',
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -413,14 +383,14 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
 
             // Teacher Selection Card
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: _compactCard(child: _buildTeacherDropdown()),
             ),
 
-            // Current Assignments Card
+            // Current Assignments Card (compact, only shown when teacher selected)
             if (selectedTeacherId != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: _compactCard(child: _buildCurrentAssignments()),
               ),
 
@@ -582,14 +552,12 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
   Widget _buildCurrentAssignments() {
     return Obx(() {
       if (selectedAssignments.isEmpty) {
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'No assignments yet. Select classes/sections below.',
-              style: TextStyle(color: AppTheme.mutedText, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'No assignments yet — select classes below.',
+            style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
+            textAlign: TextAlign.center,
           ),
         );
       }
@@ -599,62 +567,41 @@ class _TeacherAssignmentViewState extends State<TeacherAssignmentView> {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.check_circle, color: Colors.green, size: 18),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Current Assignments',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primaryText),
+              const Icon(Icons.check_circle, color: Colors.green, size: 15),
+              const SizedBox(width: 6),
+              Text(
+                'Assigned (${selectedAssignments.length})',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryText),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: selectedAssignments.map((a) {
-                final className = _getClassName(a['classId']);
-                final sectionName = a['sectionId'] != null ? _getSectionName(a['sectionId']) : 'All Sections';
-                final isAll = a['sectionId'] == null;
-
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isAll ? Colors.blue[700]!.withOpacity(0.12) : Colors.green.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isAll ? Colors.blue[700]!.withOpacity(0.3) : Colors.green.withOpacity(0.3),
-                    ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: selectedAssignments.map((a) {
+              final className = _getClassName(a['classId']);
+              final sectionName = a['sectionId'] != null ? _getSectionName(a['sectionId']) : 'All';
+              final isAll = a['sectionId'] == null;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isAll ? Colors.blue[700]!.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isAll ? Colors.blue[700]!.withOpacity(0.3) : Colors.green.withOpacity(0.3),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isAll ? Icons.school : Icons.layers,
-                        size: 14,
-                        color: isAll ? Colors.blue[700] : Colors.green,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$className - $sectionName',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isAll ? Colors.blue[700] : Colors.green,
-                        ),
-                      ),
-                    ],
+                ),
+                child: Text(
+                  '$className · $sectionName',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isAll ? Colors.blue[700] : Colors.green[700],
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       );
