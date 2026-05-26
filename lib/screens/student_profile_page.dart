@@ -433,7 +433,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Text(
                           '$studentName Profile',
                           style: const TextStyle(
-                            fontSize: 22,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -659,11 +659,11 @@ class _ProfilePageState extends State<ProfilePage> {
           collapsedBackgroundColor: Colors.transparent,
           leading: CircleAvatar(
             backgroundColor: Colors.white,
-            child: Icon(icon, color: const Color(0xFF4F6DB8)),
+            child: Icon(icon, color: const Color(0xFF4F6DB8),size: 15,),
           ),
           title: Text(
             title,
-            style: const TextStyle(color: Colors.black, fontSize: 18),
+            style: const TextStyle(color: Colors.black, fontSize: 13),
           ),
           iconColor: Colors.black,
           collapsedIconColor: Colors.black,

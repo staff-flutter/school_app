@@ -15,11 +15,59 @@ import 'package:school_app/controllers/fee_structure_controller.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/services/api_service.dart';
+class FeeCollectionSchoolController extends GetxController {
+  final selectedSchool = Rxn<School>();
 
-class FeeCollectionTabbedView extends StatelessWidget {
+  void setSchool(School school) {
+    selectedSchool.value = school;
+  }
+}
+
+class FeeCollectionTabbedView extends StatefulWidget {
   FeeCollectionTabbedView({super.key});
 
+  @override
+  State<FeeCollectionTabbedView> createState() => _FeeCollectionTabbedViewState();
+
+}
+class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
   final AuthController _authController = Get.find();
+  Worker? _schoolWatcher;
+  late FeeCollectionSchoolController feeSchoolController;
+  @override
+  void initState() {
+    super.initState();
+
+    // Register shared controller
+    feeSchoolController = Get.put(FeeCollectionSchoolController());
+
+    try {
+      final schoolController = Get.find<SchoolController>();
+      final userRole = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+
+      // Trigger immediately
+      final current = schoolController.selectedSchool.value;
+      if (current != null && userRole == 'correspondent') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          feeSchoolController.setSchool(current);
+        });
+      }
+
+      // Watch future changes
+      _schoolWatcher = ever(schoolController.selectedSchool, (school) {
+        if (school != null && userRole == 'correspondent') {
+          feeSchoolController.setSchool(school);
+        }
+      });
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _schoolWatcher?.dispose();
+    Get.delete<FeeCollectionSchoolController>();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +195,24 @@ class FeeCollectionTabbedView extends StatelessWidget {
   }
 }
 
-class _FeeCollectionTab extends StatelessWidget {
+class _FeeCollectionTab extends StatefulWidget {
+
+  // _FeeCollectionTab() {
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     schoolController.getAllSchools();
+  //     // Note: Students will be loaded when school is selected
+  //     final sidebarSchool = _feeSchoolCtrl.selectedSchool.value;
+  //     if (sidebarSchool != null) {
+  //       _loadStudentsForSchool(sidebarSchool.id);
+  //     }
+  //   });
+  // }
+
+  @override
+  State<_FeeCollectionTab> createState() => _FeeCollectionTabState();
+}
+
+class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   final controller = Get.put(AccountingController());
   final schoolController = Get.put(SchoolController());
   final _amountController = TextEditingController();
@@ -163,20 +228,70 @@ class _FeeCollectionTab extends StatelessWidget {
   final _formKey = GlobalKey<FormState>();
   final AuthController _authController = Get.find();
   final _studentSearchController = TextEditingController();
-  final selectedSchool = Rxn<School>();
   final filteredStudents = <Map<String, dynamic>>[].obs;
   final showPaymentDetails = false.obs;
   final showReceipts = false.obs;
   final isStudentSelectorCollapsed = false.obs;
-  final selectedStudentType = 'old'.obs; // 'old' or 'new'
+  final selectedStudentType = 'old'.obs;
 
-  _FeeCollectionTab() {
+  Worker? _schoolWatcher;
+
+  FeeCollectionSchoolController get _feeSchoolCtrl =>
+      Get.find<FeeCollectionSchoolController>();
+
+  @override
+  void initState() {
+    super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       schoolController.getAllSchools();
-      // Note: Students will be loaded when school is selected
+
+      // Load students immediately if school already selected
+      final current = _feeSchoolCtrl.selectedSchool.value;
+      if (current != null) {
+        _loadStudentsForSchool(current.id);
+      } else {
+        // For non-correspondent: auto-load from user's schoolId
+        final userRole = _authController.user.value?.role?.toLowerCase() ?? '';
+        if (userRole != 'correspondent') {
+          final userSchoolId = _authController.user.value?.schoolId;
+          if (userSchoolId != null) {
+            _loadStudentsForSchool(userSchoolId);
+          }
+        }
+      }
+
+      // 👇 Watch for sidebar school changes and reload students
+      _schoolWatcher = ever(_feeSchoolCtrl.selectedSchool, (school) {
+        if (school != null) {
+          // Reset state when school changes
+          controller.selectedStudent.value = null;
+          showPaymentDetails.value = false;
+          showReceipts.value = false;
+          isStudentSelectorCollapsed.value = false;
+          filteredStudents.clear();
+          _studentSearchController.clear();
+
+          _loadStudentsForSchool(school.id);
+        }
+      });
     });
   }
 
+  @override
+  void dispose() {
+    _schoolWatcher?.dispose();
+    _amountController.dispose();
+    _chequeNumberController.dispose();
+    _bankNameController.dispose();
+    _chequeDateController.dispose();
+    _upiReferenceController.dispose();
+    _remarksController.dispose();
+    _referenceNumberController.dispose();
+    _busPointController.dispose();
+    _studentSearchController.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -199,9 +314,9 @@ class _FeeCollectionTab extends StatelessWidget {
             child: Column(
               children: [
                 // School Selection
-                _buildSchoolSelector(context, isTablet),
+              //  _buildSchoolSelector(context, isTablet),
 
-                const SizedBox(height: 16),
+               // const SizedBox(height: 16),
 
                 // Collapsible Student Selection
                 _buildCollapsibleStudentSelector(context, isTablet, isLandscape),
@@ -340,7 +455,7 @@ class _FeeCollectionTab extends StatelessWidget {
                     color: const Color(0xFF2563EB).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
+                  child: const Icon(Icons.school, color: Color(0xFF2563EB), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -377,7 +492,7 @@ class _FeeCollectionTab extends StatelessWidget {
                           color: const Color(0xFF2563EB).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
+                        child: const Icon(Icons.school, color: Color(0xFF2563EB), size: 20),
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -387,14 +502,14 @@ class _FeeCollectionTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     icon: Container(
                       margin: const EdgeInsets.only(right: 12),
-                      child: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF2563EB)),
+                      child: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF2563EB)),
                     ),
                     style: TextStyle(
                       color: Colors.grey.shade800,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
-                    value: selectedSchool.value,
+                    value: _feeSchoolCtrl.selectedSchool.value, // ✅ single .value
                     selectedItemBuilder: (BuildContext context) {
                       return schoolController.schools.map<Widget>((School school) {
                         return Text(
@@ -405,7 +520,7 @@ class _FeeCollectionTab extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis, // 3. Truncates long names with "..."
+                          overflow: TextOverflow.ellipsis,
                         );
                       }).toList();
                     },
@@ -421,15 +536,13 @@ class _FeeCollectionTab extends StatelessWidget {
                                 color: const Color(0xFF2563EB).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 16),
+                              child: const Icon(Icons.school, color: Color(0xFF2563EB), size: 16),
                             ),
                             const SizedBox(width: 12),
                             Flexible(
                               child: Text(
                                 school.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.w500),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -438,7 +551,7 @@ class _FeeCollectionTab extends StatelessWidget {
                       );
                     }).toList(),
                     onChanged: (school) {
-                      selectedSchool.value = school;
+                      _feeSchoolCtrl.selectedSchool.value = school; // ✅ single .value
                       controller.selectedStudent.value = null;
                       showPaymentDetails.value = false;
                       showReceipts.value = false;
@@ -450,14 +563,13 @@ class _FeeCollectionTab extends StatelessWidget {
                   ),
                 );
               } else {
-                // Readonly for non-correspondent: auto-select silently
                 final userSchoolId = _authController.user.value?.schoolId;
                 final userSchool = schoolController.schools.firstWhereOrNull(
-                  (school) => school.id == userSchoolId,
+                      (school) => school.id == userSchoolId,
                 );
-                if (userSchool != null && selectedSchool.value == null) {
+                if (userSchool != null && _feeSchoolCtrl.selectedSchool.value == null) { // ✅ single .value
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    selectedSchool.value = userSchool;
+                    _feeSchoolCtrl.selectedSchool.value = userSchool; // ✅ single .value
                     _loadStudentsForSchool(userSchool.id);
                   });
                 }
@@ -748,7 +860,7 @@ class _FeeCollectionTab extends StatelessWidget {
                 Text(
                   'Student Fee Record & Receipts',
                   style: TextStyle(
-                    fontSize: isTablet ? 18 : 16,
+                    fontSize: isTablet ? 18 : 12,
                     fontWeight: FontWeight.bold,
                     color: Colors.green.shade700,
                   ),
@@ -902,7 +1014,7 @@ class _FeeCollectionTab extends StatelessWidget {
                         Text(
                           'Bus Fee Applicable',
                           style: TextStyle(
-                            fontSize: isTablet ? 16 : 14,
+                            fontSize: isTablet ? 16 : 12,
                             fontWeight: FontWeight.w600,
                             color: Colors.grey.shade700,
                           ),
@@ -967,7 +1079,7 @@ class _FeeCollectionTab extends StatelessWidget {
                     child: Text(
                       'Manual Due Allocation',
                       style: TextStyle(
-                        fontSize: isTablet ? 16 : 14,
+                        fontSize: isTablet ? 16 : 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey.shade700,
                       ),
@@ -1628,14 +1740,14 @@ class _FeeCollectionTab extends StatelessWidget {
     String classId = '';
     String sectionId = '';
 
-    if (selectedSchool.value != null) {
+    if (_feeSchoolCtrl.selectedSchool.value != null) {
       final schoolController = Get.find<SchoolController>();
 
       if (schoolController.classes.isEmpty) {
-        schoolController.getAllClasses(selectedSchool.value!.id).then((_) {
+        schoolController.getAllClasses(_feeSchoolCtrl.selectedSchool.value!.id).then((_) {
           if (schoolController.classes.isNotEmpty) {
             classId = schoolController.classes.first.id;
-            schoolController.getAllSections(schoolId: selectedSchool.value!.id).then((_) {
+            schoolController.getAllSections(schoolId: _feeSchoolCtrl.selectedSchool.value!.id).then((_) {
               if (schoolController.sections.isNotEmpty) {
                 sectionId = schoolController.sections.first.id;
               }
@@ -1647,7 +1759,7 @@ class _FeeCollectionTab extends StatelessWidget {
       } else {
         classId = schoolController.classes.first.id;
         if (schoolController.sections.isEmpty) {
-          schoolController.getAllSections(schoolId: selectedSchool.value!.id).then((_) {
+          schoolController.getAllSections(schoolId: _feeSchoolCtrl.selectedSchool.value!.id).then((_) {
             if (schoolController.sections.isNotEmpty) {
               sectionId = schoolController.sections.first.id;
             }
@@ -1680,7 +1792,7 @@ class _FeeCollectionTab extends StatelessWidget {
     }
 
     final studentId = student['studentId'];
-    final schoolId = selectedSchool.value?.id;
+    final schoolId = _feeSchoolCtrl.selectedSchool.value?.id;
 
     if (studentId == null || schoolId == null) {
       Get.snackbar('Error', 'Student or School ID not found');
@@ -1705,7 +1817,7 @@ class _FeeCollectionTab extends StatelessWidget {
       final studentId = student['studentId']?.toString() ?? '';
       final classId = student['classId']?.toString() ?? '';
       final sectionId = student['sectionId']?.toString() ?? '';
-      final schoolId = selectedSchool.value?.id ?? '';
+      final schoolId = _feeSchoolCtrl.selectedSchool.value?.id ?? '';
 
       if (studentId.isEmpty || schoolId.isEmpty || classId.isEmpty || sectionId.isEmpty) {
         Get.snackbar('Error', 'Missing required information');
@@ -1778,15 +1890,42 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
 
   final oldFeeStructure = Rxn<Map<String, dynamic>>();
   final newFeeStructure = Rxn<Map<String, dynamic>>();
-
+  Worker? _schoolWatcher;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       schoolController.getAllSchools();
+      try {
+        final feeSchoolCtrl = Get.find<FeeCollectionSchoolController>();
+
+        final current = feeSchoolCtrl.selectedSchool.value;
+        if (current != null) {
+          selectedSchool.value = current;
+          selectedClass.value = null;
+          oldFeeStructure.value = null;
+          newFeeStructure.value = null;
+          schoolController.getAllClasses(current.id);
+          isSelectorsExpanded.value = true;
+        }
+        _schoolWatcher = ever(feeSchoolCtrl.selectedSchool, (school) {
+          if (school != null) {
+            selectedSchool.value = school;
+            selectedClass.value = null;
+            oldFeeStructure.value = null;
+            newFeeStructure.value = null;
+            schoolController.getAllClasses(school.id);
+            isSelectorsExpanded.value = true; // expand so user can pick class
+          }
+        });
+      } catch (_) {}
     });
   }
-
+  @override
+  void dispose() {
+    _schoolWatcher?.dispose(); // 👈 add this
+    super.dispose();
+  }
   Future<void> _loadFeeStructures() async {
     if (selectedSchool.value == null || selectedClass.value == null) return;
 
@@ -1899,29 +2038,22 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
                 color: const Color(0xFF2563EB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 18),
+              child: const Icon(Icons.class_, color: Color(0xFF2563EB), size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                selectedSchool.value != null && selectedClass.value != null
-                    ? '${selectedSchool.value!.name} - ${selectedClass.value!.name}'
-                    : 'Select School & Class',
+              child: Obx(() => Text(
+                selectedClass.value?.name ?? 'Select a class',
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
-              ),
+              )),
             ),
-            IconButton(
-              onPressed: () => isSelectorsExpanded.value = true,
-              icon: const Icon(Icons.edit, size: 18),
-              tooltip: 'Change Selection',
-            ),
+            const Icon(Icons.edit, size: 18, color: Colors.grey),
           ],
         ),
       ),
     );
   }
-
   Widget _buildExpandedSelectors(bool isTablet, bool isLandscape) {
     return Padding(
       padding: EdgeInsets.all(isTablet ? 20 : 16),
@@ -1936,46 +2068,30 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
                   color: const Color(0xFF2563EB).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.filter_list, color: const Color(0xFF2563EB), size: 20),
+                child: const Icon(Icons.class_, color: Color(0xFF2563EB), size: 20),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Select School & Class',
+              const Text(
+                'Select Class',
                 style: TextStyle(
-                  fontSize: isTablet ? 18 : 16,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2563EB),
+                  color: Color(0xFF2563EB),
                 ),
               ),
               const Spacer(),
               IconButton(
                 onPressed: () => isSelectorsExpanded.value = false,
                 icon: const Icon(Icons.expand_less, size: 20),
-                tooltip: 'Collapse',
               ),
             ],
           ),
           const SizedBox(height: 16),
-          isLandscape && isTablet
-              ? Row(
-                  children: [
-                    Expanded(child: _buildSchoolDropdown()),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildClassDropdown()),
-                  ],
-                )
-              : Column(
-                  children: [
-                    _buildSchoolDropdown(),
-                    const SizedBox(height: 12),
-                    _buildClassDropdown(),
-                  ],
-                ),
+          _buildClassDropdown(),
         ],
       ),
     );
   }
-
   Widget _buildSchoolDropdown() {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
@@ -2178,7 +2294,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: isTablet ? 18 : 16,
+                  fontSize: isTablet ? 18 : 10,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),

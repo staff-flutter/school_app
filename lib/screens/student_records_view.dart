@@ -98,7 +98,9 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               padding: EdgeInsets.all(isTablet ? 24 : 16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSchoolSelectionCard(context, isTablet),
+                  if(authController.user.value?.role?.toLowerCase()=='correspondent')
+
+                    _buildSchoolSelectionCard(context, isTablet),
                   const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
                 ]),
@@ -148,7 +150,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Student Records',
+                    'Student Record',
                     style: TextStyle(
                       color: Color(0xFF1A2A3A),
                       fontSize: 15,
@@ -191,7 +193,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
     final isReadOnly = userRole != 'correspondent';
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -204,6 +206,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
           ),
         ],
       ),
+
       child: Padding(
         padding: EdgeInsets.all(isTablet ? 24 : 20),
         child: Column(
@@ -217,13 +220,13 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                     gradient: AppTheme.successGradient,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 24),
+                  child: const Icon(Icons.school, color: Colors.white, size: 12),
                 ),
                 const SizedBox(width: 16),
                 Text(
                   isReadOnly ? 'Your School' : 'Select School',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 20 : 14,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryText,
                   ),
@@ -253,7 +256,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                         gradient: AppTheme.primaryGradient,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.business, color: Colors.white, size: 16),
+                      child: const Icon(Icons.business, color: Colors.white, size: 14),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -261,7 +264,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                         selectedSchool.value?.name ?? 'Loading...',
                         style: TextStyle(
                           color: AppTheme.primaryText,
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -430,12 +433,12 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     gradient: AppTheme.warningGradient,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.filter_list, color: Colors.white, size: 24),
+                  child: const Icon(Icons.filter_list, color: Colors.white, size: 15),
                 ),
                 const SizedBox(width: 16),
                 Text(
@@ -480,7 +483,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                                 gradient: AppTheme.primaryGradient,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.class_, color: Colors.white, size: 16),
+                              child: const Icon(Icons.class_, color: Colors.white, size: 14),
                             ),
                             SizedBox(
                               width: 16,
@@ -505,16 +508,16 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                         decoration: InputDecoration(
                           labelText: 'Select Class',
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                          labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
+                          contentPadding: const EdgeInsets.all(8),
+                          labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                           prefixIcon: Container(
-                            margin: const EdgeInsets.only(left: 12, right: 8),
-                            padding: const EdgeInsets.all(8),
+                            margin: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               gradient: AppTheme.primaryGradient,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.class_, color: Colors.white, size: 16),
+                            child: const Icon(Icons.class_, color: Colors.white, size: 14),
                           ),
                         ),
                         value: schoolController.classes.contains(selectedClass.value)
@@ -537,6 +540,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                                 Text(
                                   cls.name,
                                   style: TextStyle(
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: AppTheme.primaryText,
                                   ),
@@ -581,16 +585,16 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                         ? 'No sections found'
                         : 'Select Section',
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
+                    contentPadding: const EdgeInsets.all(8),
+                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                     prefixIcon: Container(
-                      margin: const EdgeInsets.only(left: 12, right: 8),
+                      margin: const EdgeInsets.all(8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         gradient: AppTheme.warningGradient,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.group, color: Colors.white, size: 16),
+                      child: const Icon(Icons.group, color: Colors.white, size: 14),
                     ),
                   ),
                   value: schoolController.sections.contains(selectedSection.value)
@@ -615,6 +619,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                                 Text(
                                   section.name,
                                   style: TextStyle(
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: AppTheme.primaryText,
                                   ),
@@ -632,7 +637,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
-              height: 48,
+              height: 35,
               decoration: BoxDecoration(
                 gradient: AppTheme.primaryGradient,
                 borderRadius: BorderRadius.circular(16),
@@ -653,14 +658,14 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search, color: Colors.white, size: 20),
+                        Icon(Icons.search, color: Colors.white, size: 16),
                         SizedBox(width: 8),
                         Text(
                           'Apply Filter',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -721,24 +726,32 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                 ),
                 tabs: [
                   Tab(
-                    height: 48,
+                    height: 35,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.receipt_long, size: isTablet ? 20 : 18),
+                        Icon(Icons.receipt_long, size: isTablet ? 20 : 14),
                         const SizedBox(width: 8),
-                        Text('Records'),
+                        Flexible(
+                            child: Text(
+                              'Records',style: TextStyle(fontSize: 14),
+                               overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            )),
                       ],
                     ),
                   ),
                   Tab(
-                    height: 48,
+                    height: 35,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.local_offer, size: isTablet ? 20 : 18),
+                        Icon(Icons.local_offer, size: isTablet ? 20 : 14),
                         const SizedBox(width: 8),
-                        Text('Concessions'),
+                        Flexible(
+                            child: Text('Concessions',style: TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,)),
                       ],
                     ),
                   ),
@@ -962,7 +975,7 @@ class _RecordsTab extends StatelessWidget {
               Text(
                 'No Records Found',
                 style: TextStyle(
-                  fontSize: isTablet ? 20 : 18,
+                  fontSize: isTablet ? 20 : 14,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryText,
                 ),
@@ -971,7 +984,7 @@ class _RecordsTab extends StatelessWidget {
               Text(
                 'Apply filters above to load student records',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   color: AppTheme.mutedText,
                 ),
                 textAlign: TextAlign.center,
@@ -1055,14 +1068,14 @@ class _RecordsTab extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: (isPaid ? AppTheme.successGreen : AppTheme.warningYellow).withOpacity(0.3),
+                            color: (isPaid ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: isTablet ? 32 : 28,
+                        radius: isTablet ? 32 : 20,
                         backgroundColor: Colors.transparent,
                         backgroundImage: student['studentImage']?['url'] != null
                             ? NetworkImage(student['studentImage']['url'])
@@ -1072,7 +1085,7 @@ class _RecordsTab extends StatelessWidget {
                                 student['studentName']?.toString().substring(0, 1).toUpperCase() ?? 'S',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: isTablet ? 20 : 18,
+                                  fontSize: isTablet ? 20 : 14,
                                   fontWeight: FontWeight.bold,
                                 ),
                               )
@@ -1087,7 +1100,7 @@ class _RecordsTab extends StatelessWidget {
                           Text(
                             student['studentName'] ?? 'Unknown',
                             style: TextStyle(
-                              fontSize: isTablet ? 20 : 18,
+                              fontSize: isTablet ? 20 : 14,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryText,
                             ),
@@ -1113,7 +1126,7 @@ class _RecordsTab extends StatelessWidget {
                             'Class: ${record['className']} - ${record['sectionName']}',
                             style: TextStyle(
                               color: AppTheme.mutedText,
-                              fontSize: 14,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -1128,7 +1141,7 @@ class _RecordsTab extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: (isPaid ? AppTheme.successGreen : AppTheme.warningYellow).withOpacity(0.3),
+                                color: (isPaid ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -1138,18 +1151,20 @@ class _RecordsTab extends StatelessWidget {
                             isPaid ? 'PAID' : 'PENDING',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 12,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Container(
+
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: PopupMenuButton<String>(
+                            iconSize: 18,
                             icon: Icon(Icons.more_vert, color: AppTheme.mutedText),
                             onSelected: (value) => _handleRecordAction(value, record, context),
                             itemBuilder: (context) => [
@@ -1231,11 +1246,12 @@ class _RecordsTab extends StatelessWidget {
                         gradient: AppTheme.warningGradient,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.receipt, color: Colors.white, size: 20),
+                      child: const Icon(Icons.receipt, color: Colors.white, size: 15),
                     ),
                     title: Text(
                       'Fee Breakdown',
                       style: TextStyle(
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.primaryText,
                       ),
@@ -1270,7 +1286,7 @@ class _RecordsTab extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: isTablet ? 20 : 18,
+            fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -1279,7 +1295,7 @@ class _RecordsTab extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: isTablet ? 14 : 12,
+            fontSize: isTablet ? 14 : 10,
             color: AppTheme.mutedText,
             fontWeight: FontWeight.w500,
           ),
@@ -1512,14 +1528,14 @@ class _ConcessionsTab extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: (isApproved ? AppTheme.successGreen : AppTheme.warningYellow).withOpacity(0.3),
+                            color: (isApproved ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: isTablet ? 28 : 24,
+                        radius: isTablet ? 28 : 20,
                         backgroundColor: Colors.transparent,
                         backgroundImage: student['studentImage']?['url'] != null
                             ? NetworkImage(student['studentImage']['url'])
@@ -1569,7 +1585,7 @@ class _ConcessionsTab extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: (isApproved ? AppTheme.successGreen : AppTheme.warningYellow).withOpacity(0.3),
+                                color: (isApproved ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -1579,7 +1595,7 @@ class _ConcessionsTab extends StatelessWidget {
                             isApproved ? 'APPROVED' : 'PENDING',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 12,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1697,13 +1713,13 @@ class _ConcessionsTab extends StatelessWidget {
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.primaryText,
-                                  fontSize: 14,
+                                  fontSize: 12,
                                 ),
                               ),
                               Text(
                                 concession['proof']['originalName'] ?? 'Document attached',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   color: AppTheme.mutedText,
                                 ),
                               ),
@@ -1719,9 +1735,11 @@ class _ConcessionsTab extends StatelessWidget {
                             onPressed: () => _viewProof(concession['proof']),
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.all(8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: const Text('View', style: TextStyle(fontWeight: FontWeight.w600)),
+                            child: const Text('View', style: TextStyle(fontSize:10,fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ],
@@ -1742,7 +1760,7 @@ class _ConcessionsTab extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: isTablet ? 18 : 16,
+            fontSize: isTablet ? 18 : 12,
             fontWeight: FontWeight.bold,
             color: AppTheme.primaryText,
           ),
@@ -1809,7 +1827,7 @@ class _ConcessionsTab extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Update Concession Value', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Update Concession Value', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Concession Type'),

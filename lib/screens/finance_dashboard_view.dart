@@ -61,30 +61,35 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                 pinned: true,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.successGradient,
-                    ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet,
-                            size: 48,
-                            color: Colors.white,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Finance Dashboard',
-                            style: TextStyle(
+                flexibleSpace: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(30),
+                  ),
+                  child: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.successGradient,
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.account_balance_wallet,
+                              size: 38,
                               color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
                             ),
-                          ),
-                        ],
+                            SizedBox(height: 8),
+                            Text(
+                              'Finance Dashboard',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -95,7 +100,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                 // ),
                 actions: [
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.date_range, color: Colors.white),
+                    icon: const Icon(Icons.date_range, color: Colors.white,size: 15,),
                     onSelected: (value) {
                       setState(() => selectedRange = value);
                       _loadData();
@@ -332,7 +337,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
       children: [
         const Text(
           'Quick Actions',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
@@ -378,10 +383,10 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontWeight: FontWeight.w500,fontSize: 13),
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+              Icon(Icons.arrow_forward_ios, size: 13, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -739,12 +744,12 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.filter_list, color: AppTheme.primaryBlue),
+                  const Icon(Icons.filter_list, color: AppTheme.primaryBlue,size: 15,),
                   const SizedBox(width: 12),
                   const Text(
                     'Filters',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryBlue,
                     ),
@@ -870,7 +875,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                         child: ElevatedButton.icon(
                           onPressed: _applyFilters,
                           icon: const Icon(Icons.search),
-                          label: const Text('Apply Filters'),
+                          label: const Text('Apply Filters',style: TextStyle(fontSize: 13),),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryBlue,
                             foregroundColor: Colors.white,
@@ -882,7 +887,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                         child: OutlinedButton.icon(
                           onPressed: _clearFilters,
                           icon: const Icon(Icons.clear),
-                          label: const Text('Clear'),
+                          label: const Text('Clear',style: TextStyle(fontSize: 13)),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: AppTheme.primaryBlue),
                             foregroundColor: AppTheme.primaryBlue,

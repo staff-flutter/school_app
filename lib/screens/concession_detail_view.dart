@@ -18,7 +18,11 @@ class ConcessionDetailView extends StatelessWidget {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Concession Details'),
-        backgroundColor: Colors.orange[600],
+        leading: IconButton(onPressed: ()=>
+          Navigator.of(context).pop(),
+         iconSize: 18,
+         icon: Icon(Icons.arrow_back_ios_new)),
+        backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -68,7 +72,7 @@ class ConcessionDetailView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.orange[600],
+        color: Colors.blue[600],
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -107,7 +111,7 @@ class ConcessionDetailView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: concession['approvedBy'] != null ? Colors.green : Colors.orange[800],
+              color: concession['approvedBy'] != null ? Colors.green : Colors.blue[800],
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -152,7 +156,7 @@ class ConcessionDetailView extends StatelessWidget {
         _buildInfoRow('Applied Date', _formatDate(concessionData['createdAt']), isTablet),
         _buildInfoRow('Last Updated', _formatDate(concessionData['updatedAt']), isTablet),
         _buildInfoRow('Status', concession['approvedBy'] != null ? 'Approved' : 'Pending Approval', isTablet,
-            valueColor: concession['approvedBy'] != null ? Colors.green : Colors.orange),
+            valueColor: concession['approvedBy'] != null ? Colors.green : Colors.blue),
         if (concession['approvedBy'] != null)
           _buildInfoRow('Approved By', concession['approvedBy'] ?? 'N/A', isTablet),
         if (concession['remark'] != null)
@@ -478,7 +482,7 @@ class ConcessionDetailView extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, color: Colors.orange[600], size: isTablet ? 24 : 20),
+                Icon(icon, color: Colors.blue[600], size: isTablet ? 24 : 20),
                 const SizedBox(width: 8),
                 Text(
                   title,

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:school_app/widgets/admin_sidebar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:school_app/controllers/announcement_controller.dart';
@@ -16,11 +17,85 @@ import 'package:school_app/widgets/responsive_wrapper.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/screens/announcement_detail_view.dart';
 
-class CommunicationsView extends GetView<CommunicationsController> {
+import '../controllers/school_controller.dart';
+
+class CommunicationsView extends StatefulWidget {
   CommunicationsView({super.key});
 
   @override
+  State<CommunicationsView> createState() => _CommunicationsViewState();
+}
+class _CommunicationsViewState extends State<CommunicationsView> {
+  late CommunicationsController controller;
+  late AnnouncementController announcementController;
+  Worker? _schoolWatcher;
+
+  @override
+  void initState() {
+    super.initState();
+
+    controller = Get.find<CommunicationsController>();
+
+    announcementController = Get.isRegistered<AnnouncementController>()
+        ? Get.find<AnnouncementController>()
+        : Get.put(AnnouncementController());
+
+    final authController = Get.find<AuthController>();
+    final userRole = authController.user.value?.role?.toLowerCase() ?? '';
+    final userSchoolId = authController.user.value?.schoolId;
+    final isParent = authController.user.value?.role == 'parent';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Load schools first
+      if (announcementController.schools.isEmpty) {
+        await announcementController.getAllSchools();
+      }
+
+      // Auto-select school for non-correspondent
+      if (userRole != 'correspondent' && userSchoolId != null) {
+        final userSchool = announcementController.schools.firstWhereOrNull(
+              (school) => school.id == userSchoolId,
+        );
+        if (userSchool != null) {
+          announcementController.selectedSchool.value = userSchool;
+          await announcementController.getAllAnnouncements(userSchool.id);
+          if (isParent) announcementController.changeFilter('parent');
+        }
+      }
+    });
+
+    // 👇 Watch sidebar school changes for correspondent
+    try {
+      final schoolController = Get.find<SchoolController>();
+
+      // Trigger immediately if school already selected
+      final current = schoolController.selectedSchool.value;
+      if (current != null && userRole == 'correspondent') {
+        announcementController.selectedSchool.value = current;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          announcementController.getAllAnnouncements(current.id);
+        });
+      }
+
+      // 👇 Watch for future changes
+      _schoolWatcher = ever(schoolController.selectedSchool, (school) {
+        if (school == null) return;
+        if (userRole == 'correspondent') {
+          announcementController.selectedSchool.value = school;
+          announcementController.getAllAnnouncements(school.id);
+        }
+      });
+    } catch (_) {}
+  }
+  @override
+  void dispose() {
+    _schoolWatcher?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+
     late AnnouncementController announcementController;
     if (Get.isRegistered<AnnouncementController>()) {
       announcementController = Get.find<AnnouncementController>();
@@ -36,6 +111,12 @@ class CommunicationsView extends GetView<CommunicationsController> {
     if (announcementController.schools.isEmpty && !announcementController.isLoading.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         announcementController.getAllSchools().then((_) {
+
+          if (announcementController.schools.isNotEmpty) {
+            final firstSchool = announcementController.schools.first;
+            print('School name: ${firstSchool.name}');
+            print('Logo map: ${firstSchool.logo}');
+          }
           // Auto-select school for non-correspondent users
           if (userRole != 'correspondent' && userSchoolId != null) {
             final userSchool = announcementController.schools.firstWhereOrNull(
@@ -60,106 +141,119 @@ class CommunicationsView extends GetView<CommunicationsController> {
         }
       });
     }
+    try {
+      final schoolController = Get.find<SchoolController>();
+      ever(schoolController.selectedSchool, (school) {
+        if (school != null && userRole == 'correspondent') {
+          announcementController.selectedSchool.value = school;
+          announcementController.getAllAnnouncements(school.id);
+        }
+      });
+    } catch (_) {}
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F5FF),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        titleSpacing: 20,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.campaign_rounded, color: Color(0xFF2563EB), size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Communications',
-              style: TextStyle(color: Color(0xFF1A2A3A), fontSize: 17, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE2E8F0)),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            child: IconButton(
-              onPressed: () {
-                if (announcementController.selectedSchool.value != null) {
-                  announcementController.getAllAnnouncements(announcementController.selectedSchool.value!.id);
-                } else if (announcementController.schools.isNotEmpty) {
-                  announcementController.selectedSchool.value = announcementController.schools.first;
-                } else {
-                  announcementController.refreshSchools();
-                }
-              },
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF8A9FC0)),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
+        backgroundColor: const Color(0xFFF0F5FF),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          titleSpacing: 20,
+          title: Row(
             children: [
               Container(
-                margin: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
-                child: Obx(() => announcementController.schools.isNotEmpty
-                    ? _buildSchoolSelector(context, announcementController)
-                    : _buildLoadingCard(context)),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.campaign_rounded, color: Color(0xFF2563EB), size: 20),
               ),
-              
-              SizedBox(
-                height: MediaQuery.of(context).size.height - 200,
-                child: Obx(() {
-                  final selectedSchool = announcementController.selectedSchool.value;
-                  if (selectedSchool == null) {
-                    return _buildSelectSchoolPrompt(context);
-                  }
-                  
-                  // Check subscription for correspondent and principal roles
-                  final userRole = authController.user.value?.role?.toLowerCase() ?? '';
-                  final requiresSubscriptionCheck = ['correspondent', 'principal'].contains(userRole);
-                  
-                  if (requiresSubscriptionCheck) {
-                    final hasAccess = announcementController.hasSubscriptionAccess(selectedSchool.id);
-                    if (!hasAccess) {
-                      return _buildUpgradeRequiredWidget(context, 'Communications');
-                    }
-                  }
-                  
-                  return Column(
-                    children: [
-                      if (!isParent)
-                        Container(
-                          margin: EdgeInsets.symmetric(horizontal: AppTheme.getResponsivePadding(context)),
-                          child: _buildFilterSection(context, announcementController),
-                        ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: _AnnouncementsList(controller: announcementController),
-                      ),
-                    ],
-                  );
-                }),
+              const SizedBox(width: 12),
+              const Text(
+                'Communications',
+                style: TextStyle(color: Color(0xFF1A2A3A), fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ],
           ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: const Color(0xFFE2E8F0)),
+          ),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              child: IconButton(
+                onPressed: () {
+                  if (announcementController.selectedSchool.value != null) {
+                    announcementController.getAllAnnouncements(announcementController.selectedSchool.value!.id);
+                  } else if (announcementController.schools.isNotEmpty) {
+                    announcementController.selectedSchool.value = announcementController.schools.first;
+                  } else {
+                    announcementController.refreshSchools();
+                  }
+                },
+                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF8A9FC0)),
+              ),
+            ),
+          ],
         ),
-      ),
-      floatingActionButton: _buildFAB(context, announcementController, authController),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // if (userRole == 'correspondent')
+                //   Obx(() => Container(
+                //     margin: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+                //     child: announcementController.schools.isNotEmpty
+                //         ? _buildSchoolSelector(context, announcementController)
+                //         : _buildLoadingCard(context),
+                //   )),
+                //
+                SizedBox(
+                  height: MediaQuery.of(context).size.height - 200,
+                  child: Obx(() {
+                    final selectedSchool = announcementController.selectedSchool.value;
+                    if (selectedSchool == null) {
+                      return _buildSelectSchoolPrompt(context);
+                    }
+                    
+                    // Check subscription for correspondent and principal roles
+                    final userRole = authController.user.value?.role?.toLowerCase() ?? '';
+                    final requiresSubscriptionCheck = ['correspondent', 'principal'].contains(userRole);
+                    
+                    if (requiresSubscriptionCheck) {
+                      final hasAccess = announcementController.hasSubscriptionAccess(selectedSchool.id);
+                      if (!hasAccess) {
+                        return _buildUpgradeRequiredWidget(context, 'Communications');
+                      }
+                    }
+                    
+                    return Column(
+                      children: [
+                        if (!isParent)
+                          const SizedBox(height: 16),
+                          Container(
+                            margin: EdgeInsets.symmetric(horizontal: AppTheme.getResponsivePadding(context)),
+                            child: _buildFilterSection(context, announcementController),
+                          ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: _AnnouncementsList(controller: announcementController),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+        floatingActionButton: _buildFAB(context, announcementController, authController),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      );
+
   }
+
 
   Widget _buildSchoolSelector(BuildContext context, AnnouncementController controller) {
     final authController = Get.find<AuthController>();
@@ -191,7 +285,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                     gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 20),
+                  child: const Icon(Icons.school, color: Colors.white, size: 15),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -199,6 +293,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primaryText,
+                    fontSize: 12
                   ),
                 ),
               ],
@@ -226,7 +321,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                         gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.business, color: Colors.white, size: 16),
+                      child: const Icon(Icons.business, color: Colors.white, size: 14),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -234,7 +329,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                         controller.selectedSchool.value?.name ?? 'Loading...',
                         style: TextStyle(
                           color: AppTheme.primaryText,
-                          fontSize: 16,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -431,7 +526,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                     gradient: AppTheme.successGradient,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.filter_list, color: Colors.white, size: 20),
+                  child: const Icon(Icons.filter_list, color: Colors.white, size: 15),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -439,6 +534,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primaryText,
+                    fontSize: 14
                   ),
                 ),
               ],
@@ -490,7 +586,7 @@ class CommunicationsView extends GetView<CommunicationsController> {
                 style: TextStyle(
                   color: isSelected ? Colors.white : AppTheme.primaryText,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 14,
+                  fontSize: 10,
                 ),
               ),
             ],
@@ -916,7 +1012,7 @@ class _AnnouncementsList extends StatelessWidget {
           final announcement = controller.filteredAnnouncements[index];
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: _getCardGradient(announcement['type']),
               borderRadius: BorderRadius.circular(16),
@@ -936,7 +1032,7 @@ class _AnnouncementsList extends StatelessWidget {
                     Expanded(
                       child: Text(
                         announcement['title'] ?? 'No Title',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: TextStyle(fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -944,6 +1040,8 @@ class _AnnouncementsList extends StatelessWidget {
                     ),
                     if (!isParent)
                       PopupMenuButton<String>(
+                        iconColor: Colors.white, // Direct color property
+                        iconSize: 15.0,
                         itemBuilder: (context) => [
                           const PopupMenuItem(value: 'view', child: Text('View')),
                           if (_canEdit(authController.user.value?.role))
@@ -987,9 +1085,9 @@ class _AnnouncementsList extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   announcement['description'] ?? 'No Description',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: TextStyle(fontSize: 10,
                     color: Colors.white.withOpacity(0.9),
-                  ),
+                  )
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -1006,7 +1104,7 @@ class _AnnouncementsList extends StatelessWidget {
                         announcement['type']?.toString().toUpperCase() ?? 'GENERAL',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1021,7 +1119,7 @@ class _AnnouncementsList extends StatelessWidget {
                         announcement['priority']?.toString().toUpperCase() ?? 'NORMAL',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

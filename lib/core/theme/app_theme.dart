@@ -11,7 +11,7 @@ class AppTheme {
 
   // Additional colors for compatibility
   static const Color TealColor = Color(0xFF4CC9F0);
-  static const Color navBarSelectedDeep = Color(0xFF6A5AE0);
+  static const Color navBarSelectedDeep = Color(0xFF2563EB);
 
   // AppBar Gradient (Grey with Lavender tint)
   static const LinearGradient appBarGradient = LinearGradient(
@@ -90,7 +90,7 @@ class AppTheme {
 
   // 🎯 Primary System Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -103,13 +103,13 @@ class AppTheme {
   );
 
   static const LinearGradient successGradient = LinearGradient(
-    colors: [Color(0xFF8EDB4F), Color(0xFF6FCF97)],
+    colors:  [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient warningGradient = LinearGradient(
-    colors: [Color(0xFFFF8A3D), Color(0xFFFF6B00)],
+    colors:  [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -133,7 +133,7 @@ class AppTheme {
   static const Color subtitleOnWhite = Color(0xFF6E6E73);
 
   // Legacy colors (Updated but preserved)
-  static const Color primaryBlue = Color(0xFF8E7CFF);
+  static const Color primaryBlue = Color(0xFF2563EB);
   static const Color successGreen = Color(0xFF8EDB4F);
   static const Color warningYellow = Color(0xFFFF8A3D);
   static const Color errorRed = Color(0xFFEF4444);

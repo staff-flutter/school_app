@@ -4,6 +4,10 @@ import 'package:school_app/controllers/academics_controller.dart';
 class AcademicsBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<AcademicsController>(() => AcademicsController());
+    //Get.lazyPut<AcademicsController>(() => AcademicsController());
+    Get.lazyPut<AcademicsController>(
+          () => AcademicsController(),
+      fenix: true,
+    );
   }
 }

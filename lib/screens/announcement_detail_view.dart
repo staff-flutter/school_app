@@ -23,7 +23,11 @@ class AnnouncementDetailView extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           announcement['title'] ?? 'Announcement',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600,fontSize: 18),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new), // Replace with your desired icon
+          onPressed: () => Navigator.of(context).pop(), // Manually trigger navigation back
         ),
         backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
@@ -111,7 +115,7 @@ class AnnouncementDetailView extends StatelessWidget {
                   child: Icon(
                     _getTypeIcon(announcement['type']),
                     color: Colors.white,
-                    size: isTablet ? 24 : 20,
+                    size: isTablet ? 24 : 10,
                   ),
                 ),
                 SizedBox(width: isTablet ? 16 : 12),
@@ -119,7 +123,7 @@ class AnnouncementDetailView extends StatelessWidget {
                   child: Text(
                     announcement['title'] ?? 'No Title',
                     style: TextStyle(
-                      fontSize: isTablet ? 24 : 20,
+                      fontSize: isTablet ? 24 : 15,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -179,13 +183,13 @@ class AnnouncementDetailView extends StatelessWidget {
                 Icon(
                   Icons.description,
                   color: Colors.white,
-                  size: isTablet ? 24 : 20,
+                  size: isTablet ? 24 : 15,
                 ),
                 SizedBox(width: isTablet ? 12 : 8),
                 Text(
                   'Description',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 20 : 14,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -206,7 +210,7 @@ class AnnouncementDetailView extends StatelessWidget {
               Text(
                 'Target Classes',
                 style: TextStyle(
-                  fontSize: isTablet ? 16 : 14,
+                  fontSize: isTablet ? 16 : 10,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -271,13 +275,13 @@ class AnnouncementDetailView extends StatelessWidget {
                 Icon(
                   Icons.attachment,
                   color: Colors.white,
-                  size: isTablet ? 24 : 20,
+                  size: isTablet ? 24 : 15,
                 ),
                 SizedBox(width: isTablet ? 12 : 8),
                 Text(
                   'Attachments',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 20 : 14,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -409,13 +413,13 @@ class AnnouncementDetailView extends StatelessWidget {
                 Icon(
                   Icons.info_outline,
                   color: Colors.white,
-                  size: isTablet ? 24 : 20,
+                  size: isTablet ? 24 : 15,
                 ),
                 SizedBox(width: isTablet ? 12 : 8),
                 Text(
                   'Details',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 20 : 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),

@@ -3,8 +3,36 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/academics_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 
-class AcademicsView extends GetView<AcademicsController> {
+class AcademicsView extends StatefulWidget{
   AcademicsView({super.key});
+  @override
+  State<AcademicsView> createState() => _AcademicsViewState();
+}
+class _AcademicsViewState extends State<AcademicsView>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  late AcademicsController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    print('🔵 AcademicsView initState called');
+    _tabController = TabController(length: 4, vsync: this);
+    print('🔵 TabController created');
+
+    // Defer controller access to after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller = Get.find<AcademicsController>();
+    });
+  }
+
+  @override
+  void dispose() {
+    print('🔴 AcademicsView dispose called');
+
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,28 +52,38 @@ class AcademicsView extends GetView<AcademicsController> {
     //     ),
     //   );
     // }
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Academics'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Subjects', icon: Icon(Icons.book)),
-              Tab(text: 'Timetable', icon: Icon(Icons.schedule)),
-              Tab(text: 'Exams', icon: Icon(Icons.quiz)),
-              Tab(text: 'Results', icon: Icon(Icons.grade)),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Academics'),
+        bottom:  TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          controller: _tabController,
+          // Font size for the SELECTED tab
+          labelStyle: const TextStyle(
+            fontSize: 12.0,
+            fontWeight: FontWeight.bold,
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildSubjectsTab(context),
-            _buildTimetableTab(context),
-            _buildExamsTab(context),
-            _buildResultsTab(context),
+          // Font size for the UNSELECTED tabs
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12.0,
+          ),
+          tabs: [
+            Tab(text: 'Subjects', icon: Icon(Icons.book)),
+            Tab(text: 'Timetable', icon: Icon(Icons.schedule)),
+            Tab(text: 'Exams', icon: Icon(Icons.quiz)),
+            Tab(text: 'Results', icon: Icon(Icons.grade)),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildSubjectsTab(context),
+          _buildTimetableTab(context),
+          _buildExamsTab(context),
+          _buildResultsTab(context),
+        ],
       ),
     );
   }
@@ -60,7 +98,9 @@ class AcademicsView extends GetView<AcademicsController> {
               Expanded(
                 child: Text(
                   'Subjects',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  style: TextStyle(fontSize: 17)
+
+                  //Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
               SizedBox(
@@ -68,7 +108,7 @@ class AcademicsView extends GetView<AcademicsController> {
                 child: ElevatedButton.icon(
                   onPressed: ()=>_showAddSubjectDialog(context) ,
                   icon: const Icon(Icons.add),
-                  label: const Text('Add Subject'),
+                  label: const Text('Add Subject',style: TextStyle(fontSize: 10),),
                 ),
               ),
             ],
@@ -79,7 +119,7 @@ class AcademicsView extends GetView<AcademicsController> {
             if (controller.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
-            
+
             if (controller.subjects.isEmpty) {
               return const Center(
                 child: Column(
@@ -94,7 +134,7 @@ class AcademicsView extends GetView<AcademicsController> {
                 ),
               );
             }
-            
+
             return ListView.builder(
             itemCount: controller.subjects.length,
             itemBuilder: (context, index) {
@@ -156,7 +196,8 @@ class AcademicsView extends GetView<AcademicsController> {
         children: [
           Text(
             'Class 10-A Timetable',
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: TextStyle(fontSize: 17)
+            //Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -174,7 +215,7 @@ class AcademicsView extends GetView<AcademicsController> {
                 itemBuilder: (context, index) {
                   final day = groupedTimetable.keys.elementAt(index);
                   final entries = groupedTimetable[day]!;
-                  
+
                   return Card(
                     child: ExpansionTile(
                       title: Text(day, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -207,13 +248,14 @@ class AcademicsView extends GetView<AcademicsController> {
               Expanded(
                 child: Text(
                   'Scheduled Exams',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  style: TextStyle(fontSize: 17)
+                  //Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
               ElevatedButton.icon(
                 onPressed: () => _showAddExamDialog(context),
                 icon: const Icon(Icons.add),
-                label: const Text('Schedule Exam'),
+                label: const Text('Schedule Exam',style: TextStyle(fontSize: 10),),
               ),
             ],
           ),
@@ -223,7 +265,7 @@ class AcademicsView extends GetView<AcademicsController> {
             if (controller.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
-            
+
             if (controller.exams.isEmpty) {
               return const Center(
                 child: Column(
@@ -238,7 +280,7 @@ class AcademicsView extends GetView<AcademicsController> {
                 ),
               );
             }
-            
+
             return ListView.builder(
             itemCount: controller.exams.length,
             itemBuilder: (context, index) {
@@ -298,7 +340,8 @@ class AcademicsView extends GetView<AcademicsController> {
         children: [
           Text(
             'Exam Results',
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: TextStyle(fontSize: 17)
+            //Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -383,50 +426,52 @@ class AcademicsView extends GetView<AcademicsController> {
     Get.dialog(
       AlertDialog(
         title: Text(subject == null ? 'Add Subject' : 'Edit Subject'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Subject Name'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: codeController,
-              decoration: const InputDecoration(labelText: 'Subject Code'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: teacherController,
-              decoration: const InputDecoration(labelText: 'Teacher Name'),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: selectedClass,
-                    decoration: const InputDecoration(labelText: 'Class'),
-                    items: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-                        .map((cls) => DropdownMenuItem(value: cls, child: Text('Class $cls')))
-                        .toList(),
-                    onChanged: (value) => selectedClass = value!,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Subject Name'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: codeController,
+                decoration: const InputDecoration(labelText: 'Subject Code'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: teacherController,
+                decoration: const InputDecoration(labelText: 'Teacher Name'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedClass,
+                      decoration: const InputDecoration(labelText: 'Class'),
+                      items: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+                          .map((cls) => DropdownMenuItem(value: cls, child: Text('Class $cls')))
+                          .toList(),
+                      onChanged: (value) => selectedClass = value!,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: selectedSection,
-                    decoration: const InputDecoration(labelText: 'Section'),
-                    items: ['A', 'B', 'C', 'D']
-                        .map((section) => DropdownMenuItem(value: section, child: Text('Section $section')))
-                        .toList(),
-                    onChanged: (value) => selectedSection = value!,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedSection,
+                      decoration: const InputDecoration(labelText: 'Section'),
+                      items: ['A', 'B', 'C', 'D']
+                          .map((section) => DropdownMenuItem(value: section, child: Text('Section $section')))
+                          .toList(),
+                      onChanged: (value) => selectedSection = value!,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

@@ -317,7 +317,7 @@ print('userid:$userId');
                         const Text(
                           "Parent Profile",
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -409,15 +409,16 @@ print('userid:$userId');
                                 const Divider(indent: 20, endIndent: 20), // Subtle separator
                                 ListTile(
                                   onTap: () => _handleLogout(),
-                                  leading: const Icon(Icons.logout, color: Colors.redAccent),
+                                  leading: const Icon(Icons.logout, color: Colors.redAccent,size: 18,),
                                   title: const Text(
                                     "Logout Account",
                                     style: TextStyle(
+                                      fontSize: 12,
                                       color: Colors.redAccent,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.redAccent),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.redAccent),
                                 ),
                                 const SizedBox(height: 10),
                               ]
@@ -492,11 +493,11 @@ print('userid:$userId');
           collapsedBackgroundColor: Colors.transparent,
           leading: CircleAvatar(
             backgroundColor: Colors.white,
-            child: Icon(icon, color:Colors.black),
+            child: Icon(icon, color:Colors.black,size: 15,),
           ),
           title: Text(
             title,
-            style: const TextStyle(color: Colors.black, fontSize: 18),
+            style: const TextStyle(color: Colors.black, fontSize: 13),
           ),
           iconColor: Colors.black,
           collapsedIconColor: Colors.black,
@@ -611,9 +612,9 @@ print('userid:$userId');
           children: [
             const Row(
               children: [
-                Icon(Icons.share, color: Colors.black),
+                Icon(Icons.share, color: Colors.black,size: 15,),
                 SizedBox(width: 10),
-                Text("Social Media", style: TextStyle(color: Colors.black, fontSize: 15)),
+                Text("Social Media", style: TextStyle(color: Colors.black, fontSize: 12)),
               ],
             ),
             Row(
@@ -690,7 +691,7 @@ Widget childListTile(String name, String? imageUrl, bool isSelected, VoidCallbac
       child: Row(
         children: [
           CircleAvatar(
-            radius: 25,
+            radius: 15,
             backgroundColor: const Color(0xff4A90E2),
             backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
                 ? NetworkImage(imageUrl) : null,
@@ -703,7 +704,7 @@ Widget childListTile(String name, String? imageUrl, bool isSelected, VoidCallbac
             child: Text(
               name,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 13,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? const Color(0xff4A90E2) : Colors.black87,
               ),
@@ -741,18 +742,18 @@ class InfoRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start, // TOP align when text wraps
           children: [
-            Icon(icon, color: Colors.black),
+            Icon(icon, color: Colors.black,size: 15,),
             const SizedBox(width: 10),
             Text(
               "$title :",
-              style: const TextStyle(color: Colors.black, fontSize: 15),
+              style: const TextStyle(color: Colors.black, fontSize: 12),
             ),
             const SizedBox(width: 8),
             Expanded( // THIS prevents overflow
               child: Text(
                 (data == null || data!.isEmpty) ? '-' : data!,
                 textAlign: TextAlign.end,
-                style: const TextStyle(color: Colors.black54, fontSize: 15),
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
                 softWrap: true,       // wraps to next line
                 overflow: TextOverflow.visible, // never cuts text
               ),

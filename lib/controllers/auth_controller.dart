@@ -85,7 +85,14 @@ class AuthController extends GetxController {
     if (user.value == null) return false;
     return RolePermissions.hasPermission(user.value!.role, permission);
   }
+// Add these to AuthController
+  bool get canUploadMarks =>
+      ['principal', 'administrator', 'viceprincipal', 'teacher']
+          .contains(user.value?.role?.toLowerCase());
 
+  bool get canViewMarks =>
+      ['principal', 'administrator', 'viceprincipal', 'teacher', 'correspondent']
+          .contains(user.value?.role?.toLowerCase());
   bool get isCorrespondent => user.value?.role?.toLowerCase() == 'correspondent';
   bool get isPrincipal => user.value?.role?.toLowerCase() == 'principal';
   bool get isAccountant => user.value?.role?.toLowerCase() == 'accountant';

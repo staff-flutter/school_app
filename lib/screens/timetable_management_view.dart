@@ -30,7 +30,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
   void initState() {
     super.initState();
     _tabController = TabController(length: _getAvailableTabsCount(), vsync: this);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       schoolController.getAllSchools().then((_) {
         if (ApiPermissions.isSchoolReadOnly(currentUserRole)) {
@@ -42,13 +42,14 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
             if (userSchool != null) {
               schoolController.selectedSchool.value = userSchool;
               schoolController.getAllClasses(userSchool.id);
+              schoolController.loadTeachers();
             }
           }
         }
       });
     });
   }
-  
+
   int _getAvailableTabsCount() {
     int count = 0;
     if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/timetable/addday') ||
@@ -69,10 +70,10 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         ApiPermissions.hasApiAccess(currentUserRole, 'DELETE /api/timetable/delete/:id')) {
       tabs.add(const Tab(
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+         // mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.edit_calendar, size: 18),
-            SizedBox(width: 8),
+            Icon(Icons.edit_calendar, size: 11),
+            //SizedBox(width: 8),
             Text('Manage'),
           ],
         ),
@@ -84,8 +85,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.view_list, size: 18),
-            SizedBox(width: 8),
+            Icon(Icons.view_list, size: 11),
+           // SizedBox(width: 8),
             Text('View'),
           ],
         ),
@@ -97,8 +98,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person, size: 18),
-            SizedBox(width: 8),
+            Icon(Icons.person, size: 11),
+           // SizedBox(width: 8),
             Text('Teacher'),
           ],
         ),
@@ -218,42 +219,44 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         child: Column(
           children: [
             // Header
+            // REPLACE THE TOP CONTAINER (Header & TabBar) WITH THIS:
             Container(
+              width: double.infinity,
               decoration: BoxDecoration(
-                gradient: AppTheme.appBarGradient,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                ),
+                gradient: LinearGradient(
+                begin: Alignment.topLeft, // Start point
+                end: Alignment.bottomRight, // End point
+                colors: [
+                  Color(0xFF60A5FA),
+                  Color(0xFF2563EB),
+                ],
+              ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF5C4FC7).withOpacity(0.25),
+                    color: Colors.black.withOpacity(0.1),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFF5C4FC7).withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
               child: Column(
                 children: [
                   Padding(
-                    padding: EdgeInsets.all(isTablet ? 24 : 20),
+                    padding: EdgeInsets.fromLTRB(20, isTablet ? 30 : 10, 20, 20),
                     child: Row(
                       children: [
+                        // Refined Icon Plate
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withOpacity(0.1)),
                           ),
                           child: const Icon(
-                            Icons.schedule,
-                            color: Colors.white,
-                            size: 28,
+                            Icons.grid_view_rounded, // Modern grid icon
+                            color: Color(0xFF2563EB), // Soft accent blue
+                            size: 14,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -262,49 +265,78 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Timetable Management',
+                                'Academic Schedule',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: isTablet ? 24 : 20,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: isTablet ? 22 : 14,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
                                 ),
                               ),
+                              const SizedBox(height: 1),
                               Text(
-                                'Manage class schedules and periods',
+                                'Management Terminal',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: isTablet ? 16 : 14,
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 10,
+
+                                  //letterSpacing: 1.1,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        // Optional Action Button (e.g. Refresh or Settings)
+                        IconButton(
+                          onPressed: () {},
+                          icon: Icon(Icons.more_vert_rounded, color: Colors.white,size: 18,),
+                        )
                       ],
                     ),
                   ),
-                  // Tab Bar
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      indicator: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+
+                  // Professional Pill-Style TabBar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Container(
+                      height: 28,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.2), // Recessed track
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      labelColor: Colors.indigo.shade600,
-                      unselectedLabelColor: Colors.white.withOpacity(0.7),
-                      labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                      child: TabBar(
+                        controller: _tabController,
+                        dividerColor: Colors.transparent, // Removes standard line
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        // The "Pill" effect
+                        indicator: BoxDecoration(
+                            color: Color(0xFF2563EB), // Solid Accent
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color:Color(0xFF2563EB).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              )
+                            ]
+                        ),
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.white.withOpacity(0.4),
+                        labelStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500
+                        ),
+                        tabs: _buildTabs(),
                       ),
-                      tabs: _buildTabs(),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -386,13 +418,13 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           children: [
             Row(
               children: [
-                Icon(Icons.filter_list, color: Colors.indigo.shade600, size: 20),
+                Icon(Icons.filter_list, color: Colors.indigo.shade600, size: 15),
                 const SizedBox(width: 8),
                 Text(
                   'Select Class & Section',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: isTablet ? 18 : 16,
+                    fontSize: isTablet ? 18 : 14,
                     color: Colors.indigo.shade600,
                   ),
                 ),
@@ -413,6 +445,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                   )
                 : Column(
                     children: [
+                      if(ApiPermissions.hasSectionAccess(currentUserRole)=='correspondent')
                       _buildSchoolSelector(),
                       const SizedBox(height: 12),
                       _buildClassSelector(),
@@ -431,26 +464,38 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
   Widget _buildSchoolSelector() {
     return Obx(() {
       if (ApiPermissions.isSchoolReadOnly(currentUserRole)) {
-        final schoolName = schoolController.selectedSchool.value?.name ?? 'Loading...';
-        return TextFormField(
-          initialValue: schoolName,
-          decoration: InputDecoration(
-            labelText: 'School',
-            prefixIcon: Icon(Icons.school, color: Colors.indigo.shade600),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: Colors.grey[200],
+        final school = schoolController.selectedSchool.value;
+        // Show loading only when schools list is actually loading
+        final schoolName = school?.name ??
+            (schoolController.isLoading.value ? 'Loading...' : 'No school assigned');
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade400),
           ),
-          enabled: false,
-          style: TextStyle(color: Colors.black87),
-        );
+            child: Row(
+        children: [
+        Icon(Icons.school, color: Colors.indigo.shade600, size: 16),
+      const SizedBox(width: 10),
+      Expanded(
+      child: Text(
+      schoolName,
+      style: const TextStyle(color: Colors.black87, fontSize: 12),
+      ),
+      ),
+      ],
+      ),
+          );
       }
       
       return DropdownButtonFormField<School>(
       isExpanded: true,
       decoration: InputDecoration(
         hintText: 'Choose School',
-        prefixIcon: Icon(Icons.school, color: Colors.indigo.shade600),
+        prefixIcon: Icon(Icons.school, color: Colors.indigo.shade600,size: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -462,7 +507,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           value: school,
           child: Row(
             children: [
-              Icon(Icons.school, size: 18, color: Colors.indigo.shade600),
+              Icon(Icons.school, size: 16, color: Colors.indigo.shade600),
               const SizedBox(width: 8),
               Expanded(child: Text(school.name, overflow: TextOverflow.ellipsis)),
             ],
@@ -501,12 +546,24 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
       
       return DropdownButtonFormField<SchoolClass>(
         isExpanded: true,
+        isDense: true,
+        // 1. FORCE THE HINT WIDGET DIRECTLY HERE
+        hint: Align(
+          alignment: Alignment.centerLeft, // Keeps it vertically centered and left-aligned
+          child: Text(
+            sortedClasses.isEmpty ? 'Select school first' : 'Choose Class',
+            style: TextStyle(
+              fontSize: 12,        // Your desired hint font size
+            ),
+          ),
+        ),
         decoration: InputDecoration(
-          hintText: sortedClasses.isEmpty ? 'Select school first' : 'Choose Class',
-          prefixIcon: Icon(Icons.class_, color: Colors.indigo.shade600),
+          // 2. Remove hintText and hintStyle from here completely to prevent conflicts
+          prefixIcon: Icon(Icons.class_, color: Colors.indigo.shade600, size: 13),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
           fillColor: Colors.grey.shade50,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12), // Keeps the outer container neat
         ),
         value: selectedClass,
         items: sortedClasses.isEmpty ? [] : sortedClasses.map((cls) {
@@ -514,9 +571,12 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
             value: cls,
             child: Row(
               children: [
-                Icon(_getClassIcon(cls.name), size: 20, color: Colors.indigo.shade600),
+                Icon(_getClassIcon(cls.name), size: 15, color: Colors.indigo.shade600),
                 const SizedBox(width: 8),
-                Text(cls.name),
+                Text(
+                  cls.name,
+                  style: const TextStyle(fontSize: 12), // Matches the selected item text to the hint size
+                ),
               ],
             ),
           );
@@ -531,7 +591,6 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
               classId: cls.id,
               schoolId: schoolController.selectedSchool.value!.id,
             );
-            // Load timetable when class is selected
             timetableController.getAllTimetables(
               schoolId: schoolController.selectedSchool.value!.id,
               classId: cls.id,
@@ -553,23 +612,37 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
     
     return Obx(() => DropdownButtonFormField<Section>(
       isExpanded: true,
+      isDense: true,
+      // FIX 1: The 'hint' property must be a direct child of DropdownButtonFormField, NOT inside InputDecoration
+      hint: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Choose Section (Optional)',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600, // Optional: Add a nice hint color
+          ),
+        ),
+      ),
       decoration: InputDecoration(
-        hintText: 'Choose Section (Optional)',
-        prefixIcon: Icon(Icons.group, color: Colors.indigo.shade600),
+        // FIX 2: Removed 'hint' and 'hintStyle' from here to prevent layout conflicts
+        prefixIcon: Icon(Icons.group, color: Colors.indigo.shade600, size: 13),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey.shade50,
+        // Add consistent contentPadding to ensure it perfectly aligns with your Class dropdown
+        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       ),
       value: selectedSection,
       items: [
         const DropdownMenuItem<Section>(
           value: null,
-          child: Text('All Sections'),
+          child: Text('All Sections', style: TextStyle(fontSize: 12)),
         ),
         ...schoolController.sections.map((section) {
           return DropdownMenuItem<Section>(
             value: section,
-            child: Text(section.name),
+            child: Text(section.name, style: TextStyle(fontSize: 12)),
           );
         }),
       ],
@@ -578,122 +651,193 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           selectedSection = section;
         });
       },
-    ));
+    )); // FIX 3: Removed the extra closing parenthesis that was hanging at the very end);
   }
 
   Widget _buildTeacherSelector(bool isTablet) {
-    final searchController = TextEditingController();
+    final TextEditingController searchController = TextEditingController();
     final filteredTeachers = <Map<String, dynamic>>[].obs;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 20 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.person, color: Colors.indigo.shade600, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Select Teacher',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: isTablet ? 18 : 16,
-                    color: Colors.indigo.shade600,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Title with a modern "Label" look
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: Colors.indigo.shade600,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              ],
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Teacher Directory',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Professional Search Bar
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.indigo.withOpacity(0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: searchController,
+            onChanged: (value) {
+              filteredTeachers.value = schoolController.teachers
+                  .where((t) => (t['userName'] as String)
+                  .toLowerCase()
+                  .contains(value.toLowerCase()))
+                  .toList();
+            },
+            decoration: InputDecoration(
+              hintText: 'Search by name or department...',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              prefixIcon: Icon(Icons.search_rounded, color: Colors.indigo.shade400),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 15),
             ),
-            const SizedBox(height: 16),
-            Obx(() {
-              if (filteredTeachers.isEmpty) {
-                filteredTeachers.value = schoolController.teachers;
-              }
-              return Column(
-                children: [
-                  TextField(
-                    controller: searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search teacher...',
-                      prefixIcon: Icon(Icons.search, color: Colors.indigo.shade600),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // The List Area
+        Obx(() {
+          final list = searchController.text.isEmpty ? schoolController.teachers : filteredTeachers;
+
+          if (schoolController.isLoading.value) {
+            return const Center(child: Padding(
+              padding: EdgeInsets.all(40.0),
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ));
+          }
+
+          if (list.isEmpty) {
+            return _buildEmptyState("No teachers found matching your search");
+          }
+
+          return Container(
+            constraints: BoxConstraints(maxHeight: isTablet ? 500 : 350),
+            padding: EdgeInsets.only(bottom: 30),
+            child: ListView.builder(
+              itemCount: list.length,
+              padding: const EdgeInsets.only(bottom: 20),
+              itemBuilder: (context, index) {
+                final teacher = list[index];
+                final isSelected = selectedTeacherId == teacher['_id'];
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.indigo.shade50 : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? Colors.indigo.shade200 : Colors.transparent,
+                      width: 1.5,
                     ),
-                    onChanged: (value) {
-                      if (value.isEmpty) {
-                        filteredTeachers.value = schoolController.teachers;
-                      } else {
-                        filteredTeachers.value = schoolController.teachers
-                            .where((t) => (t['userName'] as String)
-                                .toLowerCase()
-                                .contains(value.toLowerCase()))
-                            .toList();
-                      }
+                    boxShadow: [
+                      if (!isSelected)
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                    ],
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    leading: Hero(
+                      tag: 'teacher-${teacher['_id']}',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.indigo.shade400 : Colors.grey.shade200,
+                            width: 2,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: isSelected ? Colors.indigo.shade600 : Colors.grey.shade100,
+                          child: Text(
+                            (teacher['userName'] as String).substring(0, 1).toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isSelected ? Colors.white : Colors.indigo.shade600,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      teacher['userName'] ?? 'Unknown',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: isSelected ? Colors.indigo.shade900 : Colors.grey.shade800,
+                      ),
+                    ),
+                    subtitle: Text(
+                      "Teacher ID: ${teacher['_id'].toString().substring(0, 8)}...",
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle_rounded, color: Colors.indigo.shade600)
+                        : Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+                    onTap: () {
+                      setState(() => selectedTeacherId = teacher['_id']);
+                      timetableController.getTeacherSchedule(
+                        schoolId: schoolController.selectedSchool.value!.id,
+                        teacherId: teacher['_id'],
+                      );
                     },
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    constraints: BoxConstraints(maxHeight: 300),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: schoolController.teachers.isEmpty
-                        ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text('No teachers found')))
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: filteredTeachers.length,
-                            itemBuilder: (context, index) {
-                              final teacher = filteredTeachers[index];
-                              final isSelected = selectedTeacherId == teacher['_id'];
-                              return ListTile(
-                                selected: isSelected,
-                                tileColor: isSelected ? Colors.green.shade50 : null,
-                                leading: CircleAvatar(
-                                  backgroundColor: isSelected ? Colors.green.shade600 : Colors.indigo.shade100,
-                                  child: Icon(Icons.person, color: isSelected ? Colors.white : Colors.indigo.shade600, size: 20),
-                                ),
-                                title: Text(
-                                  teacher['userName'] ?? 'Unknown',
-                                  style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected ? Colors.green.shade700 : Colors.black,
-                                  ),
-                                ),
-                                trailing: isSelected 
-                                    ? Icon(Icons.check_circle, color: Colors.green.shade600, size: 20)
-                                    : Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                                onTap: () {
-                                  setState(() {
-                                    selectedTeacherId = teacher['_id'];
-                                  });
-                                  if (schoolController.selectedSchool.value != null) {
-                                    timetableController.getTeacherSchedule(
-                                      schoolId: schoolController.selectedSchool.value!.id,
-                                      teacherId: teacher['_id'],
-                                    );
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              );
-            }),
+                );
+              },
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+// Custom Empty State Widget
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          children: [
+            Icon(Icons.person_off_rounded, size: 60, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            ),
           ],
         ),
       ),
@@ -1002,12 +1146,12 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
               children: [
                 Row(
                   children: [
-                    Icon(Icons.visibility, color: Colors.blue.shade600),
+                    Icon(Icons.visibility, color: Colors.blue.shade600,size: 13,),
                     const SizedBox(width: 12),
                     Text(
                       'Timetable View',
                       style: TextStyle(
-                        fontSize: isTablet ? 20 : 18,
+                        fontSize: isTablet ? 20 : 12,
                         fontWeight: FontWeight.bold,
                         color: Colors.blue.shade600,
                       ),
@@ -1070,9 +1214,9 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
             dataRowMinHeight: 70,
             dataRowMaxHeight: 70,
             columns: [
-              const DataColumn(label: Text('Period', style: TextStyle(fontWeight: FontWeight.bold))),
+              const DataColumn(label: Text('Period', style: TextStyle(fontWeight: FontWeight.bold,fontSize: 12))),
               ...addedDays.map((day) => DataColumn(
-                label: Text(day, style: const TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(day, style: const TextStyle(fontWeight: FontWeight.bold,fontSize: 12)),
               )),
             ],
             rows: List.generate(8, (periodIndex) {
@@ -1090,6 +1234,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                         'Period $periodNumber',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
+                          fontSize: 12,
                           color: Colors.blue.shade700,
                         ),
                       ),
@@ -1208,7 +1353,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
               ),
               Padding(
                 padding: EdgeInsets.all(isTablet ? 20 : 16),
-                child: _buildEmptyState('Select a teacher to view their schedule'),
+                child: _buildEmptyState1('Select a teacher to view their schedule'),
               ),
             ],
           ),
@@ -1235,7 +1380,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.all(isTablet ? 20 : 16),
+              padding: EdgeInsets.all(isTablet ? 20 : 11),
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
                 borderRadius: const BorderRadius.only(
@@ -1245,12 +1390,12 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
               ),
               child: Row(
                 children: [
-                  Icon(Icons.person_outline, color: Colors.green.shade600),
+                  Icon(Icons.person_outline, color: Colors.green.shade600,size: 14,),
                   const SizedBox(width: 12),
                   Text(
                     'Teacher Schedule',
                     style: TextStyle(
-                      fontSize: isTablet ? 20 : 18,
+                      fontSize: isTablet ? 20 : 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade600,
                     ),
@@ -1267,9 +1412,9 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                   dataRowMinHeight: 70,
                   dataRowMaxHeight: 70,
                   columns: [
-                    const DataColumn(label: Text('Period', style: TextStyle(fontWeight: FontWeight.bold))),
+                    const DataColumn(label: Text('Period', style: TextStyle(fontWeight: FontWeight.bold,fontSize: 13))),
                     ...addedDays.map((day) => DataColumn(
-                      label: Text(day, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(day, style: const TextStyle(fontWeight: FontWeight.bold,fontSize: 13)),
                     )),
                   ],
                   rows: List.generate(8, (periodIndex) {
@@ -1286,6 +1431,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                             child: Text(
                               'Period $periodNumber',
                               style: TextStyle(
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.green.shade700,
                               ),
@@ -1309,6 +1455,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                           
                           return DataCell(
                             Container(
+                              margin: EdgeInsets.all(8),
                               width: isTablet ? 120 : 80,
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
@@ -1345,7 +1492,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
     });
   }
 
-  Widget _buildEmptyState(String message) {
+  Widget _buildEmptyState1(String message) {
     return Container(
       height: 200,
       child: Center(
@@ -1521,26 +1668,56 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                     child: Obx(() => Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: schoolController.teachers.isEmpty
-                          ? Center(child: Text('Loading...'))
+                          ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Center(child: Text('Loading...', style: TextStyle(fontSize: 11))),
+                      )
                           : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: filteredTeachers.length,
                         itemBuilder: (context, index) {
                           final teacher = filteredTeachers[index];
                           final isSelected = selectedTeacherId == teacher['_id'];
-                          return ListTile(
-                            selected: isSelected,
-                            leading: CircleAvatar(
-                              backgroundColor: isSelected ? Colors.blue.shade600 : Colors.blue.shade100,
-                              child: Icon(Icons.person, color: isSelected ? Colors.white : Colors.blue.shade600, size: 20),
+
+                          return InkWell(
+                            onTap: () => setState(() => selectedTeacherId = teacher['_id']),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.blue.shade50 : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(children: [
+                                CircleAvatar(
+                                  radius: 9, // 👈 smaller circle
+                                  backgroundColor: isSelected ? Colors.blue.shade600 : Colors.blue.shade100,
+                                  child: Icon(
+                                    Icons.person,
+                                    color: isSelected ? Colors.white : Colors.blue.shade600,
+                                    size: 10, // 👈 smaller icon
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    teacher['userName'] ?? 'Unknown',
+                                    style: TextStyle(
+                                      fontSize: 11, // 👈 smaller font
+                                      color: isSelected ? Colors.blue.shade800 : Colors.black87,
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Icon(Icons.check_circle, color: Colors.blue.shade600, size: 12), // 👈 smaller check
+                              ]),
                             ),
-                            title: Text(teacher['userName'] ?? 'Unknown'),
-                            trailing: isSelected ? Icon(Icons.check_circle, color: Colors.blue.shade600) : null,
-                            onTap: () {
-                              setState(() => selectedTeacherId = teacher['_id']);
-                            },
                           );
                         },
                       ),

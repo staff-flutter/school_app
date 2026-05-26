@@ -4,29 +4,27 @@ class RoleModules {
       'dashboard', 'users', 'schools', 'schoolManagement', 'classes', 'sections', 'teacherAssignments',
       'students', 'studentRecords', 'feeStructure', 'feeCollection', 'attendance',
       'expenses', 'announcements', 'clubs', 'clubVideos', 'financeLedger',
-<<<<<<< Updated upstream
+//<<<<<<< Updated upstream
       'auditLogs', 'deleteArchive', 'subscription','userManagement','reports','transactions'
-      'teachers', 'campusManagementPage'
-=======
-      'auditLogs', 'deleteArchive', 'subscription','userManagement','reports','transactions',
-      'teachers'
->>>>>>> Stashed changes
+      'teachers', 'campusManagementPage','marks.view'
+
+//>>>>>>> Stashed changes
     ],
     'administrator': [
       'dashboard', 'users', 'schoolManagement', 'classes', 'sections', 'teacherAssignments',
       'students', 'studentRecords', 'feeStructure', 'attendance',
-      'announcements', 'clubs', 'clubVideos', 'auditLogs','userManagement','teachers'
+      'announcements', 'clubs', 'clubVideos', 'auditLogs','userManagement','teachers','marks.view', 'marks.upload'
     ],
     'principal': [
       'dashboard', 'students', 'studentRecords', 'feeStructure', 'attendance','transactions','teachers',
-      'expenses', 'announcements', 'clubs', 'clubVideos', 'financeLedger','userManagement','reports'
+      'expenses', 'announcements', 'clubs', 'clubVideos', 'financeLedger','userManagement','reports','marks.view', 'marks.upload'
     ],
     'viceprincipal': [
-      'reports','dashboard', 'students', 'attendance', 'announcements', 'clubs', 'clubVideos','userManagement'
+      'reports','dashboard', 'students', 'attendance', 'announcements', 'clubs', 'clubVideos','userManagement','marks.view', 'marks.upload'
     ],
     'teacher': [
       'dashboard', 'myClasses', 'mySections', 'students', 'attendance',
-      'announcements', 'clubs', 'clubVideos','userManagement'
+      'announcements', 'clubs', 'clubVideos','userManagement','marks.view', 'marks.upload'
     ],
     'accountant': [
       'dashboard', 'students', 'studentRecords', 'feeStructure', 'feeCollection',

@@ -35,6 +35,10 @@ class _StudentReceiptsViewState extends State<StudentReceiptsView> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${student['studentName'] ?? 'Student'} - Receipts'),
+        leading: IconButton(onPressed: ()=>
+        Navigator.of(context).pop(),
+        iconSize: 18,
+        icon: Icon(Icons.arrow_back_ios_new)),
         backgroundColor: AppTheme.navBarSelectedDeep,
         foregroundColor: Colors.white,
       ),

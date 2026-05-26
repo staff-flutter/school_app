@@ -91,7 +91,7 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('QUICK ACCESS',style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold,color: Colors.grey),),
+                      Text('QUICK ACCESS',style: TextStyle(fontSize: 15,fontWeight: FontWeight.bold,color: Colors.grey),),
                       SizedBox(height: 30,),
                       Expanded(
                         child: GridView.count(
@@ -111,7 +111,7 @@ class _HomePageState extends State<HomePage> {
                          // --------------------------------  FEE DETAILS PAGE  -------------------------------------------
 
                             _buildHomeItem(
-                              iconPath: 'assets/images/feedetails_icon.png',
+                              iconPath: 'assets/images/coin_transparent.png',
                               label: 'FeeDetails',
                               onTap: () => Get.to(() =>  const FeeDetailsFirstPage()),                      ),
 
@@ -224,7 +224,7 @@ Widget _buildHomeItem({
           },
           child: Padding(
             padding: const EdgeInsets.all(10.0), // Bigger tap area
-            child: Image.asset(iconPath, width: 30, height: 30),
+            child: Image.asset(iconPath, width: 40, height: 40),
           ),
         ),
       ),

@@ -131,7 +131,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         statusBarBrightness: Brightness.dark,       // iOS
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xffF5F6FA),
+        backgroundColor: Color(0xFFEEF3FB),
         body: SafeArea(
           bottom: false,
           child: Padding(
@@ -196,7 +196,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     if (apiClubs.isEmpty) return const Center(child: Text("No clubs found"));
 
     return SizedBox(
-      height: 200,
+      height: 150,
       child: GridView.builder(
         shrinkWrap: true,
         scrollDirection: Axis.horizontal,
@@ -237,7 +237,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                   Text(
                     club.name,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -259,26 +259,26 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     // String campusStarName= controller.selectedChild['studentName']?? 'Unknown';
    // String campusStarImage= controller.selectedChild['studentImage']?['url']?? '';
 
-     final child = _childrenController?.selectedChild;
-     String campusStarName = child?['studentName'] ?? 'Unknown';
-     String campusStarImage = child?['studentImage']?['url'] ?? '';
+    // final child = _childrenController?.selectedChild;
+   //  String campusStarName = child?['studentName'] ?? 'Unknown';
+    // String campusStarImage = child?['studentImage']?['url'] ?? '';
      return Column(
       children: [
         Row(
           children: const [
             Text("The campus star",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             Spacer(),
             Text("more", style: TextStyle(color: Colors.grey)),
           ],
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 170,
+          height: 150,
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
-              UserCard(campusStarName,campusStarImage),
+              UserCard('campusStarName','campusStarImage'),
 
             ],
           ),
@@ -318,18 +318,18 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Cynthia Hall",
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: TextStyle(fontWeight: FontWeight.w600,fontSize: 12)),
                   Text("5 minutes ago",
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               Spacer(),
-              Icon(Icons.more_vert)
+              Icon(Icons.more_vert,size: 15,)
             ],
           ),
           const SizedBox(height: 10),
           const Text(
-            "The 2019 Christmas and New Year party has started. New Year's eve party, wonderful.",
+            "The 2019 Christmas and New Year party has started. New Year's eve party, wonderful.",style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
 
@@ -472,7 +472,7 @@ class UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 130,
+      width: 120,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -489,13 +489,14 @@ class UserCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundImage: NetworkImage(
-                imageUrl),
+            // backgroundImage: NetworkImage(
+            //     imageUrl),
+
           ),
           const SizedBox(height: 8),
           Text(name,
               style:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 10)),
           const SizedBox(height: 4),
           const Text("Student leader",
               style: TextStyle(fontSize: 11, color: Colors.grey)),

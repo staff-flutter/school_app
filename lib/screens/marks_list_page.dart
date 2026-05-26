@@ -18,6 +18,8 @@ class MarksList extends StatefulWidget {
 }
 
 class _MarksListState extends State<MarksList> {
+  String _selectedExam = '';
+  List<String> _examList = [];
   final session = Get.find<UserSession>();
 
   final List<MarksTable> marksTableList = const [
@@ -56,6 +58,7 @@ class _MarksListState extends State<MarksList> {
         "schoolId": "$schoolId",
         "academicYear": "2025-2026",
         "studentId": studentId,
+        if (_selectedExam.isNotEmpty) "examType": _selectedExam,
       };
 
       final uri = Uri.parse('$baseUrl/api/markreport/get-all')
@@ -68,13 +71,23 @@ class _MarksListState extends State<MarksList> {
 
       if (response.statusCode == 200) {
         final dynamic decodedData = jsonDecode(response.body);
+        List<dynamic> list = [];
         if (decodedData is List) {
-          return decodedData.map((data) => MarksListStrings.fromJson(data)).toList();
+          list = decodedData;
         } else if (decodedData is Map<String, dynamic>) {
-          final List<dynamic> list = decodedData['data'] ?? [];
-          return list.map((data) => MarksListStrings.fromJson(data)).toList();
+           list = decodedData['data'] ?? [];
         }
-      }
+        final exams = list
+            .map((d) => d['examType']?.toString() ?? '')
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList();
+
+        if (mounted) setState(() { _examList = exams; });
+
+        return list.map((data) => MarksListStrings.fromJson(data)).toList();
+        }
+
     } catch (e) {
       debugPrint("MarksList Error: $e");
     }
@@ -89,6 +102,8 @@ class _MarksListState extends State<MarksList> {
     final bool   isTablet     = ResponsiveHelper.isTablet(context);
     final bool   isSmall      = ResponsiveHelper.isSmallHeight(context);
     final double bottomInset  = MediaQuery.of(context).viewPadding.bottom;
+
+    final _examList = ['Unit Test', 'Unit Test 2','Half Early', 'Final'];
 
     // ── Layout values ────────────────────────────────────────────
     final double headerHeight = isTablet
@@ -109,7 +124,7 @@ class _MarksListState extends State<MarksList> {
     final double whiteHeight = screenHeight - whiteTopOffset;
 
     // marks table fixed height
-    final double tableHeight = whiteHeight * (isTablet ? 0.45 : 0.42);
+    final double tableHeight = whiteHeight * (isTablet ? 0.45 : 0.40);
 
     // footer image height
     final double footerHeight = isTablet
@@ -169,18 +184,27 @@ class _MarksListState extends State<MarksList> {
                           Text(
                             'You are Excellent,',
                             style: TextStyle(
-                              fontSize: ResponsiveHelper.sp(context, 14),
+                              fontSize: ResponsiveHelper.sp(context, 12),
                             ),
                           ),
                           Text(
                             'AKSHAY SYAL !!',
                             style: TextStyle(
-                              fontSize:   ResponsiveHelper.sp(context, 20),
+                              fontSize:   ResponsiveHelper.sp(context, 18),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           ResponsiveHelper.vSpace(context, 8),
 
+                          if (_examList.isNotEmpty)
+                            _ExamSelector(
+                              exams:    _examList,
+                              selected: _selectedExam,
+                              onChanged: (val) {
+                                setState(() => _selectedExam = val);
+                                _initializeData(); // re-fetch marks for chosen exam
+                              },
+                            ),
                           // ── MARKS TABLE ─────────────────────────
                           Container(
                             height: tableHeight,
@@ -212,7 +236,7 @@ class _MarksListState extends State<MarksList> {
                                               'Subject',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                fontSize:   ResponsiveHelper.sp(context, 13),
+                                                fontSize:   ResponsiveHelper.sp(context, 11),
                                                 color:      Colors.black54,
                                               ),
                                             ),
@@ -230,7 +254,7 @@ class _MarksListState extends State<MarksList> {
                                                 'Out of',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize:   ResponsiveHelper.sp(context, 12),
+                                                  fontSize:   ResponsiveHelper.sp(context, 11),
                                                   color:      Colors.black54,
                                                 ),
                                               ),
@@ -249,7 +273,7 @@ class _MarksListState extends State<MarksList> {
                                                 'Score',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize:   ResponsiveHelper.sp(context, 12),
+                                                  fontSize:   ResponsiveHelper.sp(context, 11),
                                                   color:      Colors.black54,
                                                 ),
                                               ),
@@ -319,12 +343,12 @@ class _MarksListState extends State<MarksList> {
                                         style: TextStyle(
                                           color:      Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize:   ResponsiveHelper.sp(context, 14),
+                                          fontSize:   ResponsiveHelper.sp(context, 11),
                                         ),
                                       ),
                                       Image.asset(
                                         'assets/images/acrobat_icon_transparent.png',
-                                        height: ResponsiveHelper.h(context, 36),
+                                        height: ResponsiveHelper.h(context, 26),
                                       ),
                                     ],
                                   ),
@@ -408,6 +432,45 @@ class _MarksListState extends State<MarksList> {
     );
   }
 }
+class _ExamSelector extends StatelessWidget {
+  final List<String> exams;
+  final String selected;
+  final ValueChanged<String> onChanged;
+  const _ExamSelector({required this.exams, required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveHelper.w(context, 15),
+        vertical:   ResponsiveHelper.h(context, 6),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color:        const Color(0xFFF5F7FB),
+          borderRadius: BorderRadius.circular(12),
+          border:       Border.all(color: Colors.grey.shade300, width: 1),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            isExpanded:  true,
+            isDense:     true,
+            value:       selected.isEmpty ? null : selected,
+            hint:        const Text('Select Exam',style: TextStyle(fontSize: 12),),
+            icon:        const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+            borderRadius: BorderRadius.circular(12),
+            items: exams.map((exam) => DropdownMenuItem(
+              value: exam,
+              child: Text(exam, style: const TextStyle(fontSize: 13)),
+            )).toList(),
+            onChanged: (val) { if (val != null) onChanged(val); },
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 // ── ITEM WIDGET ───────────────────────────────────────────────────
 class MarksListContainerItems1 extends StatelessWidget {
@@ -428,7 +491,7 @@ class MarksListContainerItems1 extends StatelessWidget {
               ),
               child: Text(
                 marksTable1.subjectName,
-                style: TextStyle(fontSize: ResponsiveHelper.sp(context, 14)),
+                style: TextStyle(fontSize: ResponsiveHelper.sp(context, 11)),
               ),
             ),
           ),
@@ -443,7 +506,7 @@ class MarksListContainerItems1 extends StatelessWidget {
                   '${marksTable1.outOfMarks}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize:   ResponsiveHelper.sp(context, 13),
+                    fontSize:   ResponsiveHelper.sp(context, 11),
                   ),
                 ),
               ),
@@ -460,7 +523,7 @@ class MarksListContainerItems1 extends StatelessWidget {
                   '${marksTable1.scoredMarks}',
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
-                    fontSize:   ResponsiveHelper.sp(context, 13),
+                    fontSize:   ResponsiveHelper.sp(context, 11),
                   ),
                 ),
               ),

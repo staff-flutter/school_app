@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toggle_switch/toggle_switch.dart';
 
+import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
@@ -236,10 +237,12 @@ class _MyHomePageState extends State<TimeTablePage> {
                 floating: false,
                 pinned: true,
                 backgroundColor: const Color(0xff4A90E2),
-                leading: IconButton(
+                leading: _shouldShowBack()
+                    ? IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
                   onPressed: () => Get.back(),
-                ),
+                )
+                    : const SizedBox.shrink(),
                 title: const Text(
                   'Timetable',
                   style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
@@ -302,7 +305,7 @@ class _MyHomePageState extends State<TimeTablePage> {
                                 child: Text(
                                   days[index],
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: isSelected ? Colors.white : Colors.black87,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                   ),
@@ -410,7 +413,18 @@ class _MyHomePageState extends State<TimeTablePage> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
-  }}
+  }
+
+  bool _shouldShowBack() {
+    try {
+      final role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+      const sidebarRoles = {'correspondent', 'administrator', 'principal', 'viceprincipal', 'teacher', 'accountant'};
+      return !sidebarRoles.contains(role);
+    } catch (_) {
+      return true;
+    }
+  }
+}
 //------------------------------------------------- DUMMY DATA -------------------------------------------
 
 List<TimetableListStrings> getDummyTimetable() {
@@ -633,26 +647,26 @@ class TimeTableTile extends StatelessWidget {
                           Text(user.subjectName,
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                              fontSize: 13,
                               color: Color(0xFF1A1A2E),
                             ),
                           ),
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.access_time, size: 13, color: Colors.grey.shade500),
+                              Icon(Icons.access_time, size: 10, color: Colors.grey.shade500),
                               const SizedBox(width: 4),
                               Text(user.time,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.person_outline, size: 13, color: Colors.grey.shade500),
+                              Icon(Icons.person_outline, size: 10, color: Colors.grey.shade500),
                               const SizedBox(width: 4),
                               Text(user.teacherName,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
                             ],
                           ),
                         ],

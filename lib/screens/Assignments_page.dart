@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
+import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../core/theme/app_theme.dart';
 import '../services/user_session.dart';
@@ -181,7 +182,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
       child: Scaffold(
 
         bottomNavigationBar: SizedBox(
-          height: MediaQuery.of(context).viewPadding.bottom, // ✅ add this
+          height: MediaQuery.of(context).viewPadding.bottom,
         ),
         backgroundColor: const Color(0xFFEEF3FB),
        // backgroundColor: Colors.black,
@@ -196,25 +197,23 @@ class _AssignmentUIState extends State<AssignmentUI> {
       
       
        //--------------------------------------- ASSIGNMENTS HEADING ------------------------------------------------
-      
-      
-      
+
+
+
                 Row(
                   children: [
-                    InkWell(
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new), // Change your icon here
-                        color: Colors.black, // Change your color here
-                        onPressed: () {
-                          Get.back(); // Or Navigator.pop(context);
-                        },
+                    if (_shouldShowBack())
+                      InkWell(
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new,size: 15,),
+                          color: Colors.black,
+                          onPressed: () => Get.back(),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
+                    if (_shouldShowBack()) const SizedBox(width: 10),
                     const Text(
                       "Assignments",
-                      style:
-                      TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -236,7 +235,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
                         onTap: () => onDateTap(index),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
-                          width: 65,
+                          width: 55,
                           margin: const EdgeInsets.only(right: 10),
                           decoration: BoxDecoration(
                             color: selectedIndex == index
@@ -250,6 +249,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
                               Text(
                                 dates[index]["day"]!,
                                 style: TextStyle(
+                                  fontSize: 12,
                                   color: selectedIndex == index
                                       ? Colors.white
                                       : Colors.black54,
@@ -259,7 +259,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
                               Text(
                                 dates[index]["date"]!,
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: selectedIndex == index
                                       ? Colors.white
@@ -274,7 +274,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
                   ),
                 ),
       
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
       
       
       
@@ -341,7 +341,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
                           date: item.date.split('T')[0],
                           color: Colors.blue,
                         ),
-                    SizedBox(height: 20,),
+                    SizedBox(height: 10,),
                     AssignmentContainer(
                       subject: item.subject,
                       title: item.description,
@@ -367,6 +367,15 @@ class _AssignmentUIState extends State<AssignmentUI> {
     );
   }
 
+  bool _shouldShowBack() {
+    try {
+      final role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+      const sidebarRoles = {'correspondent', 'administrator', 'principal', 'viceprincipal', 'teacher', 'accountant'};
+      return !sidebarRoles.contains(role);
+    } catch (_) {
+      return true;
+    }
+  }
 
 }
 
@@ -438,6 +447,7 @@ class AssignmentContainer extends StatelessWidget {
             child: Text(
               subject,
               style: TextStyle(
+                fontSize: 8,
                 color: color,
                 fontWeight: FontWeight.bold,
               ),
@@ -447,11 +457,11 @@ class AssignmentContainer extends StatelessWidget {
           const SizedBox(height: 10),
 
           Text(title,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+              style: const TextStyle(fontSize:12,fontWeight: FontWeight.w600)),
 
           const SizedBox(height: 5),
 
-          Text(pages, style: const TextStyle(color: Colors.grey)),
+          Text(pages, style: const TextStyle(fontSize:10,color: Colors.grey)),
 
           const SizedBox(height: 10),
 
@@ -460,7 +470,7 @@ class AssignmentContainer extends StatelessWidget {
               const Icon(Icons.calendar_today,
                   size: 16, color: Colors.grey),
               const SizedBox(width: 5),
-              Text(date, style: const TextStyle(color: Colors.grey)),
+              Text(date, style: const TextStyle(fontSize:9,color: Colors.grey)),
             ],
           ),
         ],

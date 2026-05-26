@@ -15,6 +15,9 @@ import 'package:school_app/screens/campus_management_view.dart';
 
 class AppRoutes {
   static const String TIMETABLE_MANAGEMENT = '/timetable-management';
+  static const String TIMETABLE_MANAGEMENT1 = '/timetable-management';
+
+  static const String MARKS_UPLOAD = '/marks-upload';
   static const String HOMEWORK_MANAGEMENT = '/homework-management';
   static const String SPLASH = '/splash';
   static const String LOGIN = '/login';
@@ -30,13 +33,14 @@ class AppRoutes {
   static const String ACADEMICS = '/academics';
   static const String COMMUNICATIONS = '/communications';
   static const String CLUBS_ACTIVITIES = '/clubs-activities';
-<<<<<<< Updated upstream
+//<<<<<<< Updated upstream
   static const String CAMPUS_MANAGEMENT_PAGE = '/campus-management-page';
-=======
-  static const CAMPUS_MANAGEMENT = '/campus-management';
->>>>>>> Stashed changes
   static const String CLUB_DETAIL = '/club-detail';
   static const String ATTENDANCE = '/attendance';
+  static const String TEACHER_ATTENDANCE = '/teacher-attendance';
+  static const String STUDENT_MARKS_LIST = '/student_marks_list';
+
+
   static const String STUDENT_RECORDS = '/student-records';
   static const String SUBSCRIPTION_MANAGEMENT = '/subscription-management';
   static const String teacherClasses = '/my-classes';
