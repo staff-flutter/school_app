@@ -30,13 +30,32 @@ class AttendanceView extends GetView<ParentAttendanceController> {
           return DefaultTabController(
             length: controller.canMark ? 2 : 1,
             child: Scaffold(
+              backgroundColor: const Color(0xFFF0F5FF),
               appBar: AppBar(
-                title: Text('Attendance ${_getPermissionLabel()}'),
+                backgroundColor: Colors.white,
+                elevation: 0,
+                title: Text(
+                  'Attendance ${_getPermissionLabel()}',
+                  style: const TextStyle(
+                      color: Color(0xFF1A2A3A),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700),
+                ),
                 bottom: TabBar(
+                  labelColor: const Color(0xFF2563EB),
+                  unselectedLabelColor: const Color(0xFF90A4BE),
+                  indicatorColor: const Color(0xFF2563EB),
+                  indicatorWeight: 2.5,
+                  labelStyle: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
                   tabs: [
                     if (controller.canMark)
-                      const Tab(icon: Icon(Icons.how_to_reg), text: 'Mark Daily'),
-                    const Tab(icon: Icon(Icons.history), text: 'History'),
+                      const Tab(
+                          icon: Icon(Icons.how_to_reg_rounded, size: 18),
+                          text: 'Mark Daily'),
+                    const Tab(
+                        icon: Icon(Icons.history_rounded, size: 18),
+                        text: 'History'),
                   ],
                 ),
               ),
@@ -1196,31 +1215,42 @@ class AttendanceView extends GetView<ParentAttendanceController> {
       child: Column(
         children: [
           _buildFilters(context),
-          Container(
-            padding: const EdgeInsets.all(20),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _markAllPresent,
-                    icon: const Icon(Icons.check_circle, color: Colors.green),
-                    label: const Text('Mark All Present'),
+                    icon: const Icon(Icons.check_circle_rounded, size: 16),
+                    label: const Text('All Present'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade50,
-                      foregroundColor: Colors.green.shade700,
+                      backgroundColor: const Color(0xFF059669),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _showBulkMarkingDialog(context),
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Bulk Marking'),
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Bulk Mark'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppTheme.primaryBlue.withOpacity(0.1),
-                      foregroundColor: AppTheme.primaryBlue,
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ),
                 ),
@@ -1268,12 +1298,23 @@ class AttendanceView extends GetView<ParentAttendanceController> {
         );
       }
       return Container(
-        padding: const EdgeInsets.all(20),
-        child: Card(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFDDE6F5)),
+            boxShadow: [
+              BoxShadow(
+                  color: const Color(0xFFDDE6F5).withOpacity(0.5),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))
+            ],
+          ),
           child: Column(
             children: [
               _buildMarkingTableHeader(),
-              const Divider(height: 1),
+              const Divider(height: 1, color: Color(0xFFDDE6F5)),
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -1290,28 +1331,28 @@ class AttendanceView extends GetView<ParentAttendanceController> {
 
   Widget _buildMarkingTableHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: const BoxDecoration(
         color: Color(0xFFF0F5FF),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
       ),
       child: Row(children: [
-        const SizedBox(width: 36),
+        const SizedBox(width: 30),
         const SizedBox(width: 8),
         const Expanded(
             flex: 3,
             child: Text('Student',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11,
                     color: Color(0xFF1A2A3A)))),
         const Expanded(
             flex: 2,
             child: Text('Roll / Class',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11,
                     color: Color(0xFF1A2A3A)))),
         const SizedBox(
-            width: 90,
+            width: 64,
             child: Text('Mark',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11,
                     color: Color(0xFF1A2A3A)),
                 textAlign: TextAlign.center)),
       ]),
@@ -1321,20 +1362,22 @@ class AttendanceView extends GetView<ParentAttendanceController> {
   Widget _buildMarkingRow(BuildContext context, AttendanceRecord record, int index) {
     final isPresent = record.status == 'Present';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFF0F5FF)))),
       child: Row(children: [
+        // Avatar initials
         CircleAvatar(
-          radius: 18,
+          radius: 15,
           backgroundColor: const Color(0xFFEFF6FF),
           child: Text(
             record.studentName.isNotEmpty ? record.studentName[0].toUpperCase() : '?',
             style: const TextStyle(
-                color: Color(0xFF2563EB), fontWeight: FontWeight.w700, fontSize: 13),
+                color: Color(0xFF2563EB), fontWeight: FontWeight.w700, fontSize: 11),
           ),
         ),
         const SizedBox(width: 8),
+        // Name
         Expanded(
           flex: 3,
           child: Text(record.studentName,
@@ -1342,30 +1385,32 @@ class AttendanceView extends GetView<ParentAttendanceController> {
                   fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF1A2A3A)),
               maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
+        // Roll / Class
         Expanded(
           flex: 2,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(record.rollNumber,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF1A2A3A))),
+                style: const TextStyle(fontSize: 10, color: Color(0xFF1A2A3A))),
             Text('${record.className} · ${record.section}',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF90A4BE))),
+                style: const TextStyle(fontSize: 9, color: Color(0xFF90A4BE))),
           ]),
         ),
+        // Mark buttons — fixed narrow column
         SizedBox(
-          width: 90,
+          width: 64,
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             GestureDetector(
               onTap: () => controller.markAttendance(record.studentId, 'Present'),
               child: Icon(Icons.check_circle_rounded,
-                  color: isPresent ? const Color(0xFF059669) : Colors.grey.shade300,
-                  size: 22),
+                  color: isPresent ? const Color(0xFF059669) : const Color(0xFFDDE6F5),
+                  size: 20),
             ),
             const SizedBox(width: 6),
             GestureDetector(
               onTap: () => controller.markAttendance(record.studentId, 'Absent'),
               child: Icon(Icons.cancel_rounded,
-                  color: !isPresent ? const Color(0xFFEF4444) : Colors.grey.shade300,
-                  size: 22),
+                  color: !isPresent ? const Color(0xFFEF4444) : const Color(0xFFDDE6F5),
+                  size: 20),
             ),
           ]),
         ),
@@ -1477,114 +1522,163 @@ class AttendanceView extends GetView<ParentAttendanceController> {
   }
 
   Widget _buildFilters(BuildContext context) {
+    const inputDeco = InputDecoration(
+      isDense: true,
+      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      border: OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFDDE6F5))),
+      enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFDDE6F5))),
+      focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.5)),
+      filled: true,
+      fillColor: Colors.white,
+      hintStyle: TextStyle(fontSize: 12, color: Color(0xFF90A4BE)),
+    );
+
     return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Date', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Obx(() => InkWell(
-                    onTap: () => _selectDate(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.calendar_today, size: 16),
-                        const SizedBox(width: 8),
-                        Text(controller.selectedDate.value.toString().split(' ')[0]),
-                      ]),
-                    ),
-                  )),
-                ]),
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDDE6F5)),
+      ),
+      child: Row(children: [
+        // Date picker
+        Expanded(
+          child: Obx(() => InkWell(
+            onTap: () => _selectDate(context),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFDDE6F5)),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          if (controller.userRole != 'teacher')
-            Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Class', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: controller.selectedClass.value.isEmpty ? null : controller.selectedClass.value,
-                      decoration: const InputDecoration(hintText: 'Select Class', border: OutlineInputBorder()),
-                      items: ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5']
-                          .map((cls) => DropdownMenuItem(value: cls, child: Text(cls)))
-                          .toList(),
-                      onChanged: (v) => controller.selectClass(v ?? ''),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Section', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: controller.selectedSection.value.isEmpty ? null : controller.selectedSection.value,
-                    decoration: const InputDecoration(hintText: 'Select Section', border: OutlineInputBorder()),
-                    items: ['Section A', 'Section B', 'Section C']
-                        .map((sec) => DropdownMenuItem(value: sec, child: Text(sec)))
-                        .toList(),
-                    onChanged: (v) => controller.selectSection(v ?? ''),
+              child: Row(children: [
+                const Icon(Icons.calendar_today_rounded,
+                    size: 13, color: Color(0xFF2563EB)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    controller.selectedDate.value.toString().split(' ')[0],
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF1A2A3A)),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ]),
-              ),
+                ),
+              ]),
             ),
+          )),
+        ),
+        if (controller.userRole != 'teacher') ...[
+          const SizedBox(width: 8),
+          // Class dropdown
+          Expanded(
+            child: Obx(() => DropdownButtonFormField<String>(
+              value: controller.selectedClass.value.isEmpty
+                  ? null
+                  : controller.selectedClass.value,
+              decoration:
+                  inputDeco.copyWith(hintText: 'Class'),
+              style: const TextStyle(
+                  fontSize: 12, color: Color(0xFF1A2A3A)),
+              items: ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5']
+                  .map((c) => DropdownMenuItem(
+                      value: c,
+                      child: Text(c,
+                          style: const TextStyle(fontSize: 12))))
+                  .toList(),
+              onChanged: (v) => controller.selectClass(v ?? ''),
+              iconSize: 18,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF2563EB)),
+            )),
           ),
         ],
-      ),
+        const SizedBox(width: 8),
+        // Section dropdown
+        Expanded(
+          child: Obx(() => DropdownButtonFormField<String>(
+            value: controller.selectedSection.value.isEmpty
+                ? null
+                : controller.selectedSection.value,
+            decoration: inputDeco.copyWith(hintText: 'Section'),
+            style: const TextStyle(
+                fontSize: 12, color: Color(0xFF1A2A3A)),
+            items: ['Section A', 'Section B', 'Section C']
+                .map((s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(s,
+                        style: const TextStyle(fontSize: 12))))
+                .toList(),
+            onChanged: (v) => controller.selectSection(v ?? ''),
+            iconSize: 18,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                color: Color(0xFF2563EB)),
+          )),
+        ),
+      ]),
     );
   }
 
   Widget _buildStatsCards(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Obx(() => Row(
-        children: [
-          Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-            const Icon(Icons.how_to_reg, size: 40, color: Colors.green),
-            const SizedBox(height: 10),
-            const Text('Present', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${controller.presentCount}', style: const TextStyle(fontSize: 24, color: Colors.green)),
-          ])))),
-          Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-            const Icon(Icons.person_off, size: 40, color: Colors.red),
-            const SizedBox(height: 10),
-            const Text('Absent', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${controller.absentCount}', style: const TextStyle(fontSize: 24, color: Colors.red)),
-          ])))),
-          Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-            const Icon(Icons.people, size: 40, color: AppTheme.primaryBlue),
-            const SizedBox(height: 10),
-            const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${controller.totalStudents}', style: const TextStyle(fontSize: 24, color: AppTheme.primaryBlue)),
-          ])))),
-          Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-            const Icon(Icons.percent, size: 40, color: Colors.orange),
-            const SizedBox(height: 10),
-            const Text('Percentage', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${controller.attendancePercentage.toStringAsFixed(1)}%',
-                style: const TextStyle(fontSize: 24, color: Colors.orange)),
-          ])))),
-        ],
-      )),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Obx(() {
+        final present = controller.presentCount;
+        final absent  = controller.absentCount;
+        final total   = controller.totalStudents;
+        final pct     = controller.attendancePercentage;
+        return Row(children: [
+          _statChip(Icons.check_circle_rounded, 'Present', '$present',
+              const Color(0xFF059669)),
+          const SizedBox(width: 7),
+          _statChip(Icons.cancel_rounded, 'Absent', '$absent',
+              const Color(0xFFEF4444)),
+          const SizedBox(width: 7),
+          _statChip(Icons.people_rounded, 'Total', '$total',
+              const Color(0xFF2563EB)),
+          const SizedBox(width: 7),
+          _statChip(Icons.percent_rounded, 'Rate',
+              '${pct.toStringAsFixed(0)}%', const Color(0xFF0891B2)),
+        ]);
+      }),
+    );
+  }
+
+  Widget _statChip(IconData icon, String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.20)),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFFDDE6F5).withOpacity(0.5),
+                blurRadius: 6,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: color)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 9,
+                  color: Color(0xFF90A4BE),
+                  fontWeight: FontWeight.w600)),
+        ]),
+      ),
     );
   }
 

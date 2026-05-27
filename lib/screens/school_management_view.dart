@@ -4208,25 +4208,25 @@ class _AttendanceTabState extends State<_AttendanceTab> {
     );
   }
 
-  Widget _buildHeader(bool isTablet) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.how_to_reg, color: Colors.white, size: 18),
-          const SizedBox(width: 10),
-          const Text(
-            'Attendance Management',
-            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
+Widget _buildHeader(bool isTablet) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(colors: [Colors.blue[700]!, Colors.blue[500]!]),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Row(
+      children: [
+        Icon(Icons.how_to_reg, color: Colors.white, size: 18),
+        SizedBox(width: 10),
+        Text(
+          'Attendance Management',
+          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildModeToggle() {
     if (!canMarkAttendance && canViewAttendance) {
@@ -4766,172 +4766,111 @@ class _AttendanceTabState extends State<_AttendanceTab> {
   }
 
   Widget _buildCollapsibleSummary(bool isLandscape, bool isTablet) {
-    final screenSize = MediaQuery.of(context).size;
-    final total = attendanceRecords.length;
-    final present =
-        attendanceRecords.where((r) => r['status'] == 'present').length;
-    final absent = total - present;
-    final isExpanded = total > 0;
+  final total = attendanceRecords.length;
+  final present = attendanceRecords.where((r) => r['status'] == 'present').length;
+  final absent = total - present;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      height: isExpanded ? null : 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 16 : 12),
-        child: isExpanded
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.analytics,
-                          color: Colors.blue.shade600,
-                          size: isTablet ? 20 : 18),
-                      SizedBox(width: isTablet ? 8 : 6),
-                      Text('Summary',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: isTablet ? 16 : 14)),
-                      const Spacer(),
-                      Text('$present/$total Present',
-                          style: TextStyle(
-                              fontSize: isTablet ? 14 : 12,
-                              color: Colors.green)),
-                    ],
-                  ),
-                  SizedBox(height: isTablet ? 12 : 8),
-                  isLandscape && isTablet
-                      ? Row(
-                          children: [
-                            Expanded(
-                                child: _buildSummaryCard('Total',
-                                    total.toString(), Colors.blue, isTablet)),
-                            SizedBox(width: isTablet ? 8 : 6),
-                            Expanded(
-                                child: _buildSummaryCard(
-                                    'Present',
-                                    present.toString(),
-                                    Colors.green,
-                                    isTablet)),
-                            SizedBox(width: isTablet ? 8 : 6),
-                            Expanded(
-                                child: _buildSummaryCard('Absent',
-                                    absent.toString(), Colors.red, isTablet)),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: isTablet ? 8 : 6,
-                          runSpacing: isTablet ? 8 : 6,
-                          children: [
-                            SizedBox(
-                              width:
-                                  (screenSize.width - (isTablet ? 80 : 60)) / 3,
-                              child: _buildSummaryCard('Total',
-                                  total.toString(), Colors.blue, isTablet),
-                            ),
-                            SizedBox(
-                              width:
-                                  (screenSize.width - (isTablet ? 80 : 60)) / 3,
-                              child: _buildSummaryCard('Present',
-                                  present.toString(), Colors.green, isTablet),
-                            ),
-                            SizedBox(
-                              width:
-                                  (screenSize.width - (isTablet ? 80 : 60)) / 3,
-                              child: _buildSummaryCard('Absent',
-                                  absent.toString(), Colors.red, isTablet),
-                            ),
-                          ],
-                        ),
-                  SizedBox(height: isTablet ? 12 : 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _bulkUpdateStatus('present'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade100,
-                            foregroundColor: Colors.green.shade700,
-                            padding: EdgeInsets.symmetric(
-                                vertical: isTablet ? 12 : 8),
-                          ),
-                          child: Text('All Present',
-                              style: TextStyle(fontSize: isTablet ? 14 : 12)),
-                        ),
-                      ),
-                      SizedBox(width: isTablet ? 8 : 6),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _bulkUpdateStatus('absent'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade100,
-                            foregroundColor: Colors.red.shade700,
-                            padding: EdgeInsets.symmetric(
-                                vertical: isTablet ? 12 : 8),
-                          ),
-                          child: Text('All Absent',
-                              style: TextStyle(fontSize: isTablet ? 14 : 12)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              )
-            : Row(
-                children: [
-                  Icon(Icons.analytics, color: Colors.blue.shade600, size: 18),
-                  const SizedBox(width: 8),
-                  Text('Summary: $present/$total Present',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 14)),
-                ],
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.blue.shade100),
+    ),
+    padding: const EdgeInsets.all(14),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.analytics, color: Colors.blue.shade600, size: 17),
+            const SizedBox(width: 6),
+            Text(
+              'Summary',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.blue.shade700,
               ),
-      ),
-    );
-  }
+            ),
+            const Spacer(),
+            Text(
+              '$present / $total Present',
+              style: TextStyle(fontSize: 12, color: Colors.green.shade600, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _buildSummaryCard('Total', total.toString(), Colors.blue, isTablet)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildSummaryCard('Present', present.toString(), Colors.green, isTablet)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildSummaryCard('Absent', absent.toString(), Colors.red, isTablet)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _bulkUpdateStatus('present'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.green.shade700,
+                  side: BorderSide(color: Colors.green.shade300),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('All Present', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _bulkUpdateStatus('absent'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade300),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('All Absent', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
-  Widget _buildSummaryCard(
-      String title, String value, Color color, bool isTablet) {
-    return Container(
-      padding: EdgeInsets.all(isTablet ? 12 : 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(isTablet ? 8 : 6),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isTablet ? 20 : 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+  Widget _buildSummaryCard(String title, String value, Color color, bool isTablet) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.07),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withOpacity(0.2)),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: isTablet ? 12 : 10,
-              color: color.withOpacity(0.8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        Text(
+          title,
+          style: TextStyle(fontSize: 11, color: color.withOpacity(0.8)),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildContentArea(bool isTablet) {
     return Container(
@@ -4951,169 +4890,294 @@ class _AttendanceTabState extends State<_AttendanceTab> {
   }
 
   Widget _buildDailyList() {
-    if (attendanceRecords.isEmpty) {
-      return const Center(
-        child: Text(
-          'No students found',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: attendanceRecords.length,
-      itemBuilder: (_, i) {
-        final r = attendanceRecords[i];
-        final isPresent = _normalizeStatus(r['status']) == 'present';
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: isPresent ? Colors.green.shade50 : Colors.red.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isPresent ? Colors.green.shade200 : Colors.red.shade200,
-            ),
-          ),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isPresent ? Colors.green : Colors.red,
-              child: Text(
-                r['rollNumber']?.toString() ?? '?',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-            title: Text(
-              r['studentName'] ?? 'Unknown Student',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<String>(
-                  value: 'present',
-                  groupValue: _normalizeStatus(r['status']),
-                  onChanged: canMarkAttendance
-                      ? (v) {
-                          if (mounted && v != null) {
-                            setState(() {
-                              attendanceRecords[i]['status'] = v;
-                            });
-                          }
-                        }
-                      : null,
-                  activeColor: Colors.green,
-                ),
-                const Text('P', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 8),
-                Radio<String>(
-                  value: 'absent',
-                  groupValue: _normalizeStatus(r['status']),
-                  onChanged: canMarkAttendance
-                      ? (v) {
-                          if (mounted && v != null) {
-                            setState(() {
-                              attendanceRecords[i]['status'] = v;
-                            });
-                          }
-                        }
-                      : null,
-                  activeColor: Colors.red,
-                ),
-                const Text('A', style: TextStyle(fontSize: 12)),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildHistoryList() {
-    if (historyRecords.isEmpty) {
-      return const Center(
-        child: Text(
-          'No history found',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: historyRecords.length,
-      itemBuilder: (_, i) {
-        final item = historyRecords[i];
-        final records = item['records'] ?? [];
-        final present = records.where((r) => r['status'] == 'present').length;
-        final absent = records.where((r) => r['status'] == 'absent').length;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: ExpansionTile(
-            title: Text(
-              item['date']?.toString().split('T')[0] ?? '',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text('By: ${item['takenBy']?['userName'] ?? 'Unknown'}'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _statusChip('Present', present, Colors.green),
-                        _statusChip('Absent', absent, Colors.red),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ...records.map<Widget>((s) => ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: s['status'] == 'present'
-                                ? Colors.green
-                                : Colors.red,
-                            child: Text(
-                              s['rollNumber']?.toString() ?? '',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
-                            ),
-                          ),
-                          title: Text(s['studentName'] ?? ''),
-                          dense: true,
-                        )),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return Container(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _saveAttendance,
-        icon: const Icon(Icons.save),
-        label: const Text('Save Attendance'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue.shade600,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+  if (attendanceRecords.isEmpty) {
+    return const Center(
+      child: Text(
+        'No students found',
+        style: TextStyle(fontSize: 14, color: Colors.grey),
       ),
     );
   }
+  return ListView.builder(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    itemCount: attendanceRecords.length,
+    itemBuilder: (_, i) {
+      final r = attendanceRecords[i];
+      final isPresent = _normalizeStatus(r['status']) == 'present';
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isPresent ? Colors.green.shade300 : Colors.red.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              // Roll number badge
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isPresent ? Colors.green.shade50 : Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isPresent ? Colors.green.shade300 : Colors.red.shade300,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    r['rollNumber']?.toString() ?? '?',
+                    style: TextStyle(
+                      color: isPresent ? Colors.green.shade700 : Colors.red.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Student name — flexible, won't overflow
+              Expanded(
+                child: Text(
+                  r['studentName'] ?? 'Unknown',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // P/A toggle — compact row
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _attendanceToggleBtn(
+                    label: 'P',
+                    selected: isPresent,
+                    color: Colors.green,
+                    enabled: canMarkAttendance,
+                    onTap: () {
+                      if (canMarkAttendance && mounted) {
+                        setState(() => attendanceRecords[i]['status'] = 'present');
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _attendanceToggleBtn(
+                    label: 'A',
+                    selected: !isPresent,
+                    color: Colors.red,
+                    enabled: canMarkAttendance,
+                    onTap: () {
+                      if (canMarkAttendance && mounted) {
+                        setState(() => attendanceRecords[i]['status'] = 'absent');
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _attendanceToggleBtn({
+  required String label,
+  required bool selected,
+  required Color color,
+  required bool enabled,
+  required VoidCallback onTap,
+}) {
+  return GestureDetector(
+    onTap: enabled ? onTap : null,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: selected ? color : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: selected ? color : Colors.grey.shade300,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.grey.shade500,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildHistoryList() {
+  if (historyRecords.isEmpty) {
+    return const Center(
+      child: Text(
+        'No history found',
+        style: TextStyle(fontSize: 14, color: Colors.grey),
+      ),
+    );
+  }
+  return ListView.builder(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    itemCount: historyRecords.length,
+    itemBuilder: (_, i) {
+      final item = historyRecords[i];
+      final records = item['records'] ?? [];
+      final present = records.where((r) => r['status'] == 'present').length;
+      final absent = records.where((r) => r['status'] == 'absent').length;
+      final total = present + absent;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.shade100),
+        ),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          title: Text(
+            item['date']?.toString().split('T')[0] ?? '',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'By: ${item['takenBy']?['userName'] ?? 'Unknown'}',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _historyBadge('$present P', Colors.green),
+              const SizedBox(width: 6),
+              _historyBadge('$absent A', Colors.red),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down, color: Colors.blue.shade400, size: 20),
+            ],
+          ),
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            ...records.map<Widget>((s) {
+              final isP = s['status'] == 'present';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isP ? Colors.green.shade50 : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isP ? Colors.green.shade300 : Colors.red.shade300,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          s['rollNumber']?.toString() ?? '',
+                          style: TextStyle(
+                            color: isP ? Colors.green.shade700 : Colors.red.shade700,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        s['studentName'] ?? '',
+                        style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isP ? Colors.green.shade50 : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        isP ? 'P' : 'A',
+                        style: TextStyle(
+                          color: isP ? Colors.green.shade700 : Colors.red.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Widget _historyBadge(String text, Color color) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: color,
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+}
+
+Widget _buildSaveButton() {
+  return SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      onPressed: _saveAttendance,
+      icon: const Icon(Icons.save, size: 18),
+      label: const Text('Save Attendance', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue[700],
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 0,
+      ),
+    ),
+  );
+}
 
   Widget _statusChip(String label, int count, Color color) {
     return Container(
