@@ -417,6 +417,7 @@ class AnnouncementController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
+        print('👍${response.data}');
         final List<dynamic> data = response.data['data'] ?? [];
 
         // Log each announcement for debugging

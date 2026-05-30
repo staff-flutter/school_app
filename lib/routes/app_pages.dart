@@ -24,6 +24,7 @@ import '../screens/splash_screen.dart';
 import '../screens/student_form_dialog.dart';
 import '../screens/student_form_page.dart';
 import '../screens/student_profile_page.dart';
+import '../screens/student_profile_verification_page_for_admin_side.dart';
 import '../screens/teacher_classes_view.dart';
 import '../screens/techer_attendance_view.dart';
 import '../screens/time_table_page.dart';
@@ -293,6 +294,10 @@ GetPage(
       page: () => RoleAwareWrapper(child: const StudentRecordsView()),
       binding: StudentRecordBinding(),
       middlewares: [RoleGuard()],
+    ),
+    GetPage(
+      name: AppRoutes.STUDENT_PROFILE_VERIFICATION,
+      page: () => RoleAwareWrapper(child: const ProfileVerificationPage()),
     ),
     GetPage(
       name: AppRoutes.STUDENT_MARKS_LIST,

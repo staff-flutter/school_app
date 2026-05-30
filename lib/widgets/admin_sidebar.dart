@@ -7,6 +7,7 @@ import 'package:school_app/core/role_modules.dart';
 import 'package:school_app/routes/app_routes.dart';
 
 import '../controllers/school_controller.dart';
+import '../services/user_session.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kBg           = Color(0xFFFFFFFF);
@@ -653,7 +654,7 @@ class _MenuBody extends StatelessWidget {
     if (role == 'correspondent') {
       return [
         _Section('Menu', [
-          _Item('Dashboar', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
           if (RoleModules.hasModule(role, 'schoolManagement'))
             _Item('School', Icons.business_rounded, AppRoutes.SCHOOL_MANAGEMENT),
           if (RoleModules.hasModule(role, 'announcements') &&
@@ -685,6 +686,7 @@ class _MenuBody extends StatelessWidget {
 
           _Item('Timetable', Icons.calendar_today_rounded, AppRoutes.TIMETABLE_MANAGEMENT),
           _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
+          _Item('Profile Verification',Icons.perm_contact_calendar_outlined,AppRoutes.STUDENT_PROFILE_VERIFICATION)
         ]),
         _Section('Other', [
           if (RoleModules.hasModule(role, 'subscription'))
@@ -736,6 +738,8 @@ class _MenuBody extends StatelessWidget {
           if (_authCtrl.canUploadMarks)
             _Item('Students performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
+          _Item('Profile Verification',Icons.perm_contact_calendar_outlined,AppRoutes.STUDENT_PROFILE_VERIFICATION)
+
         ]),
         _Section('Other', [
           if (RoleModules.hasModule(role, 'subscription'))
@@ -1102,6 +1106,14 @@ class _Footer extends StatelessWidget {
         TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
+            if (Get.isRegistered<UserSession>()) {
+              final userSession = Get.find<UserSession>();
+              userSession.token = null;
+              userSession.schoolId = null;
+              userSession.role = null;
+              userSession.update();
+            }
+            Get.offAllNamed(AppRoutes.LOGIN);
             Get.back();
             auth?.logout();
           },

@@ -501,61 +501,167 @@ class _CommunicationsViewState extends State<CommunicationsView> {
   }
 
   Widget _buildFilterSection(BuildContext context, AnnouncementController controller) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppTheme.cardGradient,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    final filters = [
+      {'label': 'All', 'value': 'all', 'icon': Icons.groups_rounded},
+      {'label': 'Students', 'value': 'student', 'icon': Icons.school_rounded},
+      {'label': 'Parents', 'value': 'parent', 'icon': Icons.family_restroom_rounded},
+      {'label': 'Teachers', 'value': 'teacher', 'icon': Icons.person_rounded},
+    ];
+
+    void showFilterSheet() {
+      Get.bottomSheet(
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Row(children: [
+                const Text('Filter by Audience',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A))),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Get.back(),
+                  child: const Icon(Icons.close_rounded,
+                      color: Color(0xFF94A3B8), size: 22),
+                ),
+              ]),
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            ...filters.map((f) => Obx(() {
+              final isSelected =
+                  controller.selectedFilter.value == f['value'];
+              return ListTile(
+                leading: Container(
+                  width: 36, height: 36,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.successGradient,
+                    color: isSelected
+                        ? const Color(0xFFEFF6FF)
+                        : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.filter_list, color: Colors.white, size: 15),
+                  child: Icon(f['icon'] as IconData,
+                      size: 18,
+                      color: isSelected
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF94A3B8)),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Filter by Audience',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryText,
-                    fontSize: 14
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _buildFilterChip('All', 'all', Icons.groups, controller),
-                _buildFilterChip('Students', 'student', Icons.school, controller),
-                _buildFilterChip('Parents', 'parent', Icons.family_restroom, controller),
-                _buildFilterChip('Teachers', 'teacher', Icons.person, controller),
-              ],
-            ),
-          ],
+                title: Text(f['label'] as String,
+                    style: TextStyle(
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      fontSize: 14,
+                      color: isSelected
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF0F172A),
+                    )),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle_rounded,
+                    color: Color(0xFF3B82F6), size: 20)
+                    : null,
+                onTap: () {
+                  controller.changeFilter(f['value'] as String);
+                  Get.back();
+                },
+              );
+            })),
+            const SizedBox(height: 20),
+          ]),
         ),
-      ),
-    );
-  }
+        isScrollControlled: true,
+      );
+    }
 
+    return Obx(() {
+      final current = filters.firstWhere(
+              (f) => f['value'] == controller.selectedFilter.value,
+          orElse: () => filters.first);
+      final isFiltered = controller.selectedFilter.value != 'all';
+
+      return Row(children: [
+        GestureDetector(
+          onTap: showFilterSheet,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: isFiltered
+                  ? const Color(0xFFEFF6FF)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: isFiltered
+                    ? const Color(0xFF3B82F6)
+                    : const Color(0xFFE2E8F0),
+                width: isFiltered ? 1.5 : 1,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 1)),
+              ],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(current['icon'] as IconData,
+                  size: 14,
+                  color: isFiltered
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFF94A3B8)),
+              const SizedBox(width: 6),
+              Text(
+                current['label'] as String,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isFiltered
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFF475569),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: isFiltered
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFF94A3B8)),
+            ]),
+          ),
+        ),
+        const Spacer(),
+        // Announcement count
+        Obx(() => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Text(
+            '${controller.filteredAnnouncements.length} posts',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
+          ),
+        )),
+      ]);
+    });
+  }
   Widget _buildFilterChip(String label, String value, IconData icon, AnnouncementController controller) {
     return Obx(() {
       final isSelected = controller.selectedFilter.value == value;
@@ -742,7 +848,7 @@ class _CommunicationsViewState extends State<CommunicationsView> {
                   items: controller.schools.toSet().map((school) {
                     return DropdownMenuItem<School>(
                       value: school,
-                      child: Text(school.name),
+                      child: Text(school.name,style: TextStyle(fontSize: 13),),
                     );
                   }).toList(),
                   onChanged: (value) => controller.selectedSchool.value = value,
@@ -1010,130 +1116,243 @@ class _AnnouncementsList extends StatelessWidget {
         itemCount: controller.filteredAnnouncements.length,
         itemBuilder: (context, index) {
           final announcement = controller.filteredAnnouncements[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: _getCardGradient(announcement['type']),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+          return // Replace the Container(...) card inside ListView.builder with:
+            GestureDetector(
+              onTap: () {
+                controller.getAnnouncement(announcement['_id']).then((_) {
+                  final fresh =
+                      controller.selectedAnnouncement.value ?? announcement;
+                  Get.to(() => AnnouncementDetailView(announcement: fresh));
+                });
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Color(0x0A000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 1)),
+                    BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4)),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        announcement['title'] ?? 'No Title',
-                        style: TextStyle(fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    if (!isParent)
-                      PopupMenuButton<String>(
-                        iconColor: Colors.white, // Direct color property
-                        iconSize: 15.0,
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'view', child: Text('View')),
-                          if (_canEdit(authController.user.value?.role))
-                            const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                          if (_canDelete(authController.user.value?.role))
-                            const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
-                        onSelected: (value) {
-                          final id = announcement['_id'];
-                          if (value == 'view') {
-                            controller.getAnnouncement(announcement['_id']).then((_) {
-                              final freshAnnouncement = controller.selectedAnnouncement.value ?? announcement;
-                              Get.to(() => AnnouncementDetailView(announcement: freshAnnouncement));
-                            });
-                          } else if (value == 'edit') {
-                            _showEditDialog(context, controller, announcement);
-                          } else if (value == 'delete') {
-                            _showDeleteConfirmation(context, controller, id);
-                          }
-                        },
-                      )
-                    else
-                      // For parents, show a view icon button instead of popup menu
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Coloured type band ──────────────────────────────────
                       Container(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                          borderRadius: BorderRadius.circular(8),
+                          color: _typeAccent(announcement['type']).withOpacity(0.08),
+                          borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                         ),
-                        child: IconButton(
-                          icon: const Icon(Icons.visibility, color: Colors.white),
-                          onPressed: () {
-                            controller.getAnnouncement(announcement['_id']).then((_) {
-                              final freshAnnouncement = controller.selectedAnnouncement.value ?? announcement;
-                              Get.to(() => AnnouncementDetailView(announcement: freshAnnouncement));
-                            });
-                          },
-                        ),
+                        child: Row(children: [
+                          Container(
+                            width: 32, height: 32,
+                            decoration: BoxDecoration(
+                              color: _typeAccent(announcement['type']).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(_typeIcon(announcement['type']),
+                                size: 16,
+                                color: _typeAccent(announcement['type'])),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              announcement['title'] ?? 'No Title',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!isParent)
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_horiz_rounded,
+                                  color: Color(0xFF94A3B8), size: 20),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                    value: 'view',
+                                    child: Row(children: [
+                                      Icon(Icons.visibility_rounded, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('View'),
+                                    ])),
+                                if (_canEdit(
+                                    Get.find<AuthController>().user.value?.role))
+                                  const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(children: [
+                                        Icon(Icons.edit_rounded, size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Edit'),
+                                      ])),
+                                if (_canDelete(
+                                    Get.find<AuthController>().user.value?.role))
+                                  const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(children: [
+                                        Icon(Icons.delete_rounded,
+                                            size: 16, color: Color(0xFFDC2626)),
+                                        SizedBox(width: 8),
+                                        Text('Delete',
+                                            style:
+                                            TextStyle(color: Color(0xFFDC2626))),
+                                      ])),
+                              ],
+                              onSelected: (value) {
+                                final id = announcement['_id'];
+                                if (value == 'view') {
+                                  controller.getAnnouncement(id).then((_) {
+                                    final fresh =
+                                        controller.selectedAnnouncement.value ??
+                                            announcement;
+                                    Get.to(
+                                            () => AnnouncementDetailView(
+                                            announcement: fresh));
+                                  });
+                                } else if (value == 'edit') {
+                                  _showEditDialog(
+                                      Get.context!, controller, announcement);
+                                } else if (value == 'delete') {
+                                  _showDeleteConfirmation(
+                                      Get.context!, controller, id);
+                                }
+                              },
+                            )
+                          else
+                            IconButton(
+                              icon: const Icon(Icons.arrow_forward_ios_rounded,
+                                  size: 14, color: Color(0xFF94A3B8)),
+                              onPressed: () {
+                                controller
+                                    .getAnnouncement(announcement['_id'])
+                                    .then((_) {
+                                  final fresh =
+                                      controller.selectedAnnouncement.value ??
+                                          announcement;
+                                  Get.to(
+                                          () => AnnouncementDetailView(
+                                          announcement: fresh));
+                                });
+                              },
+                            ),
+                        ]),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  announcement['description'] ?? 'No Description',
-                  style: TextStyle(fontSize: 10,
-                    color: Colors.white.withOpacity(0.9),
-                  )
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        gradient: _getTypeGradient(announcement['type']),
-                        borderRadius: BorderRadius.circular(20),
+
+                      // ── Body ────────────────────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                announcement['description'] ?? 'No Description',
+                                style: const TextStyle(
+                                    fontSize: 13, color: Color(0xFF475569), height: 1.5),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 10),
+                              Row(children: [
+                                _typeBadge(announcement['type']),
+                                const SizedBox(width: 6),
+                                _priorityBadge(announcement['priority']),
+                                const Spacer(),
+                                if (announcement['createdAt'] != null)
+                                  Text(
+                                    _formatDate(announcement['createdAt']),
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Color(0xFF94A3B8)),
+                                  ),
+                              ]),
+                            ]),
                       ),
-                      child: Text(
-                        announcement['type']?.toString().toUpperCase() ?? 'GENERAL',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        gradient: _getPriorityGradient(announcement['priority']),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        announcement['priority']?.toString().toUpperCase() ?? 'NORMAL',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
+                    ]),
+              ),
+            );
         },
       );
     });
   }
-  
+  Color _typeAccent(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'urgent':   return const Color(0xFFDC2626);
+      case 'event':    return const Color(0xFF3B82F6);
+      case 'holiday':  return const Color(0xFF059669);
+      default:         return const Color(0xFF1D4ED8);
+    }
+  }
+
+  IconData _typeIcon(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'urgent':   return Icons.warning_amber_rounded;
+      case 'event':    return Icons.event_rounded;
+      case 'holiday':  return Icons.celebration_rounded;
+      default:         return Icons.campaign_rounded;
+    }
+  }
+
+  Widget _typeBadge(String? type) {
+    final color = _typeAccent(type);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        (type ?? 'general').toUpperCase(),
+        style: TextStyle(
+            fontSize: 9, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+
+  Widget _priorityBadge(String? priority) {
+    Color color;
+    switch (priority?.toLowerCase()) {
+      case 'urgent': color = const Color(0xFFDC2626); break;
+      case 'high':   color = const Color(0xFFD97706); break;
+      case 'low':    color = const Color(0xFF059669); break;
+      default:       color = const Color(0xFF64748B);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        (priority ?? 'normal').toUpperCase(),
+        style: TextStyle(
+            fontSize: 9, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+
+  String _formatDate(dynamic raw) {
+    try {
+      final dt = DateTime.parse(raw.toString()).toLocal();
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
   Gradient _getTypeGradient(String? type) {
     switch (type) {
       case 'urgent': return AppTheme.errorGradient;

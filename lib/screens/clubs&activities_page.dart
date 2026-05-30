@@ -22,7 +22,9 @@ class ClubAndActivitiesPage extends StatefulWidget {
 }
 
 class _ClubPageState extends State<ClubAndActivitiesPage> {
- // final controller = Get.find<MyChildrenController>();
+  final AuthController _authController = Get.find<AuthController>();
+
+  // final controller = Get.find<MyChildrenController>();
   MyChildrenController? get _childrenController =>
       Get.isRegistered<MyChildrenController>()
           ? Get.find<MyChildrenController>()
@@ -161,14 +163,99 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   // -------------------------- HEADER FOR UNIVERSITY OR SCHOOL NAME --------------------------------------
 
+  Widget _buildSchoolLogo() {
+    try {
+      final school = _authController.userSchool.value;
+      if (school != null && school['logo'] != null && school['logo']['url'] != null) {
+        return GestureDetector(
+          onTap: () => _showFullScreenSchoolLogo(school['logo']['url']),
+          child: Image.network(
+            school['logo']['url'],
+            width: 32,
+            height: 32,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.school_rounded,
+                color: Color(0xFF2563EB),
+                size: 30,
+              );
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error silently
+    }
 
+    return const Icon(
+      Icons.school_rounded,
+      color: Color(0xFF2563EB),
+      size: 30,
+    );
+  }
+  void _showFullScreenSchoolLogo(String logoUrl) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Get.back(),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black.withOpacity(0.9),
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      logoUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        Get.back();
+                        Get.snackbar(
+                          'Error',
+                          'Failed to load logo',
+                          backgroundColor: Colors.red,
+                          colorText: Colors.white,
+                        );
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 50,
+              right: 20,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   Widget _header() {
     return Row(
       children: [
-        const CircleAvatar(
-          backgroundColor: Color(0xffE3ECFF),
-          child: Icon(Icons.school, color: Color(0xff4A6CF7)),
-        ),
+       _buildSchoolLogo(),
         const SizedBox(width: 10),
         Text(
           '${session.schoolName}',
@@ -209,11 +296,12 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         ),
         itemBuilder: (BuildContext context, int index) {
           final club = apiClubs[index];
+          final clubId=apiClubs[index].id;
           return _BounceCard(
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SchoolGalleryPage(clubName: club.name,description:club.description, )),
+                MaterialPageRoute(builder: (context) => SchoolGalleryPage(clubName: club.name,description:club.description, clubId: clubId, )),
               );
             },
             child: Container(

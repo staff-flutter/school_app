@@ -183,6 +183,7 @@ class _CampusManagementPageState extends State<CampusManagementPage> {
         ),
         itemBuilder: (context, index) {
           final club = apiClubs[index];
+          final clubId=apiClubs[index].id;
           return _BounceCard(
             onTap: () {
               Navigator.push(
@@ -190,7 +191,7 @@ class _CampusManagementPageState extends State<CampusManagementPage> {
                 MaterialPageRoute(
                   builder: (_) => SchoolGalleryPage(
                     clubName: club.name,
-                    description: club.description,
+                    description: club.description, clubId: clubId,
                   ),
                 ),
               );

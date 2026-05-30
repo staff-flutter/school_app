@@ -35,7 +35,7 @@ class _DS {
   // Primary palette — deep navy + sky accent
   static const primary        = Color(0xFF1E3A5F);
   static const primaryLight   = Color(0xFF2D5F9E);
-  static const accent         = Color(0xFF3B82F6);
+  static const accent         =Color(0xFF2563EB);
   static const accentSoft     = Color(0xFFEFF6FF);
   static const accentMid      = Color(0xFFBFDBFE);
 
@@ -492,7 +492,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           appBar: _buildAppBar(context),
           body: Column(
             children: [
-              // ── Tab Bar ──────────────────────────────────────────────────
+// ── Tab Bar ──────────────────────────────────────────────────
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 decoration: BoxDecoration(
@@ -504,39 +504,48 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
                 child: TabBar(
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  padding: const EdgeInsets.all(5),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   indicator: BoxDecoration(
-                    color: _DS.accent,
-                    borderRadius: BorderRadius.circular(12),
+                    color: _DS.surface,                          // white fill — same as bar
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border(
+                      bottom: BorderSide(color: _DS.accent, width: 2.5), // blue underline only
+                    ),
                     boxShadow: [
-                      BoxShadow(color: _DS.accent.withOpacity(0.3),
-                          blurRadius: 8, offset: const Offset(0, 2))
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
                   indicatorSize: TabBarIndicatorSize.tab,
                   dividerColor: Colors.transparent,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: _DS.textSecondary,
+                  labelColor: _DS.accent,                        // selected = blue text
+                  unselectedLabelColor: _DS.textSecondary,       // unselected = grey text
                   labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                   unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w500, fontSize: 13),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
                   tabs: tabs.map((tab) => Tab(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(tab['icon'] as IconData, size: 16),
-                          const SizedBox(width: 6),
+                          Icon(tab['icon'] as IconData, size: 15),
+                          const SizedBox(width: 5),
                           Text(tab['title'] as String),
                         ],
                       ),
                     ),
                   )).toList(),
                 ),
-              ),
-              const SizedBox(height: 12),
+              ),         const SizedBox(height: 12),
               // ── Tab Content ───────────────────────────────────────────────
               Expanded(
                 child: ResponsiveWrapper(
@@ -571,7 +580,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
             centerTitle: false,
             title: Row(
               children: [
-                _buildSchoolLogo(),
+                //_buildSchoolLogo(),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -754,9 +763,31 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               subtitle: 'Create your first school to get started')
               : ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-            itemCount: controller.schools.length,
-            itemBuilder: (context, index) =>
-                _buildSchoolCard(controller.schools[index], currentUserRole),
+            itemCount: controller.schools.length+1,
+
+
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                    child: Row(children: [
+                      Text('${controller.schools.length} school${controller.schools.length == 1 ? '' : 's'}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                              color: _DS.textMuted)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: controller.refreshSchools,
+                        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.refresh_rounded, size: 14, color: _DS.accent),
+                          SizedBox(width: 4),
+                          Text('Refresh', style: TextStyle(fontSize: 12, color: _DS.accent,
+                              fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                    ]),
+                  );
+                }
+                return _buildSchoolCard(controller.schools[index - 1], currentUserRole);            }
           ),
         );
       }),
@@ -768,79 +799,169 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   }
 
   Widget _buildSchoolCard(School school, String currentUserRole) {
-    return _card(
-      padding: const EdgeInsets.all(16),
+    final colors = [
+      [const Color(0xFFEFF6FF), const Color(0xFF3B82F6)],
+      [const Color(0xFFECFDF5), const Color(0xFF059669)],
+      [const Color(0xFFFFFBEB), const Color(0xFFD97706)],
+      [const Color(0xFFF5F3FF), const Color(0xFF7C3AED)],
+    ];
+    final colorPair = colors[school.name.hashCode % colors.length];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: _DS.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _DS.border),
+        boxShadow: _DS.shadow,
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          // Logo
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: _DS.accentSoft,
-              borderRadius: BorderRadius.circular(_DS.radiusSm),
-              border: Border.all(color: _DS.accentMid),
+        // ── Header band ──────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),  // was (16,16,12,16)
+          decoration: BoxDecoration(
+            color: colorPair[0],
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: // Replace the header Row children (logo + text column + badges)
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            // Logo
+            Container(
+              width: 52, height: 52,
+              decoration: BoxDecoration(
+                color: _DS.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorPair[1].withOpacity(0.2)),
+              ),
+              child: school.logo?['url'] != null && school.logo!['url']!.isNotEmpty
+                  ? ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(school.logo!['url']!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(Icons.school_rounded, color: colorPair[1], size: 26)),
+              )
+                  : Icon(Icons.school_rounded, color: colorPair[1], size: 26),
             ),
-            child: school.logo?['url'] != null && school.logo!['url']!.isNotEmpty
-                ? ClipRRect(
-              borderRadius: BorderRadius.circular(_DS.radiusSm),
-              child: Image.network(school.logo!['url']!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.school, color: _DS.accent, size: 24)),
-            )
-                : const Icon(Icons.school, color: _DS.accent, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(school.name, style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w700, color: _DS.textPrimary)),
-            if (school.schoolCode != null)
-              Text('Code: ${school.schoolCode}',
-                  style: const TextStyle(fontSize: 12, color: _DS.textMuted)),
-          ])),
-          // Menu
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz_rounded, color: _DS.textMuted, size: 22),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radius)),
-            elevation: 3,
-            itemBuilder: (context) => [
-              if (ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/school/update'))
-                _menuItem('edit', Icons.edit_rounded, 'Edit'),
-              if (ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/school/updatelogo'))
-                _menuItem('logo', Icons.image_rounded, 'Update Logo'),
-              if (ApiPermissions.hasApiAccess(currentUserRole, 'DELETE /api/school/delete'))
-                _menuItem('delete', Icons.delete_rounded, 'Delete', danger: true),
-            ],
-            onSelected: (value) {
-              if (value == 'edit') controller.showEditSchoolDialog(school);
-              else if (value == 'logo') controller.pickAndUploadLogo(school.id);
-              else if (value == 'delete') _showDeleteConfirmation(school);
-            },
-          ),
-        ]),
-        if (school.email != null || school.phoneNo != null ||
-            school.currentAcademicYear != null || school.address != null) ...[
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: _DS.border),
-          const SizedBox(height: 12),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            if (school.email != null)
-              _infoChip(Icons.email_rounded, school.email!),
-            if (school.phoneNo != null)
-              _infoChip(Icons.phone_rounded, school.phoneNo!),
-            if (school.currentAcademicYear != null)
-              _infoChip(Icons.calendar_today_rounded, school.currentAcademicYear!),
-            if (school.address != null)
-              _infoChip(Icons.location_on_rounded, school.address!),
+            const SizedBox(width: 12),
+
+            // Name + code — Expanded so it doesn't push badges off screen
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    school.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary,
+                      letterSpacing: -0.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (school.schoolCode != null) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: colorPair[1].withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      // ← constrain width so the pill never wraps
+                      child: Text(
+                        'Code: ${school.schoolCode}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colorPair[1],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Active badge — fixed width column so it never wraps
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _DS.successSoft,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      width: 6, height: 6,
+                      decoration: BoxDecoration(
+                        color: _DS.success, shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text('Active',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _DS.success,
+                        )),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.more_horiz_rounded, color: colorPair[1], size: 20),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_DS.radius)),
+                  elevation: 3,
+                  itemBuilder: (context) => [
+                    if (ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/school/update'))
+                      _menuItem('edit', Icons.edit_rounded, 'Edit'),
+                    if (ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/school/updatelogo'))
+                      _menuItem('logo', Icons.image_rounded, 'Update Logo'),
+                    if (ApiPermissions.hasApiAccess(currentUserRole, 'DELETE /api/school/delete'))
+                      _menuItem('delete', Icons.delete_rounded, 'Delete', danger: true),
+                  ],
+                  onSelected: (value) {
+                    if (value == 'edit') controller.showEditSchoolDialog(school);
+                    else if (value == 'logo') controller.pickAndUploadLogo(school.id);
+                    else if (value == 'delete') _showDeleteConfirmation(school);
+                  },
+                ),
+              ],
+            ),
           ]),
-        ],
+        ),
+        // ── Info grid ────────────────────────────────────────────────
+        if (school.email != null || school.phoneNo != null ||
+            school.currentAcademicYear != null || school.address != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [
+              if (school.email != null) _infoChip(Icons.email_rounded, school.email!),
+              if (school.phoneNo != null) _infoChip(Icons.phone_rounded, school.phoneNo!),
+              if (school.currentAcademicYear != null)
+                _infoChip(Icons.calendar_today_rounded, school.currentAcademicYear!),
+              if (school.address != null)
+                _infoChip(Icons.location_on_rounded, school.address!),
+            ]),
+          ),
       ]),
     );
   }
 
   Widget _infoChip(IconData icon, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: _DS.surfaceAlt,
         borderRadius: BorderRadius.circular(100),
@@ -849,18 +970,19 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 13, color: _DS.accent),
         const SizedBox(width: 5),
-        Flexible(child: Text(value, style: const TextStyle(
-            fontSize: 12, color: _DS.textSecondary, fontWeight: FontWeight.w500),
-            overflow: TextOverflow.ellipsis)),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 160),
+          child: Text(value, style: const TextStyle(fontSize: 12,
+              color: _DS.textSecondary, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis),
+        ),
       ]),
     );
   }
-
   // ─── Classes Tab ───────────────────────────────────────────────────────────
   Widget _buildClassesTab() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
-    final isCorrespondent = currentUserRole == 'correspondent';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.schools.isEmpty) controller.getAllSchools();
@@ -870,82 +992,31 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(children: [
-        // Padding(
-        //   padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-        //   child: _card(
-        //     padding: const EdgeInsets.all(14),
-        //     child: Obx(() {
-        //       if (controller.schools.isEmpty)
-        //         return const Center(child: CircularProgressIndicator(color: _DS.accent));
-        //       final selectedSchool = controller.schools.contains(controller.selectedSchool.value)
-        //           ? controller.selectedSchool.value : null;
-        //       if (isCorrespondent) {
-        //         return _dropdown<School>(
-        //           value: selectedSchool,
-        //           hint: 'Select School',
-        //           icon: Icons.school_rounded,
-        //           selectedItemBuilder: controller.schools
-        //               .map((s) => Text(s.name, overflow: TextOverflow.ellipsis,
-        //               style: const TextStyle(color: _DS.textPrimary, fontSize: 15)))
-        //               .toList(),
-        //           items: controller.schools.map((s) => DropdownMenuItem(
-        //             value: s,
-        //             child: _dropdownItem(Icons.school_rounded, s.name),
-        //           )).toList(),
-        //           onChanged: (School? s) {
-        //             controller.selectedSchool.value = s;
-        //             if (s != null) controller.getAllClasses(s.id);
-        //             else controller.classes.clear();
-        //           },
-        //         );
-        //       } else {
-        //         if (controller.selectedSchool.value != null && controller.classes.isEmpty) {
-        //           WidgetsBinding.instance.addPostFrameCallback((_) =>
-        //               controller.getAllClasses(controller.selectedSchool.value!.id));
-        //         }
-        //         return _readonlySchoolChip();
-        //       }
-        //     }),
-        //   ),
-        // ),
-        if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/class/create'))
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showCreateClassDialog,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Add Class'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _DS.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_DS.radius)),
-                ),
-              ),
-            ),
-          ),
-        Expanded(
-          child: Obx(() {
-            if (controller.isLoading.value)
-              return const Center(child: CircularProgressIndicator(color: _DS.accent));
-            if (controller.classes.isEmpty)
-              return _emptyState(icon: Icons.class_outlined,
-                  title: 'No Classes', subtitle: 'Add classes to organize your students');
-            final sortedClasses = ClassUtils.sortClasses(controller.classes);
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-              itemCount: sortedClasses.length,
-              itemBuilder: (context, i) =>
-                  _buildClassCard(sortedClasses[i], currentUserRole),
-            );
-          }),
-        ),
-      ]),
+      body: Obx(() {
+        if (controller.isLoading.value)
+          return const Center(child: CircularProgressIndicator(color: _DS.accent));
+        if (controller.classes.isEmpty)
+          return _emptyState(
+            icon: Icons.class_outlined,
+            title: 'No Classes',
+            subtitle: 'Add classes to organize your students',
+          );
+        final sortedClasses = ClassUtils.sortClasses(controller.classes);
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+          itemCount: sortedClasses.length,
+          itemBuilder: (context, i) =>
+              _buildClassCard(sortedClasses[i], currentUserRole),
+        );
+      }),
+      floatingActionButton: ApiPermissions.hasApiAccess(
+          currentUserRole, 'POST /api/class/create')
+          ? _buildFAB(
+        onPressed: _showCreateClassDialog,
+        icon: Icons.add_rounded,
+        label: 'Add Class',
+      )
+          : null,
     );
   }
 
@@ -953,7 +1024,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     return _card(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(children: [
-        _iconBox(Icons.class_rounded),
+        _iconBox(Icons.class_rounded,bg: const Color(0xFFE0F7FA), fg: const Color(0xFF006064)),
         const SizedBox(width: 14),
         Expanded(child: Text(schoolClass.name, style: const TextStyle(
             fontSize: 15, fontWeight: FontWeight.w600, color: _DS.textPrimary))),
@@ -996,74 +1067,28 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(children: [
-        // Padding(
-        //   padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-        //   child: _card(
-        //     padding: const EdgeInsets.all(14),
-        //     child: Obx(() {
-        //       if (controller.schools.isEmpty)
-        //         return const Center(child: CircularProgressIndicator(color: _DS.accent));
-        //       if (isCorrespondent) {
-        //         return _dropdown<School>(
-        //           value: controller.selectedSchool.value,
-        //           hint: 'Select School',
-        //           icon: Icons.school_rounded,
-        //           selectedItemBuilder: controller.schools
-        //               .map((s) => Text(s.name, overflow: TextOverflow.ellipsis,
-        //               style: const TextStyle(color: _DS.textPrimary, fontSize: 15)))
-        //               .toList(),
-        //           items: controller.schools.map((s) => DropdownMenuItem(
-        //             value: s,
-        //             child: _dropdownItem(Icons.school_rounded, s.name),
-        //           )).toList(),
-        //           onChanged: (School? s) {
-        //             controller.selectedSchool.value = s;
-        //             if (s != null) controller.getAllSections(schoolId: s.id);
-        //           },
-        //         );
-        //       } else {
-        //         return _readonlySchoolChip();
-        //       }
-        //     }),
-        //   ),
-        // ),
-        if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/section/create'))
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showCreateSectionDialog,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Add Section'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _DS.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_DS.radius)),
-                ),
-              ),
-            ),
-          ),
-        Expanded(
-          child: Obx(() {
-            if (controller.isLoading.value)
-              return const Center(child: CircularProgressIndicator(color: _DS.accent));
-            if (controller.sections.isEmpty)
-              return _emptyState(icon: Icons.group_outlined,
-                  title: 'No Sections', subtitle: 'Add sections to organize classes');
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-              itemCount: controller.sections.length,
-              itemBuilder: (context, i) =>
-                  _buildSectionCard(context, controller.sections[i], currentUserRole),
-            );
-          }),
-        ),
-      ]),
+      body:
+        Obx(() {
+          if (controller.isLoading.value)
+            return const Center(child: CircularProgressIndicator(color: _DS.accent));
+          if (controller.sections.isEmpty)
+            return _emptyState(icon: Icons.group_outlined,
+                title: 'No Sections', subtitle: 'Add sections to organize classes');
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+            itemCount: controller.sections.length,
+            itemBuilder: (context, i) =>
+                _buildSectionCard(context, controller.sections[i], currentUserRole),
+          );
+        }),
+      floatingActionButton: ApiPermissions.hasApiAccess(
+          currentUserRole, 'POST /api/class/create')
+          ? _buildFAB(
+        onPressed: _showCreateClassDialog,
+        icon: Icons.add_rounded,
+        label: 'Add Section',
+      )
+          : null,
     );
   }
 
@@ -1123,120 +1148,149 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   Widget _buildStudentsTab() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.selectedSchool.value != null)
         controller.getAllStudents(schoolId: controller.selectedSchool.value!.id);
     });
+
     final selectedClass = Rxn<SchoolClass>();
     final selectedSection = Rxn<Section>();
     final isFiltersExpanded = true.obs;
-    final clubsController = Get.put(ClubController());
-    final clubController = Get.put(ClubsController());
-    final canManageClubs = ['correspondent','administrator'].contains(currentUserRole);
+    final canManageClubs = ['correspondent', 'administrator'].contains(currentUserRole);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Column(children: [
-        // Filters
+        // ── Filters ────────────────────────────────────────────────
+        // Replace the Filters Padding block with this:
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Obx(() {
-            final hasSelections = controller.selectedSchool.value != null;
-            final isExpanded = !hasSelections || isFiltersExpanded.value;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
-              child: isExpanded
-                  ? _card(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildFullStudentFilters(
-                      selectedClass, selectedSection, isFiltersExpanded))
-                  : _card(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: _buildCompactStudentFilters(
-                      selectedClass, selectedSection, isFiltersExpanded)),
-            );
-          }),
-        ),
-        // Add Student
-        if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/student/create'))
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showCreateStudentDialog,
-                icon: const Icon(Icons.person_add_rounded, size: 18),
-                label: const Text('Add Student'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _DS.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_DS.radius)),
+            final selectedClassVal = selectedClass.value;
+            final selectedSectionVal = selectedSection.value;
+            return Row(children: [
+              // Class chip
+              GestureDetector(
+                onTap: () => _showClassFilterSheet(selectedClass, selectedSection),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selectedClassVal != null ? _DS.accentSoft : _DS.surface,
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: selectedClassVal != null ? _DS.accent : _DS.border,
+                      width: selectedClassVal != null ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.class_rounded,
+                        size: 14,
+                        color: selectedClassVal != null ? _DS.accent : _DS.textMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      selectedClassVal?.name ?? 'All Classes',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: selectedClassVal != null ? _DS.accent : _DS.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: selectedClassVal != null ? _DS.accent : _DS.textMuted),
+                  ]),
                 ),
               ),
-            ),
-          ),
-        // Bulk club button
-        if (canManageClubs)
-          Obx(() {
-            final students = controller.students;
-            if (students.isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final studentsToShow = students.toList();
-                    if (studentsToShow.isEmpty) return;
-                    final studentsByClass = <String, List<Student>>{};
-                    for (final s in studentsToShow) {
-                      final classId = s.classId ?? '';
-                      if (classId.isNotEmpty)
-                        studentsByClass.putIfAbsent(classId, () => []).add(s);
-                    }
-                    if (studentsByClass.isEmpty) {
-                      Get.snackbar('Error', 'No students with valid class information');
-                      return;
-                    }
-                    if (studentsByClass.length > 1) {
-                      _showClassSelectionForBulkClub(studentsByClass);
-                    } else {
-                      final classId = studentsByClass.keys.first;
-                      final classObj = controller.classes.firstWhereOrNull((c) => c.id == classId);
-                      if (classObj != null) _showBulkClubDialog(studentsByClass[classId]!, classObj);
-                    }
+              const SizedBox(width: 8),
+              // Section chip
+              GestureDetector(
+                onTap: () => _showSectionFilterSheet(selectedSection),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selectedSectionVal != null ? _DS.accentSoft : _DS.surface,
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: selectedSectionVal != null ? _DS.accent : _DS.border,
+                      width: selectedSectionVal != null ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.group_rounded,
+                        size: 14,
+                        color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      selectedSectionVal?.name ?? 'All Sections',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: selectedSectionVal != null
+                            ? _DS.accent : _DS.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
+                  ]),
+                ),
+              ),
+              const Spacer(),
+              // Clear button — only shows when something is selected
+              if (selectedClassVal != null || selectedSectionVal != null)
+                GestureDetector(
+                  onTap: () {
+                    selectedClass.value = null;
+                    selectedSection.value = null;
+                    _loadStudentsByFilters(null, null);
                   },
-                  icon: const Icon(Icons.group_add_rounded, size: 18),
-                  label: Text('Bulk Club — ${students.length} students'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _DS.accent,
-                    side: const BorderSide(color: _DS.accentMid, width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(_DS.radius)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _DS.dangerSoft,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.close_rounded, size: 13, color: _DS.danger),
+                      const SizedBox(width: 4),
+                      Text('Clear',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _DS.danger)),
+                    ]),
                   ),
                 ),
-              ),
-            );
+            ]);
           }),
-        // List
+        ),
+
+        // ── Student list ───────────────────────────────────────────
         Expanded(
           child: Obx(() {
             if (controller.isLoading.value)
-              return const Center(child: CircularProgressIndicator(color: _DS.accent));
+              return const Center(
+                  child: CircularProgressIndicator(color: _DS.accent));
+
             final studentsToShow = controller.students;
+
             if (studentsToShow.isEmpty)
-              return _emptyState(icon: Icons.people_outline_rounded,
-                  title: 'No Students',
-                  subtitle: controller.selectedSchool.value == null
-                      ? 'Select a school to view students'
-                      : 'No students found');
+              return _emptyState(
+                icon: Icons.people_outline_rounded,
+                title: 'No Students',
+                subtitle: controller.selectedSchool.value == null
+                    ? 'Select a school to view students'
+                    : 'No students found',
+              );
+
             final sorted = List<Student>.from(studentsToShow)
-              ..sort((a, b) => (a.name ?? '').toLowerCase()
+              ..sort((a, b) => (a.name ?? '')
+                  .toLowerCase()
                   .compareTo((b.name ?? '').toLowerCase()));
+
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
               itemCount: sorted.length,
@@ -1246,6 +1300,16 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           }),
         ),
       ]),
+
+      // ── FAB — belongs on Scaffold, not inside Column ───────────
+      floatingActionButton: ApiPermissions.hasApiAccess(
+          currentUserRole, 'POST /api/student/create')
+          ? _buildFAB(
+        onPressed: _showCreateStudentDialog,
+        icon: Icons.person_add_rounded,
+        label: 'Add Student',
+      )
+          : null,
     );
   }
 
@@ -1255,17 +1319,18 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       child: Row(children: [
         // Avatar
         Container(
-          width: 44, height: 44,
+          width: 34, height: 34,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF60A5FA), Color(0xFF3B82F6)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ),
+            color: const Color(0xFF2E7D32).withOpacity(0.1),
+            // gradient: const LinearGradient(
+            //   colors: [Color(0xFF60A5FA), Color(0xFF3B82F6)],
+            //   begin: Alignment.topLeft, end: Alignment.bottomRight,
+            // ),
             borderRadius: BorderRadius.circular(_DS.radiusSm),
           ),
           child: Center(child: Text(
             (student.name ?? 'U').substring(0, 1).toUpperCase(),
-            style: const TextStyle(color: Colors.white,
+            style: const TextStyle(color: const Color(0xFF2E7D32),
                 fontWeight: FontWeight.w700, fontSize: 18),
           )),
         ),
@@ -1492,461 +1557,207 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   Widget _buildUsersTab() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
-    final isReadOnly = !['correspondent'].contains(currentUserRole);
+
+    const roles = [
+      'all', 'correspondent', 'teacher', 'principal',
+      'viceprincipal', 'administrator', 'accountant', 'parent'
+    ];
+
+    void loadWithRole(String role) {
+      userController.selectedRole.value = role;
+      final schoolId = controller.selectedSchool.value?.id ??
+          authController.user.value?.schoolId;
+      if (schoolId != null) {
+        userController.loadUsers(schoolId: schoolId, role: role);
+      }
+    }
+
+    void showRoleSheet() {
+      Get.bottomSheet(
+        Container(
+          decoration: const BoxDecoration(
+            color: _DS.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: _DS.border,
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Row(children: [
+                const Text('Filter by Role',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700,
+                        color: _DS.textPrimary)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Get.back(),
+                  child: const Icon(Icons.close_rounded,
+                      color: _DS.textMuted, size: 22),
+                ),
+              ]),
+            ),
+            const Divider(height: 1, color: _DS.border),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: roles.length,
+                itemBuilder: (_, i) {
+                  final role = roles[i];
+                  return Obx(() {
+                    final isSelected = userController.selectedRole.value == role;
+                    return ListTile(
+                      leading: Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: isSelected ? _DS.accentSoft : _DS.surfaceAlt,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          role == 'all'
+                              ? Icons.all_inclusive_rounded
+                              : _getRoleIcon(role),
+                          size: 18,
+                          color: isSelected ? _DS.accent : _DS.textMuted,
+                        ),
+                      ),
+                      title: Text(
+                        role == 'all' ? 'All Roles' : _capitalize(role),
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected ? _DS.accent : _DS.textPrimary,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle_rounded,
+                          color: _DS.accent, size: 20)
+                          : null,
+                      onTap: () {
+                        loadWithRole(role);
+                        Get.back();
+                      },
+                    );
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+          ]),
+        ),
+        isScrollControlled: true,
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(
-         children: [
-        //   // School selector - readonly for non-correspondent users
-        //   Container(
-        //     margin: const EdgeInsets.all(16),
-        //     padding: const EdgeInsets.all(16),
-        //     decoration: BoxDecoration(
-        //       color: Colors.white,
-        //       borderRadius: BorderRadius.circular(16),
-        //       boxShadow: [
-        //         BoxShadow(
-        //           color: Colors.black.withOpacity(0.05),
-        //           blurRadius: 10,
-        //           offset: const Offset(0, 2),
-        //         ),
-        //       ],
-        //     ),
-        //     child: Column(
-        //       crossAxisAlignment: CrossAxisAlignment.start,
-        //       children: [
-        //
-        //         const SizedBox(height: 16),
-        //         if (isReadOnly)
-        //         // Show readonly school name for non-correspondent users
-        //           Obx(() {
-        //             final userSchoolId = authController.user.value?.schoolId;
-        //             final userSchool = controller.schools.firstWhereOrNull(
-        //                   (school) => school.id == userSchoolId,
-        //             );
-        //             final schoolName = controller.selectedSchool.value?.name ?? userSchool?.name ?? 'Loading...';
-        //
-        //             return Container(
-        //               width: double.infinity,
-        //               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        //               decoration: BoxDecoration(
-        //                 gradient: LinearGradient(
-        //                   colors: [AppTheme.primaryBlue.withOpacity(0.05), AppTheme.primaryBlue.withOpacity(0.02)],
-        //                   begin: Alignment.topLeft,
-        //                   end: Alignment.bottomRight,
-        //                 ),
-        //                 borderRadius: BorderRadius.circular(16),
-        //                 border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.2), width: 1.5),
-        //               ),
-        //               child: Row(
-        //                 children: [
-        //                   Container(
-        //                     padding: const EdgeInsets.all(8),
-        //                     decoration: BoxDecoration(
-        //                       gradient: AppTheme.primaryGradient,
-        //                       borderRadius: BorderRadius.circular(8),
-        //                     ),
-        //                     child: const Icon(Icons.business, color: Colors.white, size: 16),
-        //                   ),
-        //                   const SizedBox(width: 12),
-        //                   Expanded(
-        //                     child: Text(
-        //                       schoolName,
-        //                       style: TextStyle(
-        //                         color: AppTheme.primaryText,
-        //                         fontSize: 16,
-        //                         fontWeight: FontWeight.w600,
-        //                       ),
-        //                     ),
-        //                   ),
-        //                 ],
-        //               ),
-        //             );
-        //           })
-        //         else
-        //         // Show dropdown for correspondent users
-        //           Obx(() => DropdownButtonFormField<School>(
-        //             isExpanded: true,
-        //             decoration: InputDecoration(
-        //               hintText: 'Choose School',
-        //               hintStyle: TextStyle(color: Colors.grey.shade600),
-        //               prefixIcon: Container(
-        //                 margin: const EdgeInsets.all(8),
-        //                 decoration: BoxDecoration(
-        //                   color: AppTheme.primaryBlue.withOpacity(0.1),
-        //                   borderRadius: BorderRadius.circular(8),
-        //                 ),
-        //                 child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 20),
-        //               ),
-        //               border: InputBorder.none,
-        //               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        //             ),
-        //             dropdownColor: Colors.white,
-        //             menuMaxHeight: 300,
-        //             borderRadius: BorderRadius.circular(12),
-        //             icon: Container(
-        //               margin: const EdgeInsets.only(right: 12),
-        //               child: Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryBlue),
-        //             ),
-        //             style: TextStyle(
-        //               color: Colors.grey.shade800,
-        //               fontSize: 16,
-        //               fontWeight: FontWeight.w500,
-        //             ),
-        //             value: controller.selectedSchool.value,
-        //             selectedItemBuilder: (context) {
-        //               return controller.schools.map((school) {
-        //                 return Text(
-        //                   school.name,
-        //                   style: TextStyle(
-        //                     color: Colors.grey.shade800,
-        //                     fontSize: 16,
-        //                     fontWeight: FontWeight.w500,
-        //                   ),
-        //                   overflow: TextOverflow.ellipsis,
-        //                 );
-        //               }).toList();
-        //             },
-        //             items: controller.schools
-        //                 .map((school) => DropdownMenuItem<School>(
-        //               value: school,
-        //               child: Container(
-        //                 padding: const EdgeInsets.symmetric(vertical: 8),
-        //                 child: Row(
-        //                   mainAxisSize: MainAxisSize.min,
-        //                   children: [
-        //                     Container(
-        //                       padding: const EdgeInsets.all(6),
-        //                       decoration: BoxDecoration(
-        //                         color: AppTheme.primaryBlue.withOpacity(0.1),
-        //                         borderRadius: BorderRadius.circular(6),
-        //                       ),
-        //                       child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 16),
-        //                     ),
-        //                     const SizedBox(width: 12),
-        //                     Text(
-        //                       school.name,
-        //                       style: const TextStyle(
-        //                         fontWeight: FontWeight.w500,
-        //                       ),
-        //                       overflow: TextOverflow.ellipsis,
-        //                     ),
-        //                   ],
-        //                 ),
-        //               ),
-        //             ))
-        //                 .toList(),
-        //             onChanged: (school) {
-        //               controller.selectedSchool.value = school;
-        //               if (school != null) {
-        //                 userController.loadUsers(
-        //                   schoolId: school.id,
-        //                   role: userController.selectedRole.value,
-        //                 );
-        //               }
-        //             },
-        //           )),
-        //       ],
-        //     ),
-        //   ),
-
-          // Role filter
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              decoration: InputDecoration(
-                hintText: 'Filter by Role',
-                hintStyle: TextStyle(color: Colors.grey.shade600),
-                prefixIcon: Container(
-                  margin: const EdgeInsets.all(8),
+      body: Column(children: [
+        // ── Role chip + count ───────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(children: [
+            Obx(() {
+              final role = userController.selectedRole.value;
+              final isFiltered = role != 'all';
+              return GestureDetector(
+                onTap: showRoleSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.filter_list, color: AppTheme.primaryBlue, size: 20),
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              ),
-              dropdownColor: Colors.white,
-              menuMaxHeight: 300,
-              borderRadius: BorderRadius.circular(12),
-              icon: Container(
-                margin: const EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryBlue),
-              ),
-              style: TextStyle(
-                color: Colors.grey.shade800,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              value: userController.selectedRole.value,
-              selectedItemBuilder: (context) {
-                return const [
-                  'all',
-                  'correspondent',
-                  'teacher',
-                  'principal',
-                  'viceprincipal',
-                  'administrator',
-                  'accountant',
-                  'parent'
-                ].map((r) {
-                  return Text(
-                    r.toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.grey.shade800,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  );
-                }).toList();
-              },
-              items: const [
-                'all',
-                'correspondent',
-                'teacher',
-                'principal',
-                'viceprincipal',
-                'administrator',
-                'accountant',
-                'parent'
-              ].map((r) {
-                return DropdownMenuItem<String>(
-                  value: r,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryBlue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(_getRoleIcon(r), color: AppTheme.primaryBlue, size: 16),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          r.toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    color: isFiltered ? _DS.accentSoft : _DS.surface,
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: isFiltered ? _DS.accent : _DS.border,
+                      width: isFiltered ? 1.5 : 1,
                     ),
                   ),
-                );
-              }).toList(),
-              onChanged: (role) {
-                if (role != null) {
-                  userController.selectedRole.value = role;
-                  final schoolId = controller.selectedSchool.value?.id ??
-                      authController.user.value?.schoolId;
-                  if (schoolId != null) {
-                    userController.loadUsers(
-                      schoolId: schoolId,
-                      role: role,
-                    );
-                  }
-                }
-              },
-            ),
-          ),
-
-          // User list
-          Expanded(
-            child: Obx(() {
-              if (userController.isLoading.value) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF667eea)));
-              }
-
-              if (userController.users.isEmpty) {
-                return _buildEmptyState(
-                  icon: Icons.person,
-                  title: 'No Users Found',
-                  subtitle: 'Add users to manage your school',
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: userController.users.length,
-                itemBuilder: (context, index) {
-                  final user = userController.users[index];
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          Get.to(() => UserDetailView(user: user));
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.primaryGradient,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  _getRoleIcon(user['role'] ?? 'person'),
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user['userName'] ?? 'Unknown',
-                                      style: const TextStyle(
-                                        color: AppTheme.titleOnWhite,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Role: ${user['role'] ?? 'No Role'}',
-                                      style: const TextStyle(color: AppTheme.subtitleOnWhite, fontSize: 14),
-                                    ),
-                                    Text(
-                                      'Email: ${user['email'] ?? 'N/A'}',
-                                      style: const TextStyle(color: AppTheme.mutedText, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Assign role button - only show for correspondent and administrator
-                              if (user['role'] == null &&
-                                  ['correspondent', 'administrator'].contains(currentUserRole) &&
-                                  ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/user/assignrole'))
-                                SizedBox(
-                                  width: 100,
-                                  child: Container(
-                                    margin: const EdgeInsets.only(right: 8),
-                                    child: ElevatedButton(
-                                      onPressed: () => _showAssignRoleDialog(user),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.primaryBlue,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      child: const Text('Assign Role', style: TextStyle(fontSize: 12)),
-                                    ),
-                                  ),
-                                ),
-                              // Menu
-                              PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, color: AppTheme.primaryText),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                itemBuilder: (context) => [
-                                  if (ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/user/update') && currentUserRole != 'teacher')
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.edit, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Edit'),
-                                        ],
-                                      ),
-                                    ),
-                                  if (ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/user/assignrole') &&
-                                      ['correspondent', 'administrator'].contains(currentUserRole))
-                                    const PopupMenuItem(
-                                      value: 'role',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.admin_panel_settings, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Change Role'),
-                                        ],
-                                      ),
-                                    ),
-                                  if (ApiPermissions.hasApiAccess(currentUserRole, 'DELETE /api/user/delete'))
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.delete, size: 18, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                                onSelected: (value) {
-                                  if (value == 'edit') {
-                                    _showEditUserDialog(user);
-                                  } else if (value == 'role') {
-                                    _showAssignRoleDialog(user);
-                                  } else if (value == 'delete') {
-                                    _showDeleteUserDialog(user);
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.people_rounded,
+                        size: 14,
+                        color: isFiltered ? _DS.accent : _DS.textMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      isFiltered ? _capitalize(role) : 'All Roles',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isFiltered
+                            ? _DS.accent : _DS.textSecondary,
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: isFiltered ? _DS.accent : _DS.textMuted),
+                  ]),
+                ),
               );
             }),
-          ),
-        ],
-      ),
-      floatingActionButton: ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/user/create')
-          ? _buildFloatingActionButton(
+            const Spacer(),
+            Obx(() => Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: _DS.border),
+              ),
+              child: Text(
+                '${userController.users.length} users',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _DS.textSecondary,
+                ),
+              ),
+            )),
+          ]),
+        ),
+
+        // ── User list ───────────────────────────────────────────────
+        Expanded(
+          child: Obx(() {
+            if (userController.isLoading.value)
+              return const Center(
+                  child: CircularProgressIndicator(color: _DS.accent));
+
+            if (userController.users.isEmpty)
+              return _emptyState(
+                icon: Icons.person_outline_rounded,
+                title: 'No Users Found',
+                subtitle: 'Add users to manage your school',
+              );
+
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+              itemCount: userController.users.length,
+              itemBuilder: (context, index) {
+                final user = userController.users[index];
+                return _buildUserCard(user, currentUserRole);
+              },
+            );
+          }),
+        ),
+      ]),
+
+      floatingActionButton: ApiPermissions.hasApiAccess(
+          currentUserRole, 'POST /api/user/create')
+          ? _buildFAB(
         onPressed: _showCreateUserDialog,
-        icon: Icons.person_add,
+        icon: Icons.person_add_rounded,
         label: 'Add User',
       )
           : null,
     );
-  }
-
-  Widget _buildEmptyState({
+  }  Widget _buildEmptyState({
     required IconData icon,
     required String title,
     required String subtitle,
@@ -2101,37 +1912,58 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Column(children: [
-          if (canSetFeeStructure)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: _card(
-                padding: const EdgeInsets.all(6),
-                child: TabBar(
-                  indicator: BoxDecoration(
-                    color: _DS.accent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: _DS.textSecondary,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  tabs: const [
-                    Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.add_rounded, size: 16),
-                      SizedBox(width: 6),
-                      Text('Set Fee'),
-                    ])),
-                    Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.list_rounded, size: 16),
-                      SizedBox(width: 6),
-                      Text('All Fees'),
-                    ])),
-                  ],
-                ),
+          // ── Compact pill tab bar ──────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: canSetFeeStructure
+                ? Container(
+              decoration: BoxDecoration(
+                color: _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _DS.border),
               ),
-            ),
-          const SizedBox(height: 8),
+              padding: const EdgeInsets.all(4),
+              child: TabBar(
+                indicator: BoxDecoration(
+                  color: _DS.surface,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: _DS.border),
+                  boxShadow: _DS.shadow,
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                labelColor: _DS.accent,
+                unselectedLabelColor: _DS.textMuted,
+                labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13),
+                unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500, fontSize: 13),
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_rounded, size: 15),
+                        SizedBox(width: 5),
+                        Text('Set Fee'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.list_alt_rounded, size: 15),
+                        SizedBox(width: 5),
+                        Text('All Fees'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+                : const SizedBox.shrink(),
+          ),
           Expanded(
             child: canSetFeeStructure
                 ? TabBarView(children: [_FeeStructureTab(), AllFeeStructuresTab()])
@@ -2141,7 +1973,6 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       ),
     );
   }
-
   // ─── Attendance Tab ────────────────────────────────────────────────────────
   Widget _buildAttendanceTab() => SingleChildScrollView(child: _AttendanceTab());
 
@@ -2203,17 +2034,29 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     required IconData icon,
     required String label,
   }) {
-    return FloatingActionButton.extended(
-      onPressed: onPressed,
-      backgroundColor: _DS.primary,
-      foregroundColor: Colors.white,
-      elevation: 3,
-      icon: Icon(icon),
-      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3B82F6), Color(0xFF1E3A5F)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: _DS.accent.withOpacity(0.35),
+              blurRadius: 16, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: onPressed,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        icon: Icon(icon, size: 20),
+        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
-
   // ── All dialog methods below are unchanged from original ───────────────────
   void _showDeleteConfirmation(School school) {
     Get.dialog(AlertDialog(
@@ -3179,6 +3022,237 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       ],
     ));
   }
+
+  void _showClassFilterSheet(Rxn<SchoolClass> selectedClass,
+      Rxn<Section> selectedSection) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: _DS.border,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          // All Classes option
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedClass.value == null
+                    ? _DS.accentSoft : _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: selectedClass.value == null
+                      ? _DS.accent : _DS.textMuted),
+            ),
+            title: const Text('All Classes',
+                style: TextStyle(fontWeight: FontWeight.w600,
+                    fontSize: 14, color: _DS.textPrimary)),
+            trailing: selectedClass.value == null
+                ? Icon(Icons.check_circle_rounded,
+                color: _DS.accent, size: 20)
+                : null,
+            onTap: () {
+              selectedClass.value = null;
+              selectedSection.value = null;
+              _loadStudentsByFilters(null, null);
+              Get.back();
+            },
+          ),
+          // Class list
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: Obx(() {
+              final sorted = ClassUtils.sortClasses(controller.classes);
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: sorted.length,
+                itemBuilder: (_, i) {
+                  final c = sorted[i];
+                  final isSelected = selectedClass.value?.id == c.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected ? _DS.accentSoft : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        ClassUtils.getClassIcon(c.name),
+                        size: 18,
+                        color: isSelected ? _DS.accent : _DS.textMuted,
+                      ),
+                    ),
+                    title: Text(c.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected ? _DS.accent : _DS.textPrimary,
+                        )),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      selectedClass.value = c;
+                      selectedSection.value = null;
+                      if (controller.selectedSchool.value != null)
+                        controller.getAllSections(
+                            classId: c.id,
+                            schoolId: controller.selectedSchool.value!.id);
+                      _loadStudentsByFilters(c, null);
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _showSectionFilterSheet(Rxn<Section> selectedSection) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: _DS.border,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Section',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedSection.value == null
+                    ? _DS.accentSoft : _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: selectedSection.value == null
+                      ? _DS.accent : _DS.textMuted),
+            ),
+            title: const Text('All Sections',
+                style: TextStyle(fontWeight: FontWeight.w600,
+                    fontSize: 14, color: _DS.textPrimary)),
+            trailing: selectedSection.value == null
+                ? Icon(Icons.check_circle_rounded, color: _DS.accent, size: 20)
+                : null,
+            onTap: () {
+              selectedSection.value = null;
+              _loadStudentsByFilters(null, null);
+              Get.back();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: Obx(() {
+              if (controller.sections.isEmpty)
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text('Select a class first',
+                      style: TextStyle(color: _DS.textMuted, fontSize: 13)),
+                );
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: controller.sections.length,
+                itemBuilder: (_, i) {
+                  final s = controller.sections[i];
+                  final isSelected = selectedSection.value?.id == s.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected ? _DS.accentSoft : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.group_rounded,
+                          size: 18,
+                          color: isSelected ? _DS.accent : _DS.textMuted),
+                    ),
+                    title: Text(s.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected ? _DS.accent : _DS.textPrimary,
+                        )),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      selectedSection.value = s;
+                      _loadStudentsByFilters(selectedSection.value as SchoolClass?, s);
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
 // ─── Attendance Tab (StatefulWidget — kept structurally identical) ────────────
@@ -3225,53 +3299,241 @@ class _AttendanceTabState extends State<_AttendanceTab> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 600;
-    final isLandscape = screenSize.width > screenSize.height;
-
     return Container(
       color: _DS.bg,
       child: SingleChildScrollView(
-        padding: EdgeInsets.all(isTablet ? 24 : 16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(children: [
-          // Header card
-          _card(
-            padding: const EdgeInsets.all(20),
-            color: _DS.primary,
-            child: Row(children: [
-              Container(padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.how_to_reg_rounded, color: Colors.white, size: 26)),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Attendance', style: TextStyle(color: Colors.white,
-                    fontSize: isTablet ? 22 : 18, fontWeight: FontWeight.w700)),
-                Text('Track and manage student attendance',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7),
-                        fontSize: isTablet ? 14 : 12)),
-              ])),
-            ]),
-          ),
-          const SizedBox(height: 16),
+          // ── Mode toggle ─────────────────────────────────────────
           _buildModeToggle(),
-          const SizedBox(height: 16),
-          _buildAttendanceSelectors(isLandscape, isTablet),
-          const SizedBox(height: 16),
-          if (!isHistoryMode && attendanceRecords.isNotEmpty)
-            _buildCollapsibleSummary(isLandscape, isTablet),
-          const SizedBox(height: 16),
-          SizedBox(height: 400, child: _buildContentArea(isTablet)),
-          const SizedBox(height: 16),
-          if (!isHistoryMode && attendanceRecords.isNotEmpty && canMarkAttendance)
-            _primaryBtn(label: 'Save Attendance', onPressed: _saveAttendance,
-                icon: Icons.save_rounded),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // ── Chips row ───────────────────────────────────────────
+          _buildChipsRow(),
+          const SizedBox(height: 12),
+
+          // ── Date / year selectors ───────────────────────────────
+          _buildDateSelectors(),
+          const SizedBox(height: 12),
+
+          // ── Summary ─────────────────────────────────────────────
+          if (!isHistoryMode && attendanceRecords.isNotEmpty) ...[
+            _buildCollapsibleSummary(false, false),
+            const SizedBox(height: 12),
+          ],
+
+          // ── List ────────────────────────────────────────────────
+          SizedBox(height: 420, child: _buildContentArea(false)),
+          const SizedBox(height: 12),
+
+          // ── Save ────────────────────────────────────────────────
+          if (!isHistoryMode &&
+              attendanceRecords.isNotEmpty &&
+              canMarkAttendance)
+            _primaryBtn(
+              label: 'Save Attendance',
+              onPressed: _saveAttendance,
+              icon: Icons.save_rounded,
+            ),
         ]),
       ),
     );
   }
 
+// ── Chips row: class + date/range indicator ──────────────────────
+  Widget _buildChipsRow() {
+    return Row(children: [
+      // Class chip
+      GestureDetector(
+        onTap: _showClassSheet,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: selectedClass != null ? _DS.accentSoft : _DS.surface,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: selectedClass != null ? _DS.accent : _DS.border,
+              width: selectedClass != null ? 1.5 : 1,
+            ),
+            boxShadow: _DS.shadow,
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.class_rounded,
+                size: 14,
+                color: selectedClass != null ? _DS.accent : _DS.textMuted),
+            const SizedBox(width: 6),
+            Text(
+              selectedClass?.name ?? 'Select Class',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selectedClass != null
+                    ? _DS.accent
+                    : _DS.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                size: 14,
+                color: selectedClass != null ? _DS.accent : _DS.textMuted),
+          ]),
+        ),
+      ),
+      const Spacer(),
+      // Academic year badge
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _DS.surfaceAlt,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: _DS.border),
+        ),
+        child: Text(
+          academicYear,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _DS.textSecondary,
+          ),
+        ),
+      ),
+    ]);
+  }
+
+// ── Class bottom sheet ───────────────────────────────────────────
+  void _showClassSheet() {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: _DS.border,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: Obx(() {
+              final classes = schoolController.classes;
+              if (classes.isEmpty)
+                return const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: Text('No classes available',
+                        style: TextStyle(
+                            color: _DS.textMuted, fontSize: 14)),
+                  ),
+                );
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: classes.length,
+                itemBuilder: (_, i) {
+                  final c = classes[i];
+                  final isSelected = selectedClass?.id == c.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _DS.accentSoft
+                            : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.class_rounded,
+                          size: 18,
+                          color:
+                          isSelected ? _DS.accent : _DS.textMuted),
+                    ),
+                    title: Text(c.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected
+                              ? _DS.accent
+                              : _DS.textPrimary,
+                        )),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      if (mounted) setState(() => selectedClass = c);
+                      _onFilterChanged();
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+// ── Date / year row ──────────────────────────────────────────────
+  Widget _buildDateSelectors() {
+    return _card(
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Year range
+        Row(children: [
+          Expanded(
+            child: _field(_startYearController, 'Start Year',
+                keyboardType: TextInputType.number),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text('—',
+                style: TextStyle(fontSize: 18, color: _DS.textMuted)),
+          ),
+          Expanded(
+            child: _field(_endYearController, 'End Year',
+                keyboardType: TextInputType.number),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        // Date selector
+        isHistoryMode
+            ? _buildDateRangeSelector()
+            : _buildSingleDateSelector(),
+      ]),
+    );
+  }
+
+// ── keep _buildModeToggle exactly as before ──────────────────────
+// ── keep _buildCollapsibleSummary exactly as before ─────────────
+// ── keep _buildContentArea exactly as before ────────────────────
+// ── keep _buildDailyList exactly as before ──────────────────────
+// ── keep _buildHistoryList exactly as before ────────────────────
+// ── keep all API methods exactly as before ──────────────────────
   Widget _buildModeToggle() {
     if (!canMarkAttendance && canViewAttendance) {
       return _card(
@@ -3806,313 +4068,491 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
   final busSecondTermController = TextEditingController();
   final selectedClass = ValueNotifier<SchoolClass?>(null);
   final selectedStudentType = ValueNotifier<String>('old');
-  final isStudentTypeExpanded = ValueNotifier<bool>(true);
+
+  // ── bottom sheet: class picker ──────────────────────────────────
+  void _showClassSheet() {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: _DS.border,
+                borderRadius: BorderRadius.circular(100)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: Obx(() {
+              final sorted = ClassUtils.sortClasses(schoolController.classes);
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: sorted.length,
+                itemBuilder: (_, i) {
+                  final c = sorted[i];
+                  final isSelected = selectedClass.value?.id == c.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected ? _DS.accentSoft : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.class_rounded,
+                          size: 18,
+                          color: isSelected ? _DS.accent : _DS.textMuted),
+                    ),
+                    title: Text(c.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 14,
+                          color:
+                          isSelected ? _DS.accent : _DS.textPrimary,
+                        )),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      selectedClass.value = c;
+                      if (schoolController.selectedSchool.value != null)
+                        _loadFeeStructure(
+                            schoolController.selectedSchool.value!.id,
+                            c.id);
+                      Get.back();
+                      setState(() {});
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  // ── bottom sheet: student type picker ──────────────────────────
+  void _showStudentTypeSheet() {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: _DS.border,
+                borderRadius: BorderRadius.circular(100)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Student Type',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedStudentType.value == 'old'
+                    ? _DS.accentSoft
+                    : _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.school_rounded,
+                  size: 18,
+                  color: selectedStudentType.value == 'old'
+                      ? _DS.accent
+                      : _DS.textMuted),
+            ),
+            title: Text('Old Students',
+                style: TextStyle(
+                  fontWeight: selectedStudentType.value == 'old'
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: selectedStudentType.value == 'old'
+                      ? _DS.accent
+                      : _DS.textPrimary,
+                )),
+            trailing: selectedStudentType.value == 'old'
+                ? const Icon(Icons.check_circle_rounded,
+                color: _DS.accent, size: 20)
+                : null,
+            onTap: () {
+              selectedStudentType.value = 'old';
+              if (schoolController.selectedSchool.value != null &&
+                  selectedClass.value != null)
+                _loadFeeStructure(
+                    schoolController.selectedSchool.value!.id,
+                    selectedClass.value!.id);
+              Get.back();
+              setState(() {});
+            },
+          ),
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedStudentType.value == 'new'
+                    ? const Color(0xFFD1FAE5)
+                    : _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.person_add_rounded,
+                  size: 18,
+                  color: selectedStudentType.value == 'new'
+                      ? const Color(0xFF059669)
+                      : _DS.textMuted),
+            ),
+            title: Text('New Students',
+                style: TextStyle(
+                  fontWeight: selectedStudentType.value == 'new'
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: selectedStudentType.value == 'new'
+                      ? const Color(0xFF059669)
+                      : _DS.textPrimary,
+                )),
+            trailing: selectedStudentType.value == 'new'
+                ? const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF059669), size: 20)
+                : null,
+            onTap: () {
+              selectedStudentType.value = 'new';
+              if (schoolController.selectedSchool.value != null &&
+                  selectedClass.value != null)
+                _loadFeeStructure(
+                    schoolController.selectedSchool.value!.id,
+                    selectedClass.value!.id);
+              Get.back();
+              setState(() {});
+            },
+          ),
+          const SizedBox(height: 24),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: _DS.bg,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Header
-          _card(
-            padding: const EdgeInsets.all(20),
-            color: _DS.primary,
-            child: Row(children: [
-              Container(padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.payment_rounded, color: Colors.white, size: 26)),
-              const SizedBox(width: 16),
-              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Fee Structure', style: TextStyle(color: Colors.white,
-                    fontSize: 18, fontWeight: FontWeight.w700)),
-                Text('Configure fees for different classes',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
-              ])),
-            ]),
-          ),
-          const SizedBox(height: 16),
-          // School + Class
-          _buildCollapsibleSelectors(),
-          const SizedBox(height: 12),
-          // Student type
-          _buildStudentTypeSelector(),
-          const SizedBox(height: 16),
-          // Fee form
-          _card(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              // ── Two chips row ───────────────────────────────────────
               Row(children: [
-                _iconBox(Icons.receipt_long_rounded),
-                const SizedBox(width: 12),
-                const Text('Fee Details', style: TextStyle(fontSize: 15,
-                    fontWeight: FontWeight.w700, color: _DS.textPrimary)),
+                // Class chip
+                GestureDetector(
+                  onTap: _showClassSheet,
+                  child: ValueListenableBuilder<SchoolClass?>(
+                    valueListenable: selectedClass,
+                    builder: (_, cls, __) => Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: cls != null ? _DS.accentSoft : _DS.surface,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: cls != null ? _DS.accent : _DS.border,
+                          width: cls != null ? 1.5 : 1,
+                        ),
+                        boxShadow: _DS.shadow,
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.class_rounded,
+                            size: 14,
+                            color: cls != null ? _DS.accent : _DS.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          cls?.name ?? 'Select Class',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: cls != null
+                                ? _DS.accent
+                                : _DS.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 14,
+                            color: cls != null ? _DS.accent : _DS.textMuted),
+                      ]),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Student type chip
+                GestureDetector(
+                  onTap: _showStudentTypeSheet,
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: selectedStudentType,
+                    builder: (_, type, __) {
+                      final isNew = type == 'new';
+                      final chipColor = isNew
+                          ? const Color(0xFF059669)
+                          : _DS.accent;
+                      final chipBg = isNew
+                          ? const Color(0xFFD1FAE5)
+                          : _DS.accentSoft;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: chipBg,
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(color: chipColor, width: 1.5),
+                          boxShadow: _DS.shadow,
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(
+                            isNew
+                                ? Icons.person_add_rounded
+                                : Icons.school_rounded,
+                            size: 14,
+                            color: chipColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isNew ? 'New Students' : 'Old Students',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: chipColor,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.keyboard_arrow_down_rounded,
+                              size: 14, color: chipColor),
+                        ]),
+                      );
+                    },
+                  ),
+                ),
               ]),
+
               const SizedBox(height: 16),
-              _feeField('Admission Fee', admissionFeeController, Icons.login_rounded,
-                  const Color(0xFF059669), const Color(0xFFD1FAE5)),
-              const SizedBox(height: 12),
-              _feeField('First Term Amount', firstTermController, Icons.looks_one_rounded,
-                  _DS.accent, _DS.accentSoft),
-              const SizedBox(height: 12),
-              _feeField('Second Term Amount', secondTermController, Icons.looks_two_rounded,
-                  const Color(0xFFD97706), const Color(0xFFFEF3C7)),
-              const SizedBox(height: 12),
-              _feeField('Bus First Term', busFirstTermController, Icons.directions_bus_rounded,
-                  const Color(0xFF0891B2), const Color(0xFFCFFAFE)),
-              const SizedBox(height: 12),
-              _feeField('Bus Second Term', busSecondTermController,
-                  Icons.directions_bus_filled_rounded,
-                  const Color(0xFF7C3AED), const Color(0xFFEDE9FE)),
-              const SizedBox(height: 20),
-              _buildSaveButton(),
+
+              // ── Fee fields ──────────────────────────────────────────
+              _card(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        _iconBox(Icons.receipt_long_rounded),
+                        const SizedBox(width: 10),
+                        const Text('Fee Details',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: _DS.textPrimary)),
+                      ]),
+                      const SizedBox(height: 16),
+                      _feeField(
+                          'Admission Fee',
+                          admissionFeeController,
+                          Icons.login_rounded,
+                          const Color(0xFF059669),
+                          const Color(0xFFD1FAE5)),
+                      const SizedBox(height: 10),
+                      _feeField(
+                          'First Term',
+                          firstTermController,
+                          Icons.looks_one_rounded,
+                          _DS.accent,
+                          _DS.accentSoft),
+                      const SizedBox(height: 10),
+                      _feeField(
+                          'Second Term',
+                          secondTermController,
+                          Icons.looks_two_rounded,
+                          const Color(0xFFD97706),
+                          const Color(0xFFFEF3C7)),
+                      const SizedBox(height: 10),
+                      _feeField(
+                          'Bus First Term',
+                          busFirstTermController,
+                          Icons.directions_bus_rounded,
+                          const Color(0xFF0891B2),
+                          const Color(0xFFCFFAFE)),
+                      const SizedBox(height: 10),
+                      _feeField(
+                          'Bus Second Term',
+                          busSecondTermController,
+                          Icons.directions_bus_filled_rounded,
+                          const Color(0xFF7C3AED),
+                          const Color(0xFFEDE9FE)),
+                      const SizedBox(height: 20),
+                      _buildSaveButton(),
+                    ]),
+              ),
             ]),
-          ),
-          const SizedBox(height: 16),
-        ]),
       ),
     );
   }
 
-  Widget _feeField(String label, TextEditingController ctrl, IconData icon,
-      Color fg, Color bg) {
+  Widget _feeField(String label, TextEditingController ctrl,
+      IconData icon, Color fg, Color bg) {
     return Container(
-      decoration: BoxDecoration(color: bg,
-          borderRadius: BorderRadius.circular(_DS.radiusSm),
-          border: Border.all(color: fg.withOpacity(0.2))),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(_DS.radiusSm),
+        border: Border.all(color: fg.withOpacity(0.2)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(icon, color: fg, size: 18),
-            const SizedBox(width: 8),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w600,
-                color: fg, fontSize: 14)),
-          ]),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(fontSize: 15, color: _DS.textPrimary),
-            decoration: InputDecoration(
-              prefixText: '₹ ',
-              hintText: '0',
-              filled: true,
-              fillColor: _DS.surface,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: fg.withOpacity(0.3))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: fg.withOpacity(0.3))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: fg, width: 1.5)),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildStudentTypeSelector() {
-    return ValueListenableBuilder<bool>(
-      valueListenable: isStudentTypeExpanded,
-      builder: (context, isExpanded, _) => _card(
-        padding: const EdgeInsets.all(14),
-        child: isExpanded ? Column(children: [
-          Row(children: [
-            _iconBox(Icons.category_rounded),
-            const SizedBox(width: 12),
-            const Text('Student Type', style: TextStyle(fontWeight: FontWeight.w700,
-                fontSize: 14, color: _DS.textPrimary)),
-            const Spacer(),
-            GestureDetector(
-                onTap: () => isStudentTypeExpanded.value = false,
-                child: const Icon(Icons.expand_less_rounded, color: _DS.textMuted)),
-          ]),
-          const SizedBox(height: 12),
-          ValueListenableBuilder<String>(
-            valueListenable: selectedStudentType,
-            builder: (_, type, __) => _dropdown<String>(
-              value: type,
-              hint: 'Select student type',
-              icon: Icons.category_rounded,
-              items: const [
-                DropdownMenuItem(value: 'old', child: Row(children: [
-                  Icon(Icons.school_rounded, color: _DS.accent, size: 18),
-                  SizedBox(width: 10),
-                  Text('Old Students'),
-                ])),
-                DropdownMenuItem(value: 'new', child: Row(children: [
-                  Icon(Icons.person_add_rounded, color: Color(0xFF059669), size: 18),
-                  SizedBox(width: 10),
-                  Text('New Students'),
-                ])),
-              ],
-              onChanged: (v) {
-                if (v != null) {
-                  selectedStudentType.value = v;
-                  if (schoolController.selectedSchool.value != null && selectedClass.value != null)
-                    _loadFeeStructure(schoolController.selectedSchool.value!.id,
-                        selectedClass.value!.id);
-                }
-              },
-            ),
-          ),
-        ])
-            : InkWell(
-          onTap: () => isStudentTypeExpanded.value = true,
-          child: Row(children: [
-            _iconBox(Icons.category_rounded),
-            const SizedBox(width: 12),
-            ValueListenableBuilder<String>(
-              valueListenable: selectedStudentType,
-              builder: (_, type, __) => Text(
-                  'Student Type: ${type == 'old' ? 'Old Students' : 'New Students'}',
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: _DS.textPrimary)),
-            ),
-            const Spacer(),
-            const Icon(Icons.edit_rounded, size: 16, color: _DS.textMuted),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCollapsibleSelectors() {
-    return Obx(() {
-      final hasSelections = schoolController.selectedSchool.value != null && selectedClass.value != null;
-      return _card(
-        padding: const EdgeInsets.all(14),
-        child: hasSelections ? InkWell(
-          onTap: () => setState(() {
-            schoolController.selectedSchool.value = null;
-            selectedClass.value = null;
-            _clearForm();
-          }),
-          child: Row(children: [
-            const Icon(Icons.school_rounded, color: _DS.accent, size: 18),
-            const SizedBox(width: 8),
-            Flexible(child: Text(schoolController.selectedSchool.value?.name ?? '',
-                style: const TextStyle(fontWeight: FontWeight.w600, color: _DS.textPrimary),
-                overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 12),
-            const Icon(Icons.class_rounded, color: _DS.accent, size: 16),
-            const SizedBox(width: 6),
-            Text(selectedClass.value?.name ?? '',
-                style: const TextStyle(fontWeight: FontWeight.w600, color: _DS.textSecondary)),
-            const Spacer(),
-            const Icon(Icons.edit_rounded, size: 16, color: _DS.textMuted),
-          ]),
-        )
-            : Column(children: [
-        //  _buildSchoolDropdown(),
-          const SizedBox(height: 12),
-          _buildClassDropdown(),
-        ]),
-      );
-    });
-  }
-
-  Widget _buildSchoolDropdown() {
-    return Obx(() => _dropdown<School>(
-      value: schoolController.selectedSchool.value,
-      hint: 'Select School',
-      icon: Icons.school_rounded,
-      selectedItemBuilder: schoolController.schools.map((s) =>
-          Text(s.name, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: _DS.textPrimary, fontSize: 15))).toList(),
-      items: schoolController.schools.map((s) => DropdownMenuItem<School>(
-        value: s,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.school_rounded, color: _DS.accent, size: 16),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: Row(children: [
+          Icon(icon, color: fg, size: 18),
           const SizedBox(width: 10),
-          Expanded(child: Text(s.name,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: fg,
+                          fontSize: 12)),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: ctrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        fontSize: 15, color: _DS.textPrimary),
+                    decoration: InputDecoration(
+                      prefixText: '₹ ',
+                      hintText: '0',
+                      isDense: true,
+                      filled: true,
+                      fillColor: _DS.surface,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                          BorderSide(color: fg.withOpacity(0.3))),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                          BorderSide(color: fg.withOpacity(0.3))),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                          BorderSide(color: fg, width: 1.5)),
+                    ),
+                  ),
+                ]),
+          ),
         ]),
-      )).toList(),
-      onChanged: (s) {
-        setState(() { schoolController.selectedSchool.value = s; selectedClass.value = null; _clearForm(); });
-        if (s != null) schoolController.getAllClasses(s.id);
-      },
-    ));
-  }
-
-  Widget _buildClassDropdown() {
-    return ValueListenableBuilder<SchoolClass?>(
-      valueListenable: selectedClass,
-      builder: (_, val, __) => _dropdown<SchoolClass>(
-        value: schoolController.classes.contains(val) ? val : null,
-        hint: 'Select Class',
-        icon: Icons.class_rounded,
-        selectedItemBuilder: schoolController.classes.map((c) =>
-            Text(c.name, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _DS.textPrimary, fontSize: 15))).toList(),
-        items: schoolController.classes.map((c) => DropdownMenuItem<SchoolClass>(
-          value: c,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.class_rounded, color: _DS.accent, size: 16),
-            const SizedBox(width: 10),
-            Expanded(child: Text(c.name,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-                overflow: TextOverflow.ellipsis)),
-          ]),
-        )).toList(),
-        onChanged: (c) {
-          setState(() => selectedClass.value = c);
-          if (c != null && schoolController.selectedSchool.value != null)
-            _loadFeeStructure(schoolController.selectedSchool.value!.id, c.id);
-        },
       ),
     );
   }
 
   Widget _buildSaveButton() {
     final authController = Get.find<AuthController>();
-    final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
-    if (!ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/feestructure/set'))
+    final currentUserRole =
+        authController.user.value?.role?.toLowerCase() ?? '';
+    if (!ApiPermissions.hasApiAccess(
+        currentUserRole, 'POST /api/feestructure/set'))
       return const SizedBox.shrink();
     return Obx(() => _primaryBtn(
       label: 'Save Fee Structure',
       icon: Icons.save_rounded,
       loading: feeController.isLoading.value,
-      onPressed: feeController.isLoading.value ? null : _saveFeeStructure,
+      onPressed:
+      feeController.isLoading.value ? null : _saveFeeStructure,
     ));
   }
 
   void _clearForm() {
-    admissionFeeController.clear(); firstTermController.clear();
-    secondTermController.clear(); busFirstTermController.clear();
+    admissionFeeController.clear();
+    firstTermController.clear();
+    secondTermController.clear();
+    busFirstTermController.clear();
     busSecondTermController.clear();
   }
 
-  // All API calls — completely unchanged
   void _loadFeeStructure(String schoolId, String classId) async {
     final studentType = selectedStudentType.value;
-    final feeStructure = await feeController.getFeeStructureByClass(schoolId, classId, type: studentType);
+    final feeStructure = await feeController.getFeeStructureByClass(
+        schoolId, classId,
+        type: studentType);
     if (feeStructure != null) {
-      final feeHead = feeStructure['feeHead'] ?? feeStructure['data']?['feeHead'] ?? {};
-      admissionFeeController.text = feeHead['admissionFee']?.toString() ?? '';
+      final feeHead =
+          feeStructure['feeHead'] ?? feeStructure['data']?['feeHead'] ?? {};
+      admissionFeeController.text =
+          feeHead['admissionFee']?.toString() ?? '';
       firstTermController.text = feeHead['firstTermAmt']?.toString() ?? '';
-      secondTermController.text = feeHead['secondTermAmt']?.toString() ?? '';
-      busFirstTermController.text = feeHead['busFirstTermAmt']?.toString() ?? '';
-      busSecondTermController.text = feeHead['busSecondTermAmt']?.toString() ?? '';
-    } else { _clearForm(); }
+      secondTermController.text =
+          feeHead['secondTermAmt']?.toString() ?? '';
+      busFirstTermController.text =
+          feeHead['busFirstTermAmt']?.toString() ?? '';
+      busSecondTermController.text =
+          feeHead['busSecondTermAmt']?.toString() ?? '';
+    } else {
+      _clearForm();
+    }
   }
 
   void _saveFeeStructure() {
     if (schoolController.selectedSchool.value == null) {
       Get.snackbar('Error', 'Please select a school first',
-          backgroundColor: _DS.danger, colorText: Colors.white,
+          backgroundColor: _DS.danger,
+          colorText: Colors.white,
           snackPosition: SnackPosition.TOP);
       return;
     }
     final cls = selectedClass.value;
     if (cls == null) {
       Get.snackbar('Error', 'Please select a class',
-          backgroundColor: _DS.danger, colorText: Colors.white,
+          backgroundColor: _DS.danger,
+          colorText: Colors.white,
           snackPosition: SnackPosition.TOP);
       return;
     }
@@ -4121,11 +4561,16 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
       classId: cls.id,
       type: selectedStudentType.value,
       feeHead: {
-        'admissionFee': double.tryParse(admissionFeeController.text) ?? 0,
-        'firstTermAmt': double.tryParse(firstTermController.text) ?? 0,
-        'secondTermAmt': double.tryParse(secondTermController.text) ?? 0,
-        'busFirstTermAmt': double.tryParse(busFirstTermController.text) ?? 0,
-        'busSecondTermAmt': double.tryParse(busSecondTermController.text) ?? 0,
+        'admissionFee':
+        double.tryParse(admissionFeeController.text) ?? 0,
+        'firstTermAmt':
+        double.tryParse(firstTermController.text) ?? 0,
+        'secondTermAmt':
+        double.tryParse(secondTermController.text) ?? 0,
+        'busFirstTermAmt':
+        double.tryParse(busFirstTermController.text) ?? 0,
+        'busSecondTermAmt':
+        double.tryParse(busSecondTermController.text) ?? 0,
       },
     );
   }

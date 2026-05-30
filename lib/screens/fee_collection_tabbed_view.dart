@@ -15,6 +15,53 @@ import 'package:school_app/controllers/fee_structure_controller.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/services/api_service.dart';
+
+class _DS {
+  // Primary palette — deep navy + sky accent
+  static const primary        = Color(0xFF1E3A5F);
+  static const primaryLight   = Color(0xFF2D5F9E);
+  static const accent         =Color(0xFF2563EB);
+  static const accentSoft     = Color(0xFFEFF6FF);
+  static const accentMid      = Color(0xFFBFDBFE);
+
+  // Surfaces
+  static const bg             = Color(0xFFF0F4F8);
+  static const surface        = Color(0xFFFFFFFF);
+  static const surfaceAlt     = Color(0xFFF8FAFC);
+
+  // Text
+  static const textPrimary    = Color(0xFF0F172A);
+  static const textSecondary  = Color(0xFF475569);
+  static const textMuted      = Color(0xFF94A3B8);
+
+  // Status
+  static const success        = Color(0xFF059669);
+  static const successSoft    = Color(0xFFD1FAE5);
+  static const warning        = Color(0xFFD97706);
+  static const warningSoft    = Color(0xFFFEF3C7);
+  static const danger         = Color(0xFFDC2626);
+  static const dangerSoft     = Color(0xFFFEE2E2);
+
+  // Borders & shadows
+  static const border         = Color(0xFFE2E8F0);
+  static const borderFocus    = Color(0xFF93C5FD);
+
+  static const shadow = [
+    BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+
+  static const shadowMd = [
+    BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2)),
+    BoxShadow(color: Color(0x14000000), blurRadius: 24, offset: Offset(0, 8)),
+  ];
+
+  static const radius     = 14.0;
+  static const radiusSm   = 8.0;
+  static const radiusLg   = 20.0;
+  static const radiusXl   = 28.0;
+}
+
 class FeeCollectionSchoolController extends GetxController {
   final selectedSchool = Rxn<School>();
 
@@ -30,6 +77,7 @@ class FeeCollectionTabbedView extends StatefulWidget {
   State<FeeCollectionTabbedView> createState() => _FeeCollectionTabbedViewState();
 
 }
+
 class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
   final AuthController _authController = Get.find();
   Worker? _schoolWatcher;
@@ -104,96 +152,87 @@ class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
   }
 
   Widget _buildModernHeader(BuildContext context, bool isTablet) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDE6F5), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFDDE6F5).withOpacity(0.5),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: _DS.accentSoft,
+            borderRadius: BorderRadius.circular(10),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2563EB).withOpacity(0.10),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.payments_rounded,
-              color: Color(0xFF2563EB),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Fee Management',
-                  style: TextStyle(
-                    color: Color(0xFF1A2A3A),
+          child: const Icon(Icons.payments_rounded,
+              color: _DS.accent, size: 18),
+        ),
+        const SizedBox(width: 10),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Fee Management',
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'Collect fees and manage records',
-                  style: TextStyle(
-                    color: Color(0xFF90A4BE),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+                    color: _DS.textPrimary)),
+            Text('Collect fees and manage records',
+                style: TextStyle(
+                    fontSize: 11, color: _DS.textMuted)),
+          ],
+        ),
+      ]),
     );
   }
 
   Widget _buildModernTabBar(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TabBar(
-        indicator: BoxDecoration(
-          color: const Color(0xFF2563EB),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _DS.surfaceAlt,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _DS.border),
         ),
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.grey[600],
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-        tabs: const [
-          Tab(text: 'Collect Fee', icon: Icon(Icons.payment, size: 20)),
-          Tab(text: 'Fee Structure', icon: Icon(Icons.receipt_long, size: 20)),
-        ],
+        padding: const EdgeInsets.all(4),
+        child: TabBar(
+          indicator: BoxDecoration(
+            color: _DS.surface,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _DS.border),
+            boxShadow: _DS.shadow,
+          ),
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
+          labelColor: _DS.accent,
+          unselectedLabelColor: _DS.textMuted,
+          labelStyle: const TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w500, fontSize: 12),
+          tabs: const [
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.payment_rounded, size: 15),
+                  SizedBox(width: 5),
+                  Text('Collect Fee'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.receipt_long_rounded, size: 15),
+                  SizedBox(width: 5),
+                  Text('Fee Structure'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-}
+  }}
 
 class _FeeCollectionTab extends StatefulWidget {
 
@@ -666,96 +705,136 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
             ],
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _studentSearchController,
-            decoration: InputDecoration(
-              hintText: 'Search student by name or roll number',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Colors.grey.shade50,
+          Container(
+            decoration: BoxDecoration(
+              color: _DS.surfaceAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _DS.border),
             ),
-            onChanged: _filterStudents,
+            child: TextFormField(
+              controller: _studentSearchController,
+              style: const TextStyle(fontSize: 14, color: _DS.textPrimary),
+              decoration: const InputDecoration(
+                hintText: 'Search by name or roll number',
+                hintStyle: TextStyle(fontSize: 13, color: _DS.textMuted),
+                prefixIcon: Icon(Icons.search_rounded,
+                    color: _DS.textMuted, size: 20),
+                border: InputBorder.none,
+                contentPadding:
+                EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+              onChanged: _filterStudents,
+            ),
           ),
           const SizedBox(height: 16),
-          Obx(() => controller.isLoading.value
-              ? Container(
-                  height: 200,
+          // Replace the Container(height:200 ...) list with:
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 260),
+            child: Obx(() => controller.isLoading.value
+                ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(color: _DS.accent),
+                ))
+                : filteredStudents.isEmpty
+                ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 56, height: 56,
+                        decoration: const BoxDecoration(
+                          color: _DS.accentSoft,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.search_off_rounded,
+                            size: 26, color: _DS.accent),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('No students found',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: _DS.textPrimary)),
+                    ]),
+              ),
+            )
+                : ListView.builder(
+              shrinkWrap: true,
+              itemCount: filteredStudents.length,
+              itemBuilder: (context, index) {
+                final student = filteredStudents[index];
+                final isSelected =
+                    controller.selectedStudent.value?['studentId'] ==
+                        student['_id'];
+                final name =
+                    student['studentName'] as String? ?? 'Unknown';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 6),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: isSelected
+                        ? _DS.accentSoft
+                        : _DS.surface,
                     borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Loading students...', style: TextStyle(color: Colors.grey)),
-                      ],
+                    border: Border.all(
+                      color: isSelected
+                          ? _DS.accent
+                          : _DS.border,
+                      width: isSelected ? 1.5 : 1,
                     ),
                   ),
-                )
-              : Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: filteredStudents.isEmpty
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.search_off, size: 48, color: Colors.grey),
-                              SizedBox(height: 8),
-                              Text('No students found', style: TextStyle(color: Colors.grey)),
-                            ],
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    leading: Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _DS.accent
+                            : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          name.isNotEmpty
+                              ? name[0].toUpperCase()
+                              : 'U',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : _DS.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: filteredStudents.length,
-                          itemBuilder: (context, index) {
-                            final student = filteredStudents[index];
-                            final isSelected = controller.selectedStudent.value?['studentId'] == student['_id'];
-                            return Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF2563EB).withOpacity(0.1) : Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade200,
-                                ),
-                              ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade300,
-                                  child: Text(
-                                    (student['studentName'] ?? 'U').substring(0, 1).toUpperCase(),
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : Colors.grey.shade600,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  student['studentName'] ?? 'Unknown',
-                                  style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                                subtitle: Text('Roll: ${student['rollNumber'] ?? 'N/A'}'),
-                                onTap: () => _selectStudent(student),
-                              ),
-                            );
-                          },
                         ),
-                )),
+                      ),
+                    ),
+                    title: Text(name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? _DS.accent
+                              : _DS.textPrimary,
+                        )),
+                    subtitle: Text(
+                      'Roll: ${student['rollNumber'] ?? 'N/A'}',
+                      style: const TextStyle(
+                          fontSize: 11, color: _DS.textMuted),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () => _selectStudent(student),
+                  ),
+                );
+              },
+            )),
+          ),
           const SizedBox(height: 16),
           // Action Buttons
           Obx(() => controller.selectedStudent.value != null
@@ -780,22 +859,23 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     );
   }
 
+// Replace _buildViewReceiptsButton
   Widget _buildViewReceiptsButton() {
     return ApiRbacWrapper(
       apiEndpoint: 'GET /api/studentrecord/getrecord',
       child: SizedBox(
         width: double.infinity,
-        child: ElevatedButton.icon(
+        child: OutlinedButton.icon(
           onPressed: _showReceipts,
-          icon: const Icon(Icons.receipt, size: 18),
+          icon: const Icon(Icons.receipt_long_rounded, size: 16),
           label: const Text('View Receipts'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _DS.warning,
+            side: BorderSide(color: _DS.warning.withOpacity(0.4), width: 1.5),
+            backgroundColor: _DS.warningSoft,
+            padding: const EdgeInsets.symmetric(vertical: 13),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+                borderRadius: BorderRadius.circular(12)),
           ),
         ),
       ),
@@ -813,15 +893,15 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
             showReceipts.value = false;
             isStudentSelectorCollapsed.value = true;
           },
-          icon: const Icon(Icons.payment, size: 18),
+          icon: const Icon(Icons.payment_rounded, size: 16),
           label: const Text('Collect Fee'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: _DS.accent,
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 13),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+                borderRadius: BorderRadius.circular(12)),
           ),
         ),
       ),
@@ -1923,7 +2003,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
   }
   @override
   void dispose() {
-    _schoolWatcher?.dispose(); // 👈 add this
+    _schoolWatcher?.dispose();
     super.dispose();
   }
   Future<void> _loadFeeStructures() async {
@@ -2054,44 +2134,155 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
       ),
     );
   }
+
   Widget _buildExpandedSelectors(bool isTablet, bool isLandscape) {
     return Padding(
-      padding: EdgeInsets.all(isTablet ? 20 : 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Row(children: [
+        // Class chip
+        Obx(() {
+          final cls = selectedClass.value;
+          final isSelected = cls != null;
+          return GestureDetector(
+            onTap: _showClassSheet,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: isSelected ? _DS.accentSoft : _DS.surface,
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: isSelected ? _DS.accent : _DS.border,
+                  width: isSelected ? 1.5 : 1,
                 ),
-                child: const Icon(Icons.class_, color: Color(0xFF2563EB), size: 20),
+                boxShadow: _DS.shadow,
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'Select Class',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2563EB),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.class_rounded,
+                    size: 14,
+                    color: isSelected ? _DS.accent : _DS.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  cls?.name ?? 'Select Class',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? _DS.accent
+                        : _DS.textSecondary,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => isSelectorsExpanded.value = false,
-                icon: const Icon(Icons.expand_less, size: 20),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildClassDropdown(),
-        ],
-      ),
+                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 14,
+                    color: isSelected ? _DS.accent : _DS.textMuted),
+              ]),
+            ),
+          );
+        }),
+      ]),
     );
   }
+
+  void _showClassSheet() {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: _DS.border,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: Obx(() {
+              final classes = schoolController.classes;
+              if (classes.isEmpty)
+                return const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                      child: Text('No classes available',
+                          style: TextStyle(
+                              color: _DS.textMuted, fontSize: 14))),
+                );
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: classes.length,
+                itemBuilder: (_, i) {
+                  final c = classes[i];
+                  final isSelected = selectedClass.value?.id == c.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _DS.accentSoft
+                            : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.class_rounded,
+                          size: 18,
+                          color: isSelected
+                              ? _DS.accent
+                              : _DS.textMuted),
+                    ),
+                    title: Text(c.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected
+                              ? _DS.accent
+                              : _DS.textPrimary,
+                        )),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      selectedClass.value = c;
+                      if (selectedSchool.value != null)
+                        _loadFeeStructures();
+                      isSelectorsExpanded.value = false;
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
   Widget _buildSchoolDropdown() {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';

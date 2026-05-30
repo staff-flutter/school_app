@@ -453,6 +453,7 @@ print('userid:$userId');
             onPressed: () async {
               await storage.delete(key: 'user_token');
               await storage.delete(key: 'parentId');
+
               // final prefs = await SharedPreferences.getInstance();
               // await prefs.clear(); // Clears all saved tokens/data
               Get.offAllNamed('/login'); // Redirect to login and clear stack

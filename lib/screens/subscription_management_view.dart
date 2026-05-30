@@ -126,7 +126,7 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
     final authController = Get.find<AuthController>();
     final schoolController = Get.put(SchoolController());
     final isCorrespondent = authController.user.value?.role?.toLowerCase() == 'correspondent';
-   // final selectedSchool = Rxn<School>();
+    final selectedSchool = Rxn<School>();
     
     // Initialize school
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -138,13 +138,9 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
 
 
 
-          if (schoolController.schools.isNotEmpty &&
-              schoolController.selectedSchool.value == null) {
-            schoolController.selectedSchool.value = schoolController.schools.first;
-          }
-          // Load subscription for sidebar-selected school
-          if (schoolController.selectedSchool.value != null) {
-            controller.loadSubscription(schoolController.selectedSchool.value!.id);
+          if (schoolController.schools.isNotEmpty) {
+            selectedSchool.value = schoolController.schools.first;
+            controller.loadSubscription(selectedSchool.value!.id);
           }
         });
       } else {
@@ -156,9 +152,6 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
     });
     
     return Obx(() {
-      final selectedSchool = schoolController.selectedSchool.value;
-      final schoolName = selectedSchool?.name ?? '';
-
       if (controller.isLoading.value) {
         return Center(
           child: Column(
@@ -176,59 +169,57 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
         padding: EdgeInsets.all(isTablet ? 24 : 16),
         child: Column(
           children: [
-            if (isCorrespondent)
-              Text('School: $schoolName'),
-              // Container(
-              //   margin: const EdgeInsets.only(bottom: 20),
-              //   padding: const EdgeInsets.all(16),
-              //   decoration: BoxDecoration(
-              //     color: Colors.white,
-              //     borderRadius: BorderRadius.circular(16),
-              //     boxShadow: [
-              //       BoxShadow(
-              //         color: Colors.black.withOpacity(0.05),
-              //         blurRadius: 10,
-              //         offset: const Offset(0, 2),
-              //       ),
-              //     ],
-              //   ),
-              //   child: Obx(() {
-              //
-              //     return DropdownButtonFormField<School>(
-              //     isExpanded: true,
-              //     decoration: InputDecoration(
-              //       hintText: 'Select School',
-              //       prefixIcon: Container(
-              //         margin: const EdgeInsets.all(8),
-              //         decoration: BoxDecoration(
-              //           color: const Color(0xFF2563EB).withOpacity(0.1),
-              //           borderRadius: BorderRadius.circular(8),
-              //         ),
-              //         child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
-              //       ),
-              //       border: InputBorder.none,
-              //     ),
-              //     value: selectedSchool.value,
-              //     items: schoolController.schools.map((school) {
-              //       return DropdownMenuItem<School>(
-              //         value: school,
-              //         child: Text(school.name),
-              //       );
-              //     }).toList(),
-              //     onChanged: (School? school) {
-              //       if (school != null) {
-              //         selectedSchool.value = school;
-              //         controller.loadSubscription(school.id);
-              //       }
-              //     },
-              //   );
-              //   }),
-              // ),
+            if (isCorrespondent) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Obx(() {
 
+                  return DropdownButtonFormField<School>(
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    hintText: 'Select School',
+                    prefixIcon: Container(
+                      margin: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
+                    ),
+                    border: InputBorder.none,
+                  ),
+                  value: selectedSchool.value,
+                  items: schoolController.schools.map((school) {
+                    return DropdownMenuItem<School>(
+                      value: school,
+                      child: Text(school.name),
+                    );
+                  }).toList(),
+                  onChanged: (School? school) {
+                    if (school != null) {
+                      selectedSchool.value = school;
+                      controller.loadSubscription(school.id);
+                    }
+                  },
+                );
+                }),
+              ),
+            ],
             _buildCurrentSubscriptionCard(context, isTablet),
-            //const SizedBox(height: 20),
-            _buildAvailablePlansSection(context, isTablet, selectedSchool?.id ?? authController.user.value?.schoolId),
-
+            const SizedBox(height: 20),
+            _buildAvailablePlansSection(context, isTablet, selectedSchool.value?.id ?? authController.user.value?.schoolId),
           ],
         ),
       );
