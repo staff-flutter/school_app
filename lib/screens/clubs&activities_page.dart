@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 
+import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
@@ -21,7 +22,13 @@ class ClubAndActivitiesPage extends StatefulWidget {
 }
 
 class _ClubPageState extends State<ClubAndActivitiesPage> {
-  final controller = Get.find<MyChildrenController>();
+  final AuthController _authController = Get.find<AuthController>();
+
+  // final controller = Get.find<MyChildrenController>();
+  MyChildrenController? get _childrenController =>
+      Get.isRegistered<MyChildrenController>()
+          ? Get.find<MyChildrenController>()
+          : null;
 
   List<ClubsAndActivitiesStrings> apiClubs = [];
   bool isLoading = true;
@@ -41,7 +48,18 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     String baseUrl = ApiConstants.baseUrl;
 
     final String? token = session.token;
-    final String? schoolId = session.schoolId ?? '';
+    String? schoolId = session.schoolId ?? '';
+    if (schoolId == null || schoolId.isEmpty) {
+      try {
+        schoolId = Get.find<AuthController>().user.value?.schoolId;
+      } catch (_) {}
+    }
+
+    if (schoolId == null || schoolId.isEmpty) {
+      setState(() => isLoading = false);
+      debugPrint('⚠️ No schoolId available for clubs fetch');
+      return;
+    }
 
     final queryParameters = {
       "schoolId": schoolId,
@@ -115,7 +133,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         statusBarBrightness: Brightness.dark,       // iOS
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xffF5F6FA),
+        backgroundColor: Color(0xFFEEF3FB),
         body: SafeArea(
           bottom: false,
           child: Padding(
@@ -145,14 +163,99 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   // -------------------------- HEADER FOR UNIVERSITY OR SCHOOL NAME --------------------------------------
 
+  Widget _buildSchoolLogo() {
+    try {
+      final school = _authController.userSchool.value;
+      if (school != null && school['logo'] != null && school['logo']['url'] != null) {
+        return GestureDetector(
+          onTap: () => _showFullScreenSchoolLogo(school['logo']['url']),
+          child: Image.network(
+            school['logo']['url'],
+            width: 32,
+            height: 32,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.school_rounded,
+                color: Color(0xFF2563EB),
+                size: 30,
+              );
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error silently
+    }
 
+    return const Icon(
+      Icons.school_rounded,
+      color: Color(0xFF2563EB),
+      size: 30,
+    );
+  }
+  void _showFullScreenSchoolLogo(String logoUrl) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Get.back(),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black.withOpacity(0.9),
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      logoUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        Get.back();
+                        Get.snackbar(
+                          'Error',
+                          'Failed to load logo',
+                          backgroundColor: Colors.red,
+                          colorText: Colors.white,
+                        );
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 50,
+              right: 20,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   Widget _header() {
     return Row(
       children: [
-        const CircleAvatar(
-          backgroundColor: Color(0xffE3ECFF),
-          child: Icon(Icons.school, color: Color(0xff4A6CF7)),
-        ),
+       _buildSchoolLogo(),
         const SizedBox(width: 10),
         Text(
           '${session.schoolName}',
@@ -180,7 +283,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     if (apiClubs.isEmpty) return const Center(child: Text("No clubs found"));
 
     return SizedBox(
-      height: 200,
+      height: 150,
       child: GridView.builder(
         shrinkWrap: true,
         scrollDirection: Axis.horizontal,
@@ -193,11 +296,12 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         ),
         itemBuilder: (BuildContext context, int index) {
           final club = apiClubs[index];
+          final clubId=apiClubs[index].id;
           return _BounceCard(
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SchoolGalleryPage(clubName: club.name,description:club.description, )),
+                MaterialPageRoute(builder: (context) => SchoolGalleryPage(clubName: club.name,description:club.description, clubId: clubId, )),
               );
             },
             child: Container(
@@ -221,7 +325,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                   Text(
                     club.name,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -240,26 +344,29 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
 
   Widget _campusStars() {
-     String campusStarName= controller.selectedChild['studentName']?? 'Unknown';
-     String campusStarImage= controller.selectedChild['studentImage']?['url']?? '';
+    // String campusStarName= controller.selectedChild['studentName']?? 'Unknown';
+   // String campusStarImage= controller.selectedChild['studentImage']?['url']?? '';
 
+    // final child = _childrenController?.selectedChild;
+   //  String campusStarName = child?['studentName'] ?? 'Unknown';
+    // String campusStarImage = child?['studentImage']?['url'] ?? '';
      return Column(
       children: [
         Row(
           children: const [
             Text("The campus star",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             Spacer(),
             Text("more", style: TextStyle(color: Colors.grey)),
           ],
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 170,
+          height: 150,
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
-              UserCard(campusStarName,campusStarImage),
+              UserCard('campusStarName','campusStarImage'),
 
             ],
           ),
@@ -299,18 +406,18 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Cynthia Hall",
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: TextStyle(fontWeight: FontWeight.w600,fontSize: 12)),
                   Text("5 minutes ago",
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               Spacer(),
-              Icon(Icons.more_vert)
+              Icon(Icons.more_vert,size: 15,)
             ],
           ),
           const SizedBox(height: 10),
           const Text(
-            "The 2019 Christmas and New Year party has started. New Year's eve party, wonderful.",
+            "The 2019 Christmas and New Year party has started. New Year's eve party, wonderful.",style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
 
@@ -453,7 +560,7 @@ class UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 130,
+      width: 120,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -470,13 +577,14 @@ class UserCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundImage: NetworkImage(
-                imageUrl),
+            // backgroundImage: NetworkImage(
+            //     imageUrl),
+
           ),
           const SizedBox(height: 8),
           Text(name,
               style:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 10)),
           const SizedBox(height: 4),
           const Text("Student leader",
               style: TextStyle(fontSize: 11, color: Colors.grey)),

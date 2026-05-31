@@ -90,11 +90,11 @@ class _LoginViewState extends State<LoginView> {
       );
     });
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _white,
+      // This allows the scaffold to resize automatically when the keyboard appears
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: ResponsiveWrapper(
@@ -102,49 +102,49 @@ class _LoginViewState extends State<LoginView> {
             builder: (context, constraints) {
               final isTablet = constraints.maxWidth > 600;
               final maxWidth = isTablet ? 460.0 : double.infinity;
-              final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-              // Fix: subtract 8px to resolve the reported pixel overload
-              final effectiveBottomPadding = keyboardInset > 0 
-                  ? (keyboardInset - 8).clamp(0.0, double.infinity) 
-                  : 0.0;
 
               return Center(
                 child: Container(
                   constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Column(
-                    children: [
-                      // ── Compact top bar ───────────────────────────────
-                      _buildTopBar(isTablet),
+                  // Wrap in SingleChildScrollView to handle small screens/keyboards
+                  child: SingleChildScrollView(
+                    // physics ensures a smooth bounce effect
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
 
-                      // ── Carousel — takes most of the screen ──────────
-                      Expanded(
-                        flex: 5,
-                        child: Padding(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildTopBar(isTablet),
+
+                        const SizedBox(height: 10),
+
+                        // FIX: Replace Expanded with a sized container
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20), // Increase this from 16 to 20
+                          child: SizedBox(
+                            height: isTablet ? 480 : 360,
+                            child: _buildCarousel(isTablet),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: isTablet ? 24 : 16,
-                            vertical: isTablet ? 12 : 8,
                           ),
-                          child: _buildCarousel(isTablet),
+                          child: Form(
+                            key: _formKey,
+                            child: _buildSignInCard(isTablet),
+                          ),
                         ),
-                      ),
 
-                      // ── Compact sign-in card ──────────────────────────
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 24 : 16,
-                        ),
-                        child: Form(
-                          key: _formKey,
-                          child: _buildSignInCard(isTablet),
-                        ),
-                      ),
+                        _buildPolicyLinks(isTablet),
 
-                      // ── Policy links ──────────────────────────────────
-                      _buildPolicyLinks(isTablet),
-
-                      // ── Keyboard inset padding (fixes 8px overflow) ───
-                      SizedBox(height: effectiveBottomPadding),
-                    ],
+                        // Adds a little breathing room at the bottom
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -215,19 +215,22 @@ class _LoginViewState extends State<LoginView> {
   // ── Carousel ───────────────────────────────────────────────────────────────
   Widget _buildCarousel(bool isTablet) {
     return Container(
+      // 1. THIS IS KEY: It forces the children (the slides)
+      // to stay inside the rounded corners of the border.
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: _white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _medBlue, width: 1.5),
+        // 2. Make the border slightly thicker or darker to test visibility
+        border: Border.all(color: _medBlue, width: 2.0),
         boxShadow: [
           BoxShadow(
-            color: _accentBlue.withOpacity(0.07),
-            blurRadius: 20,
+            color: _accentBlue.withOpacity(0.1),
+            blurRadius: 15,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
           Expanded(
@@ -246,7 +249,8 @@ class _LoginViewState extends State<LoginView> {
 
   Widget _buildSlide(_SlideData slide, bool isTablet) {
     return Container(
-      color: slide.bgColor,
+      color: slide.bgColor, // This color will now be clipped by the parent's Clip.antiAlias
+      width: double.infinity,
       padding: EdgeInsets.symmetric(
         horizontal: isTablet ? 40 : 28,
         vertical: isTablet ? 24 : 16,

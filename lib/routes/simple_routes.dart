@@ -4,7 +4,6 @@ import 'package:school_app/screens/accounting_dashboard_view.dart';
 import 'package:school_app/screens/attendance_view.dart';
 import 'package:school_app/screens/clubs_activities_view.dart';
 import 'package:school_app/screens/login_view.dart';
-import 'package:school_app/screens/student_management_module_view.dart';
 import 'package:school_app/screens/student_management_view.dart';
 import 'package:school_app/screens/parent_attendance_view.dart';
 

@@ -219,7 +219,6 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
           ),
         ),
-        // ✅ Remove title entirely, put toggle in bottom instead
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40),
           child: Padding(
@@ -269,106 +268,77 @@ class _AttendancePageState extends State<AttendancePage> {
               });
             },
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    Color(0xff4A90E2),
-                    Color(0xff6FD3F7),
-
-                  ],),
-                ),
+              SizedBox.expand(  //  Forces child to fill PageView's full space
                 child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 5.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(topRight: Radius.circular(20),topLeft:Radius.circular(20) ),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(colors: [
+                      Color(0xff4A90E2),
+                      Color(0xff6FD3F7),
+                    ]),
                   ),
-                  child: Column(
-                    children: [
-
-
-            // ------------------------------------TABLE CALENDER FOR ATTENDANCE --------------------------------------------------
-
-
-                    TableCalendar(
-                      rowHeight: ResponsiveHelper.isSmallHeight(context) ? 34.0 : 46.0,
-                      daysOfWeekHeight: ResponsiveHelper.isSmallHeight(context) ? 18.0 : 16.0,
-                    focusedDay: _focusDay,
-                    firstDay: DateTime.utc(2025, 1, 1),
-                    lastDay: DateTime.utc(2030, 12, 31),
-                      headerStyle: const HeaderStyle(
-                        titleCentered: true,
-                        formatButtonVisible: false,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(20),
+                        topLeft: Radius.circular(20),
                       ),
-                      daysOfWeekStyle: const DaysOfWeekStyle(
-                          weekdayStyle: TextStyle(color:Colors.black),
-                          weekendStyle: TextStyle(color: Colors.red)
-                      ),
-                    calendarFormat: _calendarFormat,
-
-                      // Custom Builders to fill the circles
-                      calendarBuilders: CalendarBuilders(
-                        // 1. Handle normal days
-                        defaultBuilder: (context, day, focusedDay) {
-                          return _buildCalendarCell(day);
-                        },
-
-
-           //-------------------------------------HANDLES "TODAY" IF PRESENT GREEN ABSENT RED ---------------------------------
-
-
-                        todayBuilder: (context, day, focusedDay) {
-                          return _buildCalendarCell(day) ?? _buildStatusContainer(day, Colors.green);
-                        },
-                        // 3. Handle Saturdays/Sundays
-                        holidayBuilder: (context, day, focusedDay) {
-                          return _buildCalendarCell(day);
-                        },
-                      ),
-                    onDaySelected: _onDaySelected,
-                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  ),
-
-
-                      ResponsiveHelper.vSpace(context, 30),
-
-
-
-                      // ----------------------------------------------- LIST VIEW BUILDER FOR PRESENT AND ABSENT PERCENTAGE ----------------------
-
-
-                      Expanded(
-                        child:
-                        ListView.builder(
-                          itemCount: dynamicStats.length,
-                          itemBuilder: (context, index) {
-                            return AttendanceFestivalsHolidaysContainers(
-                                numberColorItem: dynamicStats[index]
-                            );
-                          },
+                    ),
+                    child: Column(
+                      children: [
+                        // Calendar
+                        TableCalendar(
+                          rowHeight: ResponsiveHelper.isSmallHeight(context) ? 34.0 : 46.0,
+                          daysOfWeekHeight: ResponsiveHelper.isSmallHeight(context) ? 18.0 : 16.0,
+                          focusedDay: _focusDay,
+                          firstDay: DateTime.utc(2025, 1, 1),
+                          lastDay: DateTime.utc(2030, 12, 31),
+                          headerStyle: const HeaderStyle(
+                            titleCentered: true,
+                            formatButtonVisible: false,
+                          ),
+                          daysOfWeekStyle: const DaysOfWeekStyle(
+                            weekdayStyle: TextStyle(color: Colors.black),
+                            weekendStyle: TextStyle(color: Colors.red),
+                          ),
+                          calendarFormat: _calendarFormat,
+                          calendarBuilders: CalendarBuilders(
+                            defaultBuilder: (context, day, focusedDay) => _buildCalendarCell(day),
+                            todayBuilder: (context, day, focusedDay) =>
+                            _buildCalendarCell(day) ?? _buildStatusContainer(day, Colors.green),
+                            holidayBuilder: (context, day, focusedDay) => _buildCalendarCell(day),
+                          ),
                         ),
 
-                      ),
 
-
-      // -------------------------------------  FOOTER IMAGE  --------------------------------------------
-
-
-                      SizedBox(
-                        height: ResponsiveHelper.isSmallHeight(context)
-                            ? ResponsiveHelper.h(context, 55)
-                            : null, // null = natural image height on normal screens
-                        child: Image.asset(
-                          'assets/images/Blue science and education collection footer.png',
-                          width: double.infinity,
-                          fit: BoxFit.fill,
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            itemCount: dynamicStats.length,
+                            itemBuilder: (context, index) {
+                              return AttendanceFestivalsHolidaysContainers(
+                                numberColorItem: dynamicStats[index],
+                              );
+                            },
+                          ),
                         ),
-                      ),
 
-                    ],
+                        // Footer pinned at bottom
+                        SizedBox(
+                          height: ResponsiveHelper.isSmallHeight(context)
+                              ? ResponsiveHelper.h(context, 55)
+                              : null,
+                          child: Image.asset(
+                            'assets/images/Blue science and education collection footer.png',
+                            width: double.infinity,
+                            fit: BoxFit.fill,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-
               ),
               Container(
                 decoration: BoxDecoration(
@@ -410,8 +380,8 @@ class _AttendancePageState extends State<AttendancePage> {
                             selectedDecoration: BoxDecoration(color: Colors.red,borderRadius: BorderRadius.circular(100),)
                         ),
                         focusedDay: _focusDay,
-                        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                        onDaySelected: _onDaySelected,
+                        //selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                        //onDaySelected: _onDaySelected,
                         calendarFormat: _calendarFormat,
                       ),
                       ResponsiveHelper.vSpace(context, 50),
@@ -450,14 +420,14 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
 
-  _onDaySelected(selectedDay , focusDay) {
-    if(!isSameDay(_selectedDay , selectedDay)){
-      setState(() {
-        _selectedDay = selectedDay;
-        _focusDay = focusDay;
-      });
-    }
-  }
+  // _onDaySelected(selectedDay , focusDay) {
+  //   if(!isSameDay(_selectedDay , selectedDay)){
+  //     setState(() {
+  //       _selectedDay = selectedDay;
+  //       _focusDay = focusDay;
+  //     });
+  //   }
+  // }
 
 // Helper widget to draw the circle
   Widget _buildStatusContainer(DateTime day, Color color) {
@@ -512,7 +482,7 @@ class AttendanceFestivalsHolidaysContainers extends StatelessWidget {
   Widget build(BuildContext context) {
     return   Container(
       margin: EdgeInsets.symmetric(horizontal:  ResponsiveHelper.w(context, 8),vertical: ResponsiveHelper.h(context, 8),),
-      height: ResponsiveHelper.h(context, 50),
+      height: ResponsiveHelper.h(context, 40),
       width: MediaQuery.sizeOf(context).width-20,
       decoration: BoxDecoration(
         border: Border.all(
@@ -536,14 +506,14 @@ class AttendanceFestivalsHolidaysContainers extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 10),
-                Text('${numberColorItem.title}',style: TextStyle(fontWeight: FontWeight.bold),),
+                Text('${numberColorItem.title}',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 13),),
               ],
             ),
             Container(
               margin: EdgeInsets.only(right: 5),
               alignment: Alignment.center,
-              height: 35,
-              width: 35,
+              height: 25,
+              width: 25,
               decoration: BoxDecoration(
                   color:numberColorItem.colorLight,
                   borderRadius: BorderRadius.circular(20)

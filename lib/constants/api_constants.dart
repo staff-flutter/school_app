@@ -117,4 +117,11 @@ class ApiConstants {
   // Subscription Endpoints
   static const String updateSubscription = '/api/subscription/update';
   static const String getSubscription = '/api/subscription/get';
+
+  // Marks
+  static const String getMarksByClass  = '/api/marks/getbyclass';
+  static const String uploadMarks      = '/api/marks/upload';
+  static const String updateMarks      = '/api/marks/update';
+  static const String getStudentMarks  = '/api/marks/getstudentmarks';
+  static const String deleteMarks      = '/api/marks/delete';
 }

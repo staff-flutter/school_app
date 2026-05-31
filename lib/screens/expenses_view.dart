@@ -19,27 +19,96 @@ import 'package:school_app/models/accounting_models.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/permissions/permission_system.dart';
 
-class ExpensesView extends GetView<AccountingController> {
+class ExpensesView extends StatefulWidget {
   ExpensesView({super.key});
 
+  @override
+  State<ExpensesView> createState() => _ExpensesViewState();
+}
+
+class _ExpensesViewState extends State<ExpensesView> {
+  final AccountingController controller = Get.find();
   final _formKey = GlobalKey<FormState>();
+
   final _amountController = TextEditingController();
+
   final _remarksController = TextEditingController();
+
   final _chequeNumberController = TextEditingController();
+
   final _bankNameController = TextEditingController();
+
   final selectedCategory = 'Salary'.obs;
+
   final selectedPaymentMode = 'cash'.obs;
+
   final billFiles = <PlatformFile>[].obs;
+
   final workPhotoFiles = <PlatformFile>[].obs;
+
   final selectedSchool = Rxn<School>();
+
   final selectedDate = DateTime.now().obs;
+
   final schoolController = Get.find<SchoolController>();
+
+  Worker? _schoolWatcher;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      schoolController.getAllSchools();
+
+      final authController = Get.find<AuthController>();
+      final userRole = authController.user.value?.role?.toLowerCase() ?? '';
+
+      try {
+        final sidebarSchoolCtrl = Get.find<SchoolController>();
+
+        // Trigger immediately if school already selected
+        final current = sidebarSchoolCtrl.selectedSchool.value;
+        if (current != null) {
+          selectedSchool.value = current;
+          _loadSubscription(current.id);
+        } else if (userRole != 'correspondent') {
+          // Non-correspondent: auto-select from schoolId
+          _initializeSchoolForUser();
+        }
+
+        // Watch future sidebar changes
+        _schoolWatcher = ever(sidebarSchoolCtrl.selectedSchool, (school) {
+          if (school != null && userRole == 'correspondent') {
+            selectedSchool.value = school;
+            _loadSubscription(school.id);
+          }
+        });
+      } catch (_) {}
+    });
+  }
+
+  void _loadSubscription(String schoolId) {
+    if (Get.isRegistered<SubscriptionController>()) {
+      Get.find<SubscriptionController>().loadSubscription(schoolId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _schoolWatcher?.dispose();
+    _amountController.dispose();
+    _remarksController.dispose();
+    _chequeNumberController.dispose();
+    _bankNameController.dispose();
+    super.dispose();
+  }
 
   void _initializeSchoolForUser() {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
     final userSchoolId = authController.user.value?.schoolId;
-    
+
     if (!['correspondent'].contains(userRole) && userSchoolId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final userSchool = schoolController.schools.firstWhereOrNull(
@@ -66,7 +135,7 @@ class ExpensesView extends GetView<AccountingController> {
     final authController = Get.find<AuthController>();
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-    
+
     if (!authController.hasPermission(Permission.EXPENSE_ADD)) {
       return Scaffold(
         backgroundColor: const Color(0xFFF0F5FF),
@@ -124,10 +193,10 @@ class ExpensesView extends GetView<AccountingController> {
       );
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      schoolController.getAllSchools();
-      _initializeSchoolForUser();
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   schoolController.getAllSchools();
+    //   _initializeSchoolForUser();
+    // });
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F5FF),
@@ -139,6 +208,8 @@ class ExpensesView extends GetView<AccountingController> {
               padding: EdgeInsets.all(isTablet ? 14 : 12),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
+                 // _buildSchoolSelection( context, isTablet),
+                 // const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
                 ]),
               ),
@@ -223,7 +294,7 @@ class ExpensesView extends GetView<AccountingController> {
     );
   }
 
-  Widget _buildSchoolSelection(bool isTablet) {
+  Widget _buildSchoolSelection(BuildContext context ,bool isTablet) {
     final authController = Get.find<AuthController>();
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
     final isReadOnly = !['correspondent'].contains(userRole);
@@ -295,6 +366,7 @@ class ExpensesView extends GetView<AccountingController> {
                 border: Border.all(color: Colors.grey.shade200),
               ),
               child: DropdownButtonFormField<School>(
+                isExpanded: true,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -303,11 +375,25 @@ class ExpensesView extends GetView<AccountingController> {
                 value: schoolController.schools.contains(selectedSchool.value)
                     ? selectedSchool.value
                     : null,
+                selectedItemBuilder: (BuildContext context) {
+                  return schoolController.schools.map<Widget>((School school) {
+                    return Text(
+                      school.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(fontSize: 14),
+                    );
+                  }).toList();
+                },
                 items: schoolController.schools.map((school) {
                   return DropdownMenuItem<School>(
                     value: school,
-                    child: Text(school.name),
-                  );
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.6,
+                        ),
+                    child: Text(school.name,overflow: TextOverflow.ellipsis,),
+                  ),);
                 }).toList(),
                 onChanged: (school) {
                   selectedSchool.value = school;
@@ -328,34 +414,18 @@ class ExpensesView extends GetView<AccountingController> {
 
     Widget _buildContentArea(BuildContext context, bool isTablet) {
     return Obx(() {
-      // Auto-select school from auth
       if (selectedSchool.value == null) {
-        final authController = Get.find<AuthController>();
-        final userSchoolId = authController.user.value?.schoolId;
-        if (userSchoolId != null && schoolController.schools.isNotEmpty) {
-          final userSchool = schoolController.schools.firstWhereOrNull(
-            (school) => school.id == userSchoolId,
-          );
-          if (userSchool != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              selectedSchool.value = userSchool;
-              if (Get.isRegistered<SubscriptionController>()) {
-                Get.find<SubscriptionController>().loadSubscription(userSchool.id);
-              }
-            });
-          }
-        }
-        return const Center(child: CircularProgressIndicator());
+        return _buildEmptyStateWidget(context, isTablet, 'Please select a school', Icons.school);
       }
-      
-      final subscriptionController = Get.isRegistered<SubscriptionController>() 
-          ? Get.find<SubscriptionController>() 
+
+      final subscriptionController = Get.isRegistered<SubscriptionController>()
+          ? Get.find<SubscriptionController>()
           : null;
-      
+
       if (subscriptionController?.isLoading.value == true) {
         return const Center(child: CircularProgressIndicator());
       }
-      
+
       final userRole = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
       final requiresSubscriptionCheck = ['correspondent', 'principal'].contains(userRole);
 
@@ -366,7 +436,7 @@ class ExpensesView extends GetView<AccountingController> {
           return _buildUpgradeRequiredWidget(context, 'Expense', isTablet);
         }
       }
-      
+
       return _buildExpenseForm(isTablet);
     });
   }
@@ -1111,13 +1181,13 @@ class ExpensesView extends GetView<AccountingController> {
   void _saveExpense() {
     if (_formKey.currentState!.validate()) {
       if (billFiles.isEmpty) {
-        Get.snackbar('Error', 'Please upload at least one bill/invoice file', 
+        Get.snackbar('Error', 'Please upload at least one bill/invoice file',
           backgroundColor: Colors.red, colorText: Colors.white);
         return;
       }
 
       final school = selectedSchool.value;
-      final academicYear = school?.currentAcademicYear ?? 
+      final academicYear = school?.currentAcademicYear ??
         '${DateTime.now().year}-${DateTime.now().year + 1}';
 
       controller.addExpense(
@@ -1138,7 +1208,7 @@ class ExpensesView extends GetView<AccountingController> {
 
   void _showExpensesList(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
-    
+
     if (selectedSchool.value != null) {
       controller.loadExpenses(schoolId: selectedSchool.value!.id);
     }
@@ -1287,7 +1357,7 @@ class ExpensesView extends GetView<AccountingController> {
   }
 
   Widget _buildExpenseCard(BuildContext context, Expense expense, int index, bool isTablet) {
-    final statusColor = expense.status == 'verified' 
+    final statusColor = expense.status == 'verified'
         ? const Color(0xFF2563EB)
         : expense.status == 'rejected'
             ? AppTheme.errorRed

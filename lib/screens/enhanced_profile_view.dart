@@ -4,6 +4,9 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/theme_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/core/permissions/permission_system.dart';
+import 'package:school_app/screens/parent_profile_page.dart';
+
+import 'correspondent_profile_view.dart';
 
 class EnhancedProfileView extends GetView<AuthController> {
   EnhancedProfileView({super.key});
@@ -12,6 +15,21 @@ class EnhancedProfileView extends GetView<AuthController> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Get the current user's role
+    final String role = controller.user.value?.role.toLowerCase() ?? '';
+
+    // 2. Redirect based on role
+    if (role == 'parent') {
+      return const ParentProfile();
+    }
+
+    if (role == 'correspondent') {
+      return const CorrespondentProfileView();
+    }
+
+
+
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.userSchool.value == null && _shouldFetchSchoolInfo()) {
         controller.fetchUserSchoolInfo();

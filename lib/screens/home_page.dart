@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:school_app/screens/Attendence_page.dart';
+import '../controllers/announcement_controller.dart';
+import '../controllers/school_controller.dart';
 import 'parent_profile_page.dart';
 import 'profile_selection_page.dart';
 import 'student_profile_page.dart';
@@ -91,7 +93,7 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('QUICK ACCESS',style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold,color: Colors.grey),),
+                      Text('QUICK ACCESS',style: TextStyle(fontSize: 15,fontWeight: FontWeight.bold,color: Colors.grey),),
                       SizedBox(height: 30,),
                       Expanded(
                         child: GridView.count(
@@ -111,7 +113,7 @@ class _HomePageState extends State<HomePage> {
                          // --------------------------------  FEE DETAILS PAGE  -------------------------------------------
 
                             _buildHomeItem(
-                              iconPath: 'assets/images/feedetails_icon.png',
+                              iconPath: 'assets/images/coin_transparent.png',
                               label: 'FeeDetails',
                               onTap: () => Get.to(() =>  const FeeDetailsFirstPage()),                      ),
 
@@ -152,7 +154,12 @@ class _HomePageState extends State<HomePage> {
                             _buildHomeItem(
                               iconPath: 'assets/images/studentprofile_icon.png',
                               label: 'Student Profile',
-                              onTap: () =>Get.to(() =>  MainWrapperWithNoNavBar(child: ProfilePage(schoolId: '$session.schoolId'))),
+                              onTap: () {
+                                Get.put(SchoolController());
+                                Get.to(() => MainWrapperWithNoNavBar(
+                                  child: ProfilePage(schoolId: session.schoolId ?? ''),
+                                ));
+                              },
                             ),
 
                           // -----------------------------------  PARENT PROFILE  --------------------------------------------------
@@ -168,9 +175,16 @@ class _HomePageState extends State<HomePage> {
                             _buildHomeItem(
                               iconPath: 'assets/images/noticeboard_icon.png',
                               label: 'Notice Board',
-                              onTap: () =>Get.to(() =>  NoticeBoardScreenUi()),
+                              onTap: () => Get.to(
+                                    () => const NoticeBoardScreenUi(),
+                                binding: BindingsBuilder(() {
+                                  // Only register if not already registered (it may already be alive)
+                                  if (!Get.isRegistered<AnnouncementController>()) {
+                                    Get.put(AnnouncementController());
+                                  }
+                                }),
+                              ),
                             ),
-
 
 
                             // Column(
@@ -224,7 +238,7 @@ Widget _buildHomeItem({
           },
           child: Padding(
             padding: const EdgeInsets.all(10.0), // Bigger tap area
-            child: Image.asset(iconPath, width: 30, height: 30),
+            child: Image.asset(iconPath, width: 40, height: 40),
           ),
         ),
       ),

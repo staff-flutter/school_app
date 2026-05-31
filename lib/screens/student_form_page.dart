@@ -275,7 +275,7 @@ class _StudentFormPageState extends State<StudentFormPage> {
                     _buildSectionCard(
                       'Contact Information',
                       Icons.contact_phone,
-                      Colors.blue[700]!,
+                      Colors.orange,
                       [
                         _buildTextField(
                           controller: phoneController,
@@ -320,7 +320,7 @@ class _StudentFormPageState extends State<StudentFormPage> {
                     _buildSectionCard(
                       'Academic Information',
                       Icons.school,
-                      Colors.blue[700]!,
+                      Colors.purple,
                       [
                         _buildClassDropdown(),
                         const SizedBox(height: 16),
@@ -346,7 +346,7 @@ class _StudentFormPageState extends State<StudentFormPage> {
                     _buildSectionCard(
                       'Additional Information',
                       Icons.info,
-                      Colors.blue[600]!,
+                      Colors.teal,
                       [
                         _buildTextField(
                           controller: aadhaarNumberController,

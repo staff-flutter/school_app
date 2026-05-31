@@ -24,7 +24,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
   String? selectedSectionId;
   bool _initialized = false;
 
-  // ================= HELPERS =================
+  // ─── Helpers ───────────────────────────────────────────────────────────────
 
   String? _extractClassId(dynamic classId) {
     if (classId is String) return classId;
@@ -32,95 +32,61 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
     return null;
   }
 
-  // ================= ASSIGNMENTS =================
-
   List<Map<String, dynamic>> get teacherAssignments {
     final user = authController.user.value;
     if (user == null) return [];
     return List<Map<String, dynamic>>.from(user.assignments);
   }
 
-  /// Classes assigned to teacher (resolved with names)
   List<Map<String, String>> get assignedClasses {
-    final assignments = teacherAssignments;
-    final classes = schoolController.classes;
-
-    final classIds = assignments
+    final classIds = teacherAssignments
         .map((a) => _extractClassId(a['classId']))
         .whereType<String>()
         .toSet();
-
     if (classIds.isEmpty) return [];
     return classIds.map((id) {
-      final cls = classes.firstWhereOrNull((c) => c.id == id);
-      return {
-        'id': id,
-        'name': cls?.name ?? 'Class',
-      };
+      final cls = schoolController.classes.firstWhereOrNull((c) => c.id == id);
+      return {'id': id, 'name': cls?.name ?? 'Class'};
     }).toList();
   }
 
-  /// Sections for selected class
   List<Map<String, String?>> get sectionsForSelectedClass {
     if (selectedClassId == null) return [];
-
     final sections = <Map<String, String?>>[];
-    bool hasAllSectionsAccess = false;
+    bool hasAll = false;
 
-    // Check teacher assignments for this class
     for (final a in teacherAssignments) {
       final classId = _extractClassId(a['classId']);
       if (classId != selectedClassId) continue;
-
       final sectionId = a['sectionId'];
-
       if (sectionId == null) {
-        // Teacher has access to all sections of this class
-        hasAllSectionsAccess = true;
+        hasAll = true;
       } else {
-        final sec = schoolController.sections
-            .firstWhereOrNull((s) => s.id == sectionId);
-        if (sec != null) {
-          sections.add({
-            'id': sectionId,
-            'name': sec.name,
-          });
-        }
+        final sec = schoolController.sections.firstWhereOrNull((s) => s.id == sectionId);
+        if (sec != null) sections.add({'id': sectionId, 'name': sec.name});
       }
     }
 
-    // If teacher has all sections access, show all available sections for this class
-    if (hasAllSectionsAccess || sections.isEmpty) {
-      final availableSections = schoolController.sections
+    if (hasAll || sections.isEmpty) {
+      final available = schoolController.sections
           .where((s) => s.classId == selectedClassId)
           .toList();
-
-      if (availableSections.isNotEmpty) {
-        // Add "All Sections" option first
+      if (available.isNotEmpty) {
         sections.insert(0, {'id': null, 'name': 'All Sections'});
-
-        // If teacher has all sections access, add all individual sections
-        if (hasAllSectionsAccess) {
-          for (final sec in availableSections) {
-            // Avoid duplicates
-            if (!sections.any((s) => s['id'] == sec.id)) {
-              sections.add({
-                'id': sec.id,
-                'name': sec.name,
-              });
-            }
+        if (hasAll) {
+          for (final sec in available) {
+            if (!sections.any((s) => s['id'] == sec.id))
+              sections.add({'id': sec.id, 'name': sec.name});
           }
         }
       } else {
-        // Fallback if no sections found
         sections.add({'id': null, 'name': 'All Sections'});
       }
     }
-
     return sections;
   }
 
-  // ================= INIT =================
+  // ─── Init ──────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -130,49 +96,26 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
 
   Future<void> _initialize() async {
     if (_initialized) return;
-
-    // For teachers, set selectedSchool from user data if not already set
     if (schoolController.selectedSchool.value == null) {
       final user = authController.user.value;
       if (user?.schoolId != null) {
-        // Find the school in the controller's schools list or set it directly
-        final school = schoolController.schools.firstWhereOrNull((s) => s.id == user?.schoolId);
-        if (school != null) {
-          schoolController.selectedSchool.value = school;
-        } else {
+        var school = schoolController.schools.firstWhereOrNull((s) => s.id == user?.schoolId);
+        if (school == null) {
           await schoolController.getAllSchools();
-          final foundSchool = schoolController.schools.firstWhereOrNull((s) => s.id == user?.schoolId);
-          if (foundSchool != null) {
-            schoolController.selectedSchool.value = foundSchool;
-          } else {
-            return;
-          }
+          school = schoolController.schools.firstWhereOrNull((s) => s.id == user?.schoolId);
         }
-      } else {
-        return;
-      }
+        if (school == null) return;
+        schoolController.selectedSchool.value = school;
+      } else return;
     }
-
     _initialized = true;
-
     final schoolId = schoolController.selectedSchool.value!.id;
-
-    // Load school data
     await schoolController.getAllClasses(schoolId);
     await schoolController.getAllSections(schoolId: schoolId);
-
-    // Auto-select first class
-    if (assignedClasses.isNotEmpty && mounted) {
-      setState(() {
-        selectedClassId = assignedClasses.first['id'];
-      });
-    }
-
-    // Auto-select first section
+    if (assignedClasses.isNotEmpty && mounted)
+      setState(() => selectedClassId = assignedClasses.first['id']);
     if (sectionsForSelectedClass.isNotEmpty && mounted) {
-      setState(() {
-        selectedSectionId = sectionsForSelectedClass.first['id'];
-      });
+      setState(() => selectedSectionId = sectionsForSelectedClass.first['id']);
       _loadStudents();
     }
   }
@@ -180,10 +123,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
   Future<void> _loadStudents() async {
     if (selectedClassId == null ||
         selectedSectionId == null ||
-        schoolController.selectedSchool.value == null) {
-      return;
-    }
-
+        schoolController.selectedSchool.value == null) return;
     await studentController.getStudentsByClassAndSection(
       schoolId: schoolController.selectedSchool.value!.id,
       classId: selectedClassId!,
@@ -191,142 +131,19 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
     );
   }
 
-  // ================= UI =================
+  // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 600;
-    final isLandscape = screenSize.width > screenSize.height;
+    final isTablet = MediaQuery.of(context).size.width > 600;
 
-    // Check if teacher has no assignments
     if (teacherAssignments.isEmpty) {
-      final teacherName = authController.user.value?.userName ?? 'this teacher';
-      return Scaffold(
-        backgroundColor: AppTheme.appBackground,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              centerTitle: false,
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.school_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'My Classes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'View your assigned classes',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        body: SafeArea(
-          child: Center(
-            child: Container(
-              margin: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                gradient: AppTheme.cardGradient,
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.warningGradient,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.school_outlined,
-                      size: 48,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'No Classes Assigned',
-                    style: TextStyle(
-                      fontSize: isTablet ? 24 : 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No classes were assigned to $teacherName yet.\nPlease contact your administrator.',
-                    style: TextStyle(
-                      fontSize: isTablet ? 16 : 14,
-                      color: AppTheme.mutedText,
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
+      return _buildNoAssignmentsScaffold(isTablet);
     }
 
     return Scaffold(
       backgroundColor: AppTheme.appBackground,
+      // ── AppBar ──────────────────────────────────────────────────────────
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(70),
         child: Container(
@@ -336,662 +153,513 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
           ),
           child: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
             centerTitle: false,
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.school_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+            title: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'My Classes',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'Manage your students',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                const Text('My Classes', style: TextStyle(
+                    color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text('Manage your students', style: TextStyle(
+                    color: Colors.white.withOpacity(0.9), fontSize: 12)),
+              ]),
+            ]),
           ),
         ),
       ),
+
+      // ── Body: single CustomScrollView — everything scrolls together ──────
       body: SafeArea(
-        child: Container(
-          padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
-          child: Column(
-            children: [
-              // Selection Cards Container
-              Container(
-                decoration: BoxDecoration(
-                  gradient: AppTheme.cardGradient,
-                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.filter_list,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Class & Section',
-                                style: TextStyle(
-                                  fontSize: isTablet ? 18 : 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryText,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Choose your assigned class and section to view students',
-                                style: TextStyle(
-                                  fontSize: isTablet ? 14 : 12,
-                                  color: AppTheme.mutedText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+        child: Obx(() {
+          final students = studentController.studentsByClassSection;
+          final loading  = studentController.isLoading.value;
 
-                    // Class and Section in responsive layout
-                    isLandscape && isTablet
-                        ? Row(
-                            children: [
-                              Expanded(child: _buildClassSelector(context)),
-                              const SizedBox(width: 16),
-                              if (selectedClassId != null)
-                                Expanded(child: _buildSectionSelector(context)),
-                            ],
-                          )
-                        : Column(
-                            children: [
-                              _buildClassSelector(context),
-                              if (selectedClassId != null) ...[
-                                const SizedBox(height: 16),
-                                _buildSectionSelector(context),
-                                if (selectedSectionId != null) ...[
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryBlue.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.info_outline,
-                                          color: AppTheme.primaryBlue,
-                                          size: isTablet ? 18 : 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Builder(
-                                            builder: (context) {
-                                              final selectedSection = sectionsForSelectedClass
-                                                  .firstWhereOrNull((s) => s['id'] == selectedSectionId);
-                                              final sectionName = selectedSection?['name'] ?? 'selected section';
+          return CustomScrollView(
+            slivers: [
 
-                                              return Text(
-                                                selectedSectionId == null
-                                                    ? 'Showing students from all sections of the selected class'
-                                                    : 'Showing students from $sectionName',
-                                                style: TextStyle(
-                                                  color: AppTheme.primaryBlue,
-                                                  fontSize: isTablet ? 14 : 12,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ],
-                          ),
-                  ],
+              // ── Filter card ─────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+                  child: _buildFilterCard(context, isTablet),
                 ),
               ),
 
-              const SizedBox(height: 20),
-
-              // Student List
+              // ── Student list header ─────────────────────────────────────
               if (selectedClassId != null && selectedSectionId != null)
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.cardGradient,
-                      borderRadius: BorderRadius.circular(AppTheme.radius),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: _buildStudentListHeader(isTablet, students.length),
+                  ),
+                ),
+
+              // ── Loading ─────────────────────────────────────────────────
+              if (selectedClassId != null && selectedSectionId != null && loading)
+                SliverFillRemaining(
+                  child: Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: isTablet ? 40 : 32,
+                        height: isTablet ? 40 : 32,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation(AppTheme.primaryBlue),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Student List Header
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.successGradient,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(AppTheme.radius),
-                              topRight: Radius.circular(AppTheme.radius),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.people_outline,
-                                color: Colors.white,
-                                size: isTablet ? 24 : 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Obx(() {
-                                  final students = studentController.studentsByClassSection;
-                                  return Text(
-                                    'Students (${students.length})',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isTablet ? 20 : 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  );
-                                }),
-                              ),
-                              IconButton(
-                                onPressed: _loadStudents,
-                                icon: const Icon(
-                                  Icons.refresh,
-                                  color: Colors.white,
-                                ),
-                                tooltip: 'Refresh',
-                              ),
-                            ],
-                          ),
-                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Loading students...',
+                          style: TextStyle(color: AppTheme.mutedText, fontSize: isTablet ? 16 : 14)),
+                    ],
+                  )),
+                ),
 
-                        // Student List Content
-                        Expanded(
-                          child: Obx(() {
-                            if (studentController.isLoading.value) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: isTablet ? 40 : 32,
-                                      height: isTablet ? 40 : 32,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        valueColor: AlwaysStoppedAnimation(AppTheme.primaryBlue),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Loading students...',
-                                      style: TextStyle(
-                                        color: AppTheme.mutedText,
-                                        fontSize: isTablet ? 20 : 16,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
+              // ── Empty state ─────────────────────────────────────────────
+              if (selectedClassId != null && selectedSectionId != null && !loading && students.isEmpty)
+                SliverFillRemaining(
+                  child: Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: isTablet ? 64 : 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 16),
+                      Text('No students found',
+                          style: TextStyle(color: AppTheme.mutedText, fontSize: isTablet ? 20 : 16)),
+                    ],
+                  )),
+                ),
 
-                            final students = studentController.studentsByClassSection;
-
-                            if (students.isEmpty) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.people_outline,
-                                      size: isTablet ? 64 : 48,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'No students found',
-                                      style: TextStyle(
-                                        color: AppTheme.mutedText,
-                                        fontSize: isTablet ? 30 : 25,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-
-                            return ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: students.length,
-                              itemBuilder: (context, index) {
-                                final student = students[index];
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    leading: Container(
-                                      width: isTablet ? 50 : 45,
-                                      height: isTablet ? 50 : 45,
-                                      decoration: BoxDecoration(
-                                        gradient: AppTheme.primaryGradient,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          student.rollNumber ??
-                                              student.name?.substring(0, 1).toUpperCase() ??
-                                              '?',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    title: Text(
-                                      student.name ?? 'Student',
-                                      style: TextStyle(
-                                        fontSize: isTablet ? 20 : 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.primaryText,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      'Roll: ${student.rollNumber ?? 'N/A'}',
-                                      style: TextStyle(
-                                        fontSize: isTablet ? 18 : 16,
-                                        color: AppTheme.mutedText,
-                                      ),
-                                    ),
-                                    trailing: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryBlue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(
-                                        Icons.chevron_right,
-                                        color: AppTheme.primaryBlue,
-                                        size: isTablet ? 20 : 18,
-                                      ),
-                                    ),
-                                    onTap: () {
-                                      Get.to(
-                                        () => StudentIndividualDetailView(
-                                          student: student,
-                                          schoolId: schoolController.selectedSchool.value!.id,
-                                        ),
-                                      );
-                                    },
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          }),
-                        ),
-                      ],
+              // ── Student list ────────────────────────────────────────────
+              if (selectedClassId != null && selectedSectionId != null && !loading && students.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildStudentTile(context, students[index], isTablet),
+                      childCount: students.length,
                     ),
                   ),
                 ),
+
+              // ── Prompt to select class/section ──────────────────────────
+              if (selectedClassId == null || selectedSectionId == null)
+                SliverFillRemaining(
+                  child: Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.touch_app_rounded, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      Text('Select a class and section above',
+                          style: TextStyle(color: AppTheme.mutedText, fontSize: 14)),
+                    ],
+                  )),
+                ),
             ],
-          ),
-        ),
+          );
+        }),
       ),
     );
   }
 
+  // ─── Filter card ───────────────────────────────────────────────────────────
+  Widget _buildFilterCard(BuildContext context, bool isTablet) {
+    final isLandscape = MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppTheme.cardGradient,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.filter_list, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Select Class & Section', style: TextStyle(
+                fontSize: isTablet ? 18 : 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryText)),
+            const SizedBox(height: 4),
+            Text('Choose your assigned class and section to view students',
+                style: TextStyle(fontSize: isTablet ? 14 : 12, color: AppTheme.mutedText)),
+          ])),
+        ]),
+        const SizedBox(height: 20),
+
+        // Class + Section selectors
+        isLandscape && isTablet
+            ? Row(children: [
+          Expanded(child: _buildClassSelector(context)),
+          const SizedBox(width: 16),
+          if (selectedClassId != null) Expanded(child: _buildSectionSelector(context)),
+        ])
+            : Column(children: [
+          _buildClassSelector(context),
+          if (selectedClassId != null) ...[
+            const SizedBox(height: 16),
+            _buildSectionSelector(context),
+            if (selectedSectionId != null) ...[
+              const SizedBox(height: 12),
+              _buildSectionInfoBanner(isTablet),
+            ],
+          ],
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildSectionInfoBanner(bool isTablet) {
+    final selectedSection = sectionsForSelectedClass
+        .firstWhereOrNull((s) => s['id'] == selectedSectionId);
+    final sectionName = selectedSection?['name'] ?? 'selected section';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBlue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(children: [
+        Icon(Icons.info_outline, color: AppTheme.primaryBlue, size: isTablet ? 18 : 16),
+        const SizedBox(width: 8),
+        Expanded(child: Text(
+          selectedSectionId == null
+              ? 'Showing students from all sections of the selected class'
+              : 'Showing students from $sectionName',
+          style: TextStyle(color: AppTheme.primaryBlue,
+              fontSize: isTablet ? 14 : 12, fontWeight: FontWeight.w500),
+        )),
+      ]),
+    );
+  }
+
+  // ─── Student list header ───────────────────────────────────────────────────
+  Widget _buildStudentListHeader(bool isTablet, int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: AppTheme.successGradient,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+      ),
+      child: Row(children: [
+        Icon(Icons.people_outline, color: Colors.white, size: isTablet ? 24 : 20),
+        const SizedBox(width: 12),
+        Expanded(child: Text('Students ($count)', style: TextStyle(
+            color: Colors.white, fontSize: isTablet ? 20 : 18, fontWeight: FontWeight.w600))),
+        IconButton(
+          onPressed: _loadStudents,
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          tooltip: 'Refresh',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
+      ]),
+    );
+  }
+
+  // ─── Student tile ──────────────────────────────────────────────────────────
+  Widget _buildStudentTile(BuildContext context, dynamic student, bool isTablet) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: isTablet ? 50 : 45,
+          height: isTablet ? 50 : 45,
+          decoration: BoxDecoration(gradient: AppTheme.primaryGradient, shape: BoxShape.circle),
+          child: Center(child: Text(
+            student.rollNumber ?? student.name?.substring(0, 1).toUpperCase() ?? '?',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          )),
+        ),
+        title: Text(student.name ?? 'Student', style: TextStyle(
+            fontSize: isTablet ? 16 : 15,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.primaryText)),
+        subtitle: Text('Roll: ${student.rollNumber ?? 'N/A'}',
+            style: TextStyle(fontSize: isTablet ? 14 : 13, color: AppTheme.mutedText)),
+        trailing: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBlue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.chevron_right, color: AppTheme.primaryBlue, size: isTablet ? 20 : 18),
+        ),
+        onTap: () => Get.to(() => StudentIndividualDetailView(
+          student: student,
+          schoolId: schoolController.selectedSchool.value!.id,
+        )),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ─── Class selector ────────────────────────────────────────────────────────
   Widget _buildClassSelector(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
 
-    return GetBuilder<SchoolController>(
-      builder: (schoolController) {
-        final assignments = teacherAssignments;
-        final classes = schoolController.classes;
+    return GetBuilder<SchoolController>(builder: (sc) {
+      final classIds = teacherAssignments
+          .map((a) => _extractClassId(a['classId']))
+          .whereType<String>()
+          .toSet();
 
-        final classIds = assignments
-            .map((a) => _extractClassId(a['classId']))
-            .whereType<String>()
-            .toSet();
+      if (classIds.isEmpty) {
+        return _infoBox(Icons.error_outline, 'No classes assigned',
+            Colors.orange.shade600, Colors.orange.shade50);
+      }
 
-        if (classIds.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  color: Colors.orange.shade600,
-                  size: isTablet ? 20 : 18,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No classes assigned',
-                    style: TextStyle(
-                      color: Colors.orange.shade700,
-                      fontSize: isTablet ? 14 : 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+      if (sc.classes.isEmpty && !_initialized) {
+        return _infoBox(null, 'Loading classes...', AppTheme.primaryBlue, Colors.grey.shade50,
+            loading: true);
+      }
 
-        if (classes.isEmpty && !_initialized) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: isTablet ? 24 : 20,
-                  height: isTablet ? 24 : 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(AppTheme.primaryBlue),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Loading classes...',
-                  style: TextStyle(
-                    color: AppTheme.mutedText,
-                    fontSize: isTablet ? 14 : 12,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final dropdownItems = classIds.map((classId) {
-          final cls = classes.firstWhereOrNull((c) => c.id == classId);
-          final className = cls?.name ?? 'Class $classId';
-          return DropdownMenuItem<String>(
-            value: classId,
-            child: Text(
-              className,
-              style: TextStyle(
-                fontSize: isTablet ? 18 : 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          );
-        }).toList();
-        
-        // Sort dropdown items by class name
-        dropdownItems.sort((a, b) {
-          final aClass = classes.firstWhereOrNull((c) => c.id == a.value);
-          final bClass = classes.firstWhereOrNull((c) => c.id == b.value);
-          if (aClass != null && bClass != null) {
-            final aOrder = aClass.order ?? 999;
-            final bOrder = bClass.order ?? 999;
-            if (aOrder != bOrder) return aOrder.compareTo(bOrder);
-            return _compareClassNames(aClass.name, bClass.name);
+      final items = classIds.map((id) {
+        final cls = sc.classes.firstWhereOrNull((c) => c.id == id);
+        return DropdownMenuItem<String>(
+          value: id,
+          child: Text(cls?.name ?? 'Class $id',
+              style: TextStyle(fontSize: isTablet ? 15 : 14, fontWeight: FontWeight.w500)),
+        );
+      }).toList()
+        ..sort((a, b) {
+          final ac = sc.classes.firstWhereOrNull((c) => c.id == a.value);
+          final bc = sc.classes.firstWhereOrNull((c) => c.id == b.value);
+          if (ac != null && bc != null) {
+            final ao = ac.order ?? 999;
+            final bo = bc.order ?? 999;
+            if (ao != bo) return ao.compareTo(bo);
+            return _compareClassNames(ac.name, bc.name);
           }
           return 0;
         });
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: 'Select Class',
-              labelStyle: TextStyle(
-                color: AppTheme.mutedText,
-                fontSize: isTablet ? 20 : 18,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              prefixIcon: Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.class_,
-                  color: AppTheme.primaryBlue,
-                  size: isTablet ? 20 : 18,
-                ),
-              ),
-            ),
-            dropdownColor: Colors.white,
-            menuMaxHeight: 300,
-            borderRadius: BorderRadius.circular(12),
-            value: selectedClassId,
-            items: dropdownItems,
-            onChanged: (value) {
-              setState(() {
-                selectedClassId = value;
-                selectedSectionId = null;
-              });
-
-              if (sectionsForSelectedClass.isNotEmpty) {
-                setState(() {
-                  selectedSectionId = sectionsForSelectedClass.first['id'];
-                });
-                _loadStudents();
-              }
-            },
-            style: TextStyle(
-              color: AppTheme.primaryText,
-              fontSize: isTablet ? 20 : 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        );
-      },
-    );
+      return _styledDropdown<String>(
+        label: 'Select Class',
+        icon: Icons.class_,
+        value: selectedClassId,
+        items: items,
+        isTablet: isTablet,
+        onChanged: (value) {
+          setState(() { selectedClassId = value; selectedSectionId = null; });
+          if (sectionsForSelectedClass.isNotEmpty) {
+            setState(() => selectedSectionId = sectionsForSelectedClass.first['id']);
+            _loadStudents();
+          }
+        },
+      );
+    });
   }
 
+  // ─── Section selector ──────────────────────────────────────────────────────
   Widget _buildSectionSelector(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
 
-    return GetBuilder<SchoolController>(
-      builder: (schoolController) {
-        final sections = sectionsForSelectedClass;
+    return GetBuilder<SchoolController>(builder: (_) {
+      final sections = sectionsForSelectedClass;
+      return _styledDropdown<String?>(
+        label: 'Select Section',
+        icon: Icons.group,
+        value: selectedSectionId,
+        isTablet: isTablet,
+        items: sections.map((sec) => DropdownMenuItem<String?>(
+          value: sec['id'],
+          child: Text(sec['name']!,
+              style: TextStyle(fontSize: isTablet ? 15 : 14, fontWeight: FontWeight.w500)),
+        )).toList(),
+        onChanged: (value) {
+          setState(() => selectedSectionId = value);
+          _loadStudents();
+        },
+      );
+    });
+  }
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: DropdownButtonFormField<String?>(
-            decoration: InputDecoration(
-              labelText: 'Select Section',
-              labelStyle: TextStyle(
-                color: AppTheme.mutedText,
-                fontSize: isTablet ? 20 : 18,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              prefixIcon: Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.group,
-                  color: AppTheme.primaryBlue,
-                  size: isTablet ? 20 : 18,
-                ),
-              ),
+  // ─── Shared small widgets ──────────────────────────────────────────────────
+
+  Widget _styledDropdown<T>({
+    required String label,
+    required IconData icon,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required void Function(T?) onChanged,
+    required bool isTablet,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: DropdownButtonFormField<T>(
+        isExpanded: true,
+        value: value,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: isTablet ? 14 : 12),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          prefixIcon: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            dropdownColor: Colors.white,
-            menuMaxHeight: 300,
-            borderRadius: BorderRadius.circular(12),
-            value: selectedSectionId,
-            items: sections.map((sec) {
-              return DropdownMenuItem<String?>(
-                value: sec['id'],
-                child: Text(
-                  sec['name']!,
-                  style: TextStyle(
-                    fontSize: isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() => selectedSectionId = value);
-              _loadStudents();
-            },
-            style: TextStyle(
-              color: AppTheme.primaryText,
-              fontSize: isTablet ? 16 : 14,
-              fontWeight: FontWeight.w500,
-            ),
+            child: Icon(icon, color: AppTheme.primaryBlue, size: isTablet ? 20 : 18),
           ),
-        );
-      },
+        ),
+        dropdownColor: Colors.white,
+        menuMaxHeight: 300,
+        borderRadius: BorderRadius.circular(12),
+        items: items,
+        onChanged: onChanged,
+        style: TextStyle(
+            color: AppTheme.primaryText,
+            fontSize: isTablet ? 15 : 14,
+            fontWeight: FontWeight.w500),
+      ),
     );
   }
 
-  // Custom class name comparator for school class hierarchy
+  Widget _infoBox(IconData? icon, String text, Color fg, Color bg,
+      {bool loading = false}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(children: [
+        if (loading)
+          SizedBox(width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(fg)))
+        else if (icon != null)
+          Icon(icon, color: fg, size: 18),
+        const SizedBox(width: 12),
+        Text(text, style: TextStyle(color: fg, fontSize: 13)),
+      ]),
+    );
+  }
+
+  // ─── No assignments scaffold ───────────────────────────────────────────────
+  Widget _buildNoAssignmentsScaffold(bool isTablet) {
+    final name = authController.user.value?.userName ?? 'this teacher';
+    return Scaffold(
+      backgroundColor: AppTheme.appBackground,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent, elevation: 0, centerTitle: false,
+            title: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text('My Classes', style: TextStyle(
+                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            ]),
+          ),
+        ),
+      ),
+      body: SafeArea(child: Center(child: Container(
+        margin: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          gradient: AppTheme.cardGradient,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          boxShadow: [BoxShadow(
+              color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8))],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.school_outlined, size: 48, color: Colors.white),
+          ),
+          const SizedBox(height: 24),
+          Text('No Classes Assigned', style: TextStyle(
+              fontSize: isTablet ? 24 : 20,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryText)),
+          const SizedBox(height: 12),
+          Text('No classes were assigned to $name yet.\nPlease contact your administrator.',
+            style: TextStyle(fontSize: isTablet ? 16 : 14,
+                color: AppTheme.mutedText, height: 1.5),
+            textAlign: TextAlign.center,
+          ),
+        ]),
+      ))),
+    );
+  }
+
   int _compareClassNames(String a, String b) {
-    final aLower = a.toLowerCase().trim();
-    final bLower = b.toLowerCase().trim();
-    
-    // Define the order priority
-    int _getClassPriority(String className) {
-      if (className == 'lkg') return 1;
-      if (className == 'ukg') return 2;
-      if (className.startsWith('grade ')) {
-        final match = RegExp(r'grade ([ivx]+|\d+)', caseSensitive: false).firstMatch(className);
-        if (match != null) {
-          final gradeStr = match.group(1)!;
-          // Handle Roman numerals
-          final romanToInt = {'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8, 'ix': 9, 'x': 10};
-          if (romanToInt.containsKey(gradeStr)) {
-            return 2 + romanToInt[gradeStr]!;
-          }
-          // Handle regular numbers
-          final num = int.tryParse(gradeStr);
-          if (num != null) return 2 + num;
-        }
+    int priority(String name) {
+      final n = name.toLowerCase().trim();
+      if (n == 'lkg') return 1;
+      if (n == 'ukg') return 2;
+      final grade = RegExp(r'grade ([ivx]+|\d+)', caseSensitive: false).firstMatch(n);
+      if (grade != null) {
+        final g = grade.group(1)!;
+        const roman = {'i':1,'ii':2,'iii':3,'iv':4,'v':5,'vi':6,'vii':7,'viii':8,'ix':9,'x':10};
+        return 2 + (roman[g] ?? int.tryParse(g) ?? 999);
       }
-      if (className.startsWith('class ')) {
-        final match = RegExp(r'class (\d+)', caseSensitive: false).firstMatch(className);
-        if (match != null) {
-          final num = int.tryParse(match.group(1)!);
-          if (num != null) return 20 + num; // Start after grades
-        }
-      }
-      return 999; // Unknown classes go last
+      final cls = RegExp(r'class (\d+)', caseSensitive: false).firstMatch(n);
+      if (cls != null) return 20 + (int.tryParse(cls.group(1)!) ?? 999);
+      return 999;
     }
-    
-    final aPriority = _getClassPriority(aLower);
-    final bPriority = _getClassPriority(bLower);
-    
-    return aPriority.compareTo(bPriority);
+    return priority(a).compareTo(priority(b));
   }
 }

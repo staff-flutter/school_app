@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/screens/admin_dashboard_view.dart';
-import 'package:school_app/screens/student_management_module_view.dart';
 import 'package:school_app/screens/student_management_view.dart';
 import 'package:school_app/screens/finance_dashboard_view.dart';
 import 'package:school_app/screens/system_management_view.dart';

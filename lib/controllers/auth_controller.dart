@@ -2,7 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Response, FormData, MultipartFile;
 import 'package:get_storage/get_storage.dart';
+import 'dart:convert';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:school_app/controllers/academics_controller.dart';
+import 'package:school_app/controllers/timetable_controller.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:school_app/core/utils/error_handler.dart';
@@ -14,6 +17,9 @@ import 'package:school_app/core/permissions/permission_system.dart';
 import 'package:school_app/routes/app_routes.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/my_children_controller.dart';
+
+import '../services/user_session.dart';
+import 'announcement_controller.dart';
 
 class AuthController extends GetxController {
   final ApiService _apiService = Get.find();
@@ -43,7 +49,13 @@ class AuthController extends GetxController {
         if (schoolData != null) {
           userSchool.value = Map<String, dynamic>.from(schoolData);
         }
-
+        if (Get.isRegistered<UserSession>()) {
+          final userSession = Get.find<UserSession>();
+          userSession.token = token;
+          userSession.schoolId = userData['schoolId']?.toString();
+          userSession.role = userData['role']?.toString();
+          userSession.update();
+        }
         final userRole = user.value?.role?.toLowerCase();
         const restrictedRoles = ['accountant', 'parent'];
 
@@ -85,7 +97,14 @@ class AuthController extends GetxController {
     if (user.value == null) return false;
     return RolePermissions.hasPermission(user.value!.role, permission);
   }
+// Add these to AuthController
+  bool get canUploadMarks =>
+      ['principal', 'administrator', 'viceprincipal', 'teacher']
+          .contains(user.value?.role?.toLowerCase());
 
+  bool get canViewMarks =>
+      ['principal', 'administrator', 'viceprincipal', 'teacher', 'correspondent']
+          .contains(user.value?.role?.toLowerCase());
   bool get isCorrespondent => user.value?.role?.toLowerCase() == 'correspondent';
   bool get isPrincipal => user.value?.role?.toLowerCase() == 'principal';
   bool get isAccountant => user.value?.role?.toLowerCase() == 'accountant';
@@ -138,6 +157,18 @@ class AuthController extends GetxController {
         
         storage.write('user', userData);
         user.value = User.fromJson(userData);
+
+        if (Get.isRegistered<UserSession>()) {
+          final userSession = Get.find<UserSession>();
+          userSession.token = token;
+          userSession.schoolId = userData['schoolId']?.toString();
+          userSession.role = userData['role']?.toString(); // Sync role as well
+          userSession.update(); // Notify active framework listeners
+
+          debugPrint('⚡ UserSession synchronously populated on login!');
+          debugPrint('Token: ${userSession.token != null ? "✅ Present" : "❌ Null"}');
+          debugPrint('SchoolID: ${userSession.schoolId}');
+        }
 
         if (userSchool.value == null) {
           await fetchUserSchoolInfo();
@@ -329,6 +360,35 @@ class AuthController extends GetxController {
   }
 
   Future<void> logout() async {
+    try {
+      // 1. Clear memory dependency injection singletons
+      if (Get.isRegistered<UserSession>()) {
+        final userSession = Get.find<UserSession>();
+        userSession.token = null;
+        userSession.schoolId = null;
+        userSession.role = null; // matching your admin_sidebar storage key
+        userSession.update();
+      }
+
+      // 2. Wipe active localized feature controllers out of memory
+      // This prevents data bleeding into the next logged-in user session
+      Get.delete<MyChildrenController>(force: true);
+      Get.delete<TimetableController>(force: true);
+      Get.delete<AnnouncementController>(force: true);
+      Get.delete<AcademicsController>(force: true);
+      Get.delete<SchoolController>(force: true);
+
+      // 3. Clear disk-persisted key-value local storage data (GetStorage/SharedPreferences)
+      // If you are caching profile data or offline fields:
+      // final box = GetStorage();
+      // await box.erase(); // Or box.remove('pending_values');
+
+    } catch (e) {
+      debugPrint('Error clearing session structures during logout: $e');
+    }
+
+    // 4. Reset routing history completely so the back-button is disabled
+    Get.offAllNamed(AppRoutes.LOGIN);
     if (_isNavigating) return;
     _isNavigating = true;
     

@@ -2,7 +2,9 @@ class ApiPermissions {
   // Map each API to its allowed roles based on your specification
   static const Map<String, List<String>> apiRoles = {
     // User APIs
-    'POST /api/user/create': ['correspondent', 'administrator', 'principal', 'viceprincipal', 'teacher', 'accountant', 'parent'],
+    //'POST /api/user/create': ['correspondent', 'administrator', 'principal', 'viceprincipal', 'teacher', 'accountant', 'parent'],
+    'POST /api/user/create': ['correspondent', 'administrator'],
+
     'POST /api/user/login': ['anyone'],
     'POST /api/user/logout': ['anyone'],
     'GET /api/user/isauthenticated': ['correspondent', 'teacher', 'principal', 'administrator', 'viceprincipal'],
@@ -62,9 +64,9 @@ class ApiPermissions {
     'PUT /api/studentrecord/remove': ['correspondent', 'administrator'],
     
     // Attendance APIs
-    'GET /api/attendance/sheet': ['administrator', 'correspondent', 'principal', 'teacher'],
+    'GET /api/attendance/sheet': ['administrator', 'correspondent', 'principal', 'teacher','viceprincipal'],
     'POST /api/attendance/mark': ['correspondent', 'teacher'], // NOT principal, administrator, viceprincipal
-    'GET /api/attendance/getallclass': ['administrator', 'correspondent', 'principal', 'teacher'],
+    'GET /api/attendance/getallclass': ['administrator', 'correspondent', 'principal', 'teacher','viceprincipal'],
     'GET /api/attendance/student': ['administrator', 'correspondent', 'principal', 'viceprincipal', 'teacher', 'parent'],
     
     // Expense APIs

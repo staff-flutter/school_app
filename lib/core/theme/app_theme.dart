@@ -11,7 +11,7 @@ class AppTheme {
 
   // Additional colors for compatibility
   static const Color TealColor = Color(0xFF4CC9F0);
-  static const Color navBarSelectedDeep = Color(0xFF6A5AE0);
+  static const Color navBarSelectedDeep = Color(0xFF2563EB);
 
   // AppBar Gradient (Grey with Lavender tint)
   static const LinearGradient appBarGradient = LinearGradient(
@@ -90,7 +90,7 @@ class AppTheme {
 
   // 🎯 Primary System Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -99,17 +99,17 @@ class AppTheme {
   static const LinearGradient navBarSelectedGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+    colors: [Color(0xFF8E7CFF), Color(0xFF6A5AE0)],
   );
 
   static const LinearGradient successGradient = LinearGradient(
-    colors: [Color(0xFF8EDB4F), Color(0xFF6FCF97)],
+    colors:  [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient warningGradient = LinearGradient(
-    colors: [Color(0xFFFF8A3D), Color(0xFFFF6B00)],
+    colors:  [Color(0xFF60A5FA), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -138,7 +138,7 @@ class AppTheme {
   static const Color warningYellow = Color(0xFFFF8A3D);
   static const Color errorRed = Color(0xFFEF4444);
   static const Color mathOrange = Color(0xFFFF8A3D);
-  static const Color geographyBlue = Color(0xFF8E7CFF); // intentional purple for geography subject
+  static const Color geographyBlue = Color(0xFF8E7CFF);
   static const Color biologyGreen = Color(0xFF8EDB4F);
   static const Color chemistryYellow = Color(0xFF4CC9F0);
 

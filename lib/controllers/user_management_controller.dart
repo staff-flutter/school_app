@@ -8,6 +8,8 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/utils/error_handler.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 
+import '../models/user_model.dart';
+
 class UserManagementController extends GetxController {
   final ApiService _apiService = Get.find();
   final AuthController _authController = Get.find();

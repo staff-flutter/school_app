@@ -1,548 +1,412 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:school_app/controllers/announcement_controller.dart';
-import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/screens/announcement_detail_view.dart';
+import '../controllers/school_controller.dart';
 
-class NotificationsView extends StatelessWidget {
+// ── same _DS constants ───────────────────────────────────────────
+class _DS {
+  static const accent       = Color(0xFF3B82F6);
+  static const accentSoft   = Color(0xFFEFF6FF);
+  static const accentMid    = Color(0xFFBFDBFE);
+  static const bg           = Color(0xFFF0F4F8);
+  static const surface      = Color(0xFFFFFFFF);
+  static const surfaceAlt   = Color(0xFFF8FAFC);
+  static const textPrimary  = Color(0xFF0F172A);
+  static const textSecondary= Color(0xFF475569);
+  static const textMuted    = Color(0xFF94A3B8);
+  static const success      = Color(0xFF059669);
+  static const successSoft  = Color(0xFFD1FAE5);
+  static const warning      = Color(0xFFD97706);
+  static const warningSoft  = Color(0xFFFEF3C7);
+  static const danger       = Color(0xFFDC2626);
+  static const dangerSoft   = Color(0xFFFEE2E2);
+  static const border       = Color(0xFFE2E8F0);
+  static const shadow = [
+    BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+}
+
+class NotificationsView extends StatefulWidget {
   const NotificationsView({super.key});
+
+  @override
+  State<NotificationsView> createState() => _NotificationsViewState();
+}
+
+class _NotificationsViewState extends State<NotificationsView> {
+  late AnnouncementController announcementController;
+  Worker? _schoolWatcher;
+  bool _initialLoadDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    announcementController = Get.isRegistered<AnnouncementController>()
+        ? Get.find<AnnouncementController>()
+        : Get.put(AnnouncementController());
+
+    final authController = Get.find<AuthController>();
+    final userRole = authController.user.value?.role?.toLowerCase() ?? '';
+    final userSchoolId = authController.user.value?.schoolId;
+
+    try {
+      final schoolController = Get.find<SchoolController>();
+      _schoolWatcher = ever(schoolController.selectedSchool, (school) async {
+        if (school == null) return;
+        if (!_initialLoadDone) return;
+        if (userRole != 'correspondent') return;
+        announcementController.selectedSchool.value = school;
+        await announcementController.getAllAnnouncements(school.id);
+        announcementController.filterByRole(userRole);
+      });
+    } catch (_) {}
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (announcementController.schools.isEmpty)
+        await announcementController.getAllSchools();
+      if (!mounted) return;
+
+      SchoolController? schoolCtrl;
+      try { schoolCtrl = Get.find<SchoolController>(); } catch (_) {}
+      final globalSchool = schoolCtrl?.selectedSchool.value;
+
+      if (userRole != 'correspondent') {
+        if (globalSchool != null) {
+          announcementController.selectedSchool.value = globalSchool;
+          await announcementController.getAllAnnouncements(globalSchool.id);
+        } else if (userSchoolId != null &&
+            announcementController.schools.isNotEmpty) {
+          final userSchool = announcementController.schools
+              .firstWhereOrNull((s) => s.id == userSchoolId);
+          if (userSchool != null) {
+            announcementController.selectedSchool.value = userSchool;
+            await announcementController.getAllAnnouncements(userSchool.id);
+          }
+        }
+      } else {
+        if (globalSchool != null) {
+          announcementController.selectedSchool.value = globalSchool;
+          await announcementController.getAllAnnouncements(globalSchool.id);
+        } else if (announcementController.schools.isNotEmpty) {
+          final first = announcementController.schools.first;
+          announcementController.selectedSchool.value = first;
+          await announcementController.getAllAnnouncements(first.id);
+        }
+      }
+
+      if (mounted) announcementController.filterByRole(userRole);
+      _initialLoadDone = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _schoolWatcher?.dispose();
+    super.dispose();
+  }
+
+  // ── type helpers ─────────────────────────────────────────────────
+  Color _typeAccent(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'urgent':  return _DS.danger;
+      case 'event':   return _DS.accent;
+      case 'holiday': return _DS.success;
+      default:        return const Color(0xFF3B82F6);
+    }
+  }
+
+  IconData _typeIcon(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'urgent':  return Icons.warning_amber_rounded;
+      case 'event':   return Icons.event_rounded;
+      case 'holiday': return Icons.celebration_rounded;
+      default:        return Icons.campaign_rounded;
+    }
+  }
+
+  Color _priorityColor(String? priority) {
+    switch (priority?.toLowerCase()) {
+      case 'urgent': return _DS.danger;
+      case 'high':   return _DS.warning;
+      case 'low':    return _DS.success;
+      default:       return const Color(0xFF64748B);
+    }
+  }
+
+  String _formatDate(String? raw) {
+    if (raw == null) return '';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inDays == 0) return 'Today';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) { return ''; }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authController = Get.find<AuthController>();
-    final announcementController = Get.put(AnnouncementController());
-    final isParent = authController.user.value?.role == 'parent';
-    final isCorrespondent = authController.user.value?.role == 'correspondent';
-    final isAccountant = authController.user.value?.role == 'accountant';
-
-    // Load schools and announcements based on role - always refresh on page load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      announcementController.getAllSchools().then((_) {
-        // Only correspondent can select from all schools; others get their own school
-        if (isCorrespondent) {
-          // For correspondent, auto-select first school and load announcements
-          if (announcementController.schools.isNotEmpty) {
-            announcementController.selectedSchool.value = announcementController.schools.first;
-            announcementController.getAllAnnouncements(announcementController.schools.first.id).then((_) {
-              final userRole = authController.user.value?.role.toLowerCase();
-              if (userRole != null) {
-                announcementController.filterByRole(userRole);
-              }
-            });
-          }
-        } else if (announcementController.schools.isNotEmpty) {
-          announcementController.selectedSchool.value = announcementController.schools.first;
-          announcementController.getAllAnnouncements(announcementController.schools.first.id).then((_) {
-            // Apply role-based filtering
-            final userRole = authController.user.value?.role.toLowerCase();
-            if (userRole != null) {
-              announcementController.filterByRole(userRole);
-            }
-          });
-        }
-      });
-    });
+    final userRole = authController.user.value?.role?.toLowerCase() ?? '';
+    final isCorrespondent = userRole == 'correspondent';
 
     return Scaffold(
-      backgroundColor: AppTheme.appBackground,
-      appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppTheme.appBarGradient,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF5C4FC7).withOpacity(0.25),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-                BoxShadow(
-                  color: const Color(0xFF5C4FC7).withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              centerTitle: false,
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.dashboard_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  Text(
-                    'Notifications',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-        actions: [
+      backgroundColor: _DS.bg,
+      appBar: AppBar(
+        backgroundColor: _DS.surface,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
+        title: Row(children: [
           Container(
-            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              color: _DS.accentSoft,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: IconButton(
-              onPressed: () {
-                if (announcementController.selectedSchool.value != null) {
-                  announcementController.getAllAnnouncements(announcementController.selectedSchool.value!.id);
-                } else {
-                  announcementController.refreshSchools();
-                }
-              },
-              icon: const Icon(Icons.refresh, color: Colors.white),
-            ),
+            child: const Icon(Icons.notifications_active_rounded,
+                color: _DS.accent, size: 18),
           ),
-        ],
-      )),),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // School selector for correspondent or display for others
-            Obx(() {
-              if (announcementController.schools.isEmpty) {
-                return const SizedBox.shrink();
+          const SizedBox(width: 10),
+          const Text('Notifications',
+              style: TextStyle(
+                  color: _DS.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
+        ]),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final school =
+                  announcementController.selectedSchool.value;
+              if (school != null) {
+                await announcementController
+                    .getAllAnnouncements(school.id);
+                announcementController.filterByRole(userRole);
+              } else {
+                announcementController.refreshSchools();
               }
-              
-              return Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.cardGradient,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.school, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          isCorrespondent ? 'Select School' : 'School',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primaryText,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (isCorrespondent)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.3)),
-                        ),
-                        child: DropdownButtonFormField(
-                          isExpanded: true,
-                          value: announcementController.selectedSchool.value,
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            prefixIcon: Icon(Icons.school, color: AppTheme.primaryBlue),
-                          ),
-                          hint: Text('Choose your school', style: TextStyle(color: Colors.grey.shade600)),
-                          dropdownColor: Colors.white,
-                          icon: Icon(Icons.arrow_drop_down, color: AppTheme.primaryBlue),
-                          items: announcementController.schools.map((school) {
-                            return DropdownMenuItem(
-                              value: school,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryBlue.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 16),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Flexible(
-                                    child: Text(
-                                      school.name,
-                                      style: const TextStyle(fontWeight: FontWeight.w500),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              announcementController.selectedSchool.value = value;
-                              announcementController.getAllAnnouncements(value.id);
-                              // Apply role-based filtering for correspondent/accountant too
-                              final userRole = authController.user.value?.role.toLowerCase();
-                              if (userRole != null) {
-                                announcementController.filterByRole(userRole);
-                              }
-                            }
-                          },
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryBlue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(Icons.school, color: AppTheme.primaryBlue, size: 20),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                announcementController.selectedSchool.value?.name ?? 'Loading...',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryText,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }),
-            Expanded(
-              child: Obx(() {
-          if (announcementController.isLoading.value && announcementController.filteredAnnouncements.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            },
+            icon: const Icon(Icons.refresh_rounded,
+                color: _DS.textMuted, size: 20),
+          ),
+          const SizedBox(width: 4),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: _DS.border),
+        ),
+      ),
+      body: Obx(() {
+        if (announcementController.isLoading.value &&
+            announcementController.filteredAnnouncements.isEmpty)
+          return const Center(
+              child: CircularProgressIndicator(color: _DS.accent));
 
-          if (announcementController.selectedSchool.value == null && isCorrespondent) {
-            return Center(
-              child: Container(
-                margin: const EdgeInsets.all(32),
-                padding: const EdgeInsets.all(32),
+        if (announcementController.selectedSchool.value == null &&
+            isCorrespondent)
+          return _emptyState(
+            icon: Icons.school_rounded,
+            title: 'Select a School',
+            subtitle:
+            'Choose a school from the sidebar to view notifications',
+          );
+
+        if (announcementController.filteredAnnouncements.isEmpty)
+          return _emptyState(
+            icon: Icons.notifications_none_rounded,
+            title: 'No Notifications',
+            subtitle: "You're all caught up! No new announcements.",
+          );
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          itemCount:
+          announcementController.filteredAnnouncements.length,
+          itemBuilder: (context, index) {
+            final a = announcementController
+                .filteredAnnouncements[index];
+            return _buildCard(a);
+          },
+        );
+      }),
+    );
+  }
+
+  Widget _buildCard(Map<String, dynamic> a) {
+    final type     = a['type'] as String?;
+    final priority = a['priority'] as String?;
+    final accent   = _typeAccent(type);
+
+    return GestureDetector(
+      onTap: () {
+        announcementController.getAnnouncement(a['_id']).then((_) {
+          final fresh =
+              announcementController.selectedAnnouncement.value ?? a;
+          Get.to(() => AnnouncementDetailView(announcement: fresh));
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _DS.border),
+          boxShadow: _DS.shadow,
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Coloured header band ──────────────────────────────
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.cardGradient,
-                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: accent.withOpacity(0.08),
+                  borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.school, size: 32, color: Colors.white),
+                child: Row(children: [
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Select a School',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    child:
+                    Icon(_typeIcon(type), color: accent, size: 15),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      a['title'] ?? 'No Title',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: accent,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Please select a school from the dropdown above to view notifications.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.mutedText,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      size: 12, color: accent.withOpacity(0.6)),
+                ]),
               ),
-            );
-          }
 
-          if (announcementController.filteredAnnouncements.isEmpty) {
-            return Center(
-              child: Container(
-                margin: const EdgeInsets.all(32),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.cardGradient,
-                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
+              // ── Body ─────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        shape: BoxShape.circle,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a['description'] ?? 'No description',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: _DS.textSecondary,
+                            height: 1.5),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: const Icon(Icons.notifications_none, size: 32, color: Colors.white),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No Notifications',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'You\'re all caught up! No new announcements at the moment.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.mutedText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+                      const SizedBox(height: 8),
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: announcementController.filteredAnnouncements.length,
-            itemBuilder: (context, index) {
-              final announcement = announcementController.filteredAnnouncements[index];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  gradient: _getCardGradient(announcement['type']),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      announcementController.getAnnouncement(announcement['_id']).then((_) {
-                        final freshAnnouncement = announcementController.selectedAnnouncement.value ?? announcement;
-                        Get.to(() => AnnouncementDetailView(announcement: freshAnnouncement));
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      // ── Bottom row — wrap instead of Row to prevent overflow
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  _getTypeIcon(announcement['type']),
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  announcement['title'] ?? 'No Title',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.biologySoftGradient,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.visibility, color: Colors.black, size: 20),
-                                  onPressed: () {
-                                    announcementController.getAnnouncement(announcement['_id']).then((_) {
-                                      final freshAnnouncement = announcementController.selectedAnnouncement.value ?? announcement;
-                                      Get.to(() => AnnouncementDetailView(announcement: freshAnnouncement));
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
+                          // Type badge
+                          _pill(
+                            (type ?? 'general').toUpperCase(),
+                            accent,
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            announcement['description'] ?? 'No Description',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 14,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          // Priority badge
+                          _pill(
+                            (priority ?? 'normal').toUpperCase(),
+                            _priorityColor(priority),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  announcement['type']?.toString().toUpperCase() ?? 'GENERAL',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'By ${announcement['createdBy']?['userName'] ?? 'System'}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
+                          // Posted by
+                          if (a['createdBy']?['userName'] != null)
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.person_outline_rounded,
+                                  size: 11, color: _DS.textMuted),
+                              const SizedBox(width: 3),
                               Text(
-                                _formatDate(announcement['createdAt']),
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 12,
-                                ),
+                                a['createdBy']['userName'],
+                                style: const TextStyle(
+                                    fontSize: 10, color: _DS.textMuted),
                               ),
-                            ],
+                            ]),
+                          // Date
+                          Text(
+                            _formatDate(a['createdAt']),
+                            style: const TextStyle(
+                                fontSize: 10, color: _DS.textMuted),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        }),
-            ),
-          ],
-        ),
+                    ]),
+              ),
+            ]),
       ),
     );
   }
 
-  Gradient _getCardGradient(String? type) {
-    switch (type) {
-      case 'urgent': return AppTheme.errorGradient;
-      case 'event': return AppTheme.primaryGradient;
-      case 'holiday': return AppTheme.successGradient;
-      default: return const LinearGradient(
-        colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
+// ── Compact pill badge ────────────────────────────────────────────
+  Widget _pill(String label, Color color) {
+    return Container(
+      padding:
+      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: color),
+      ),
+    );
   }
-
-  IconData _getTypeIcon(String? type) {
-    switch (type) {
-      case 'urgent': return Icons.warning;
-      case 'event': return Icons.event;
-      case 'holiday': return Icons.celebration;
-      default: return Icons.announcement;
-    }
-  }
-
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'N/A';
-    try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-      
-      if (difference.inDays == 0) {
-        return 'Today';
-      } else if (difference.inDays == 1) {
-        return 'Yesterday';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays} days ago';
-      } else {
-        return '${date.day}/${date.month}/${date.year}';
-      }
-    } catch (e) {
-      return 'N/A';
-    }
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 72, height: 72,
+            decoration: const BoxDecoration(
+                color: _DS.accentSoft, shape: BoxShape.circle),
+            child: Icon(icon, size: 32, color: _DS.accent),
+          ),
+          const SizedBox(height: 16),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _DS.textPrimary)),
+          const SizedBox(height: 6),
+          Text(subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 13, color: _DS.textMuted, height: 1.5)),
+        ]),
+      ),
+    );
   }
 }

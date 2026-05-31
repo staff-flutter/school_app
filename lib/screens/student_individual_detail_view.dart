@@ -33,6 +33,7 @@ class StudentIndividualDetailView extends StatelessWidget {
           // Modern App Bar with gradient
           SliverAppBar(
             expandedHeight: 200,
+            leading: IconButton(onPressed: ()=> Get.back(), icon: Icon(Icons.arrow_back_ios_new,size: 18,color: Colors.white,)),
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(

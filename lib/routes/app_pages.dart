@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
+import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
+import '../screens/enhanced_profile_view.dart';
 import '../screens/finance_dashboard_view.dart';
 import '../screens/home_page.dart';
 import '../controllers/attendance_controller.dart';
@@ -21,12 +24,16 @@ import '../screens/splash_screen.dart';
 import '../screens/student_form_dialog.dart';
 import '../screens/student_form_page.dart';
 import '../screens/student_profile_page.dart';
+import '../screens/student_profile_verification_page_for_admin_side.dart';
 import '../screens/teacher_classes_view.dart';
+import '../screens/techer_attendance_view.dart';
 import '../screens/time_table_page.dart';
 import '../screens/transaction_detail_view.dart';
 import '../screens/receipt_detail_view.dart';
 import '../screens/notifications_view.dart';
 import '../screens/details_of_student_view.dart';
+import '../screens/upload_student_marks.dart';
+import '../screens/view_students_marks.dart';
 import 'app_routes.dart';
 import '../bindings/auth_binding.dart';
 import '../controllers/auth_controller.dart';
@@ -153,6 +160,12 @@ GetPage(
     //   binding: StudentBinding(),
     //   middlewares: [RoleGuard()],
     // ),
+    // In your GetPages list
+    GetPage(
+      name: AppRoutes.MARKS_UPLOAD,
+      page: () => RoleAwareWrapper(child: StudentMarksUploadPage()),
+    ),
+
     GetPage(
       name: AppRoutes.ACADEMICS,
       page: () => RoleAwareWrapper(child: AcademicsView()),
@@ -161,15 +174,13 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.COMMUNICATIONS,
-      page: () => RoleAwareWrapper(child: CommunicationsView()),
+      page: () => RoleAwareWrapper(child:  CommunicationsView()),
       binding: CommunicationsBinding(),
-      middlewares: [RoleGuard()],
+      //middlewares: [RoleGuard()],
     ),
     GetPage(
       name: AppRoutes.CLUBS_ACTIVITIES,
       page: () {
-        // Correspondent/accountant see the new management view.
-        // All other roles (parent, teacher, etc.) keep the old page.
         String role = '';
         try {
           role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
@@ -182,8 +193,6 @@ GetPage(
       },
       binding: BindingsBuilder(() {
         Get.lazyPut(() => ClubsController());
-        // Register MyChildrenController safely so ClubAndActivitiesPage
-        // doesn't crash for non-parent roles that don't have it.
         if (!Get.isRegistered<MyChildrenController>()) {
           Get.lazyPut(() => MyChildrenController());
         }
@@ -192,14 +201,25 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.CAMPUS_MANAGEMENT_PAGE,
-      page: () => RoleAwareWrapper(child: const CampusManagementPage()),
+      page: () => RoleAwareWrapper(child: const ClubAndActivitiesPage()),
       binding: BindingsBuilder(() {
-        if (!Get.isRegistered<MyChildrenController>()) {
-          Get.lazyPut(() => MyChildrenController());
+        // Only register for roles that actually have children (parents/students).
+        // For staff roles the controller is skipped entirely so the snackbar
+        // never fires.
+        final role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+        final staffRoles = {
+          'correspondent', 'administrator', 'principal',
+          'viceprincipal', 'teacher', 'accountant',
+        };
+        if (!staffRoles.contains(role)) {
+          if (!Get.isRegistered<MyChildrenController>()) {
+            Get.lazyPut(() => MyChildrenController());
+          }
         }
       }),
       middlewares: [RoleGuard()],
     ),
+
     GetPage(
       name: AppRoutes.CLUB_DETAIL,
       page: () => RoleAwareWrapper(child: const ClubDetailView()),
@@ -212,7 +232,7 @@ GetPage(
         try {
           final auth = Get.find<AuthController>();
           final role = auth.user.value?.role?.toLowerCase() ?? '';
-          if (role == 'correspondent' || role == 'accountant') {
+          if (role == 'correspondent' || role == 'accountant' || role == 'principal' || role =='administrator' || role == 'teacher'|| role == 'viceprincipal' ) {
             return RoleAwareWrapper(child: const CorrespondentProfileView());
           }
         } catch (_) {}
@@ -221,6 +241,12 @@ GetPage(
       binding: AuthBinding(),
       middlewares: [RoleGuard()],
     ),
+    // GetPage(
+    //   name: '/profile',
+    //   page: () => MainWrapper(child: EnhancedProfileView()),
+    //   binding: AuthBinding(),
+    //   middlewares: [RoleGuard()],
+    // ),
     GetPage(
       name: '/privacy-policy',
       page: () => const PrivacyPolicyView(),
@@ -252,8 +278,30 @@ GetPage(
       }),
     ),
     GetPage(
+      name: '${AppRoutes.TEACHER_ATTENDANCE}',
+      page: () => RoleAwareWrapper(child: const TeacherAttendanceView()),
+      binding: BindingsBuilder(() {
+        // Always create a fresh instance for specific student view to avoid state persistence
+        if (Get.isRegistered<ParentAttendanceController>()) {
+          Get.delete<ParentAttendanceController>();
+        }
+        Get.put(ParentAttendanceController());
+
+      }),
+    ),
+    GetPage(
       name: AppRoutes.STUDENT_RECORDS,
       page: () => RoleAwareWrapper(child: const StudentRecordsView()),
+      binding: StudentRecordBinding(),
+      middlewares: [RoleGuard()],
+    ),
+    GetPage(
+      name: AppRoutes.STUDENT_PROFILE_VERIFICATION,
+      page: () => RoleAwareWrapper(child: const ProfileVerificationPage()),
+    ),
+    GetPage(
+      name: AppRoutes.STUDENT_MARKS_LIST,
+      page: () => RoleAwareWrapper(child: const StudentMarksViewPage()),
       binding: StudentRecordBinding(),
       middlewares: [RoleGuard()],
     ),
@@ -302,15 +350,41 @@ GetPage(
       page: () => RoleAwareWrapper(child: const NotificationsView()),
     ),
     GetPage(
+      name: AppRoutes.TIMETABLE_MANAGEMENT1,
+
+      page: () {
+        try {
+          final auth = Get.find<AuthController>();
+          final role = auth.user.value?.role?.toLowerCase() ?? '';
+          if (role == 'correspondent' || role == 'accountant' || role == 'principal' || role =='administrator' || role == 'teacher'|| role == 'viceprincipal' ) {
+            return RoleAwareWrapper(child:  TimetableManagementView());
+          }
+        } catch (_) {}
+        return RoleAwareWrapper(child: TimeTablePage());
+      },      middlewares: [RoleGuard()],
+    ),
+    GetPage(
       name: AppRoutes.TIMETABLE_MANAGEMENT,
       page: () => RoleAwareWrapper(child: TimeTablePage()),
       middlewares: [RoleGuard()],
     ),
     GetPage(
       name: AppRoutes.HOMEWORK_MANAGEMENT,
-      page: () => RoleAwareWrapper(child: AssignmentUI()),
-      middlewares: [RoleGuard()],
-    ),
+      page: () {
+        try {
+          final auth = Get.find<AuthController>();
+          final role = auth.user.value?.role?.toLowerCase() ?? '';
+          if (role == 'correspondent' || role == 'accountant' ||
+              role == 'principal' || role == 'administrator' ||
+              role == 'teacher' || role == 'viceprincipal') {
+            return RoleAwareWrapper(child: HomeworkManagementView());
+          }
+        } catch (_) {}
+        return RoleAwareWrapper(child: AssignmentUI());
+      },
+                   middlewares: [RoleGuard()],
+
+            ),
     GetPage(
       name: '/receipt_detail',
       page: () {

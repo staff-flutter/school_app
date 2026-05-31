@@ -13,6 +13,7 @@ import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
 import 'home_page.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 
 class ParentProfile extends StatefulWidget {
@@ -26,6 +27,7 @@ class _ParentProfileState extends State<ParentProfile> {
   final session = Get.find<UserSession>();
 
 
+  final storage = const FlutterSecureStorage();
 
  // 1. THE LOGIN FUNCTION
   Future<void> loginAndGetToken() async {
@@ -66,14 +68,17 @@ class _ParentProfileState extends State<ParentProfile> {
   Future<List<ParentProfileStrings>> fetchParentProfile() async {
     String baseUrl = ApiConstants.baseUrl;
 
-    final controller = Get.find<MyChildrenController>();
+    //final controller = Get.find<MyChildrenController>();
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
    // String? token = prefs.getString('token');
    // String? token = prefs.getString('user_token');
-    String?  userId =prefs.getString('parentId');
+    //String?  userId =prefs.getString('parentId');
 
-    final String? token = session.token;
+  //  final String? token = session.token;
+    final String? token = await storage.read(key: 'user_token');
+    final String? userId = await storage.read(key: 'parentId');
+
 
 
 
@@ -164,7 +169,9 @@ print('userid:$userId');
         int colonIndex = pair.indexOf(':');
         String key = pair.substring(0, colonIndex).trim();
         String value = pair.substring(colonIndex + 1).trim();
-        socialMap[key] = value;
+        if (value.isNotEmpty && value != 'null' && value != 'undefined') {
+          socialMap[key] = value;
+        }
       }
     }
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -310,7 +317,7 @@ print('userid:$userId');
                         const Text(
                           "Parent Profile",
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -402,15 +409,16 @@ print('userid:$userId');
                                 const Divider(indent: 20, endIndent: 20), // Subtle separator
                                 ListTile(
                                   onTap: () => _handleLogout(),
-                                  leading: const Icon(Icons.logout, color: Colors.redAccent),
+                                  leading: const Icon(Icons.logout, color: Colors.redAccent,size: 18,),
                                   title: const Text(
                                     "Logout Account",
                                     style: TextStyle(
+                                      fontSize: 12,
                                       color: Colors.redAccent,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.redAccent),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.redAccent),
                                 ),
                                 const SizedBox(height: 10),
                               ]
@@ -443,6 +451,9 @@ print('userid:$userId');
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
+              await storage.delete(key: 'user_token');
+              await storage.delete(key: 'parentId');
+
               // final prefs = await SharedPreferences.getInstance();
               // await prefs.clear(); // Clears all saved tokens/data
               Get.offAllNamed('/login'); // Redirect to login and clear stack
@@ -483,11 +494,11 @@ print('userid:$userId');
           collapsedBackgroundColor: Colors.transparent,
           leading: CircleAvatar(
             backgroundColor: Colors.white,
-            child: Icon(icon, color:Colors.black),
+            child: Icon(icon, color:Colors.black,size: 15,),
           ),
           title: Text(
             title,
-            style: const TextStyle(color: Colors.black, fontSize: 18),
+            style: const TextStyle(color: Colors.black, fontSize: 13),
           ),
           iconColor: Colors.black,
           collapsedIconColor: Colors.black,
@@ -546,10 +557,16 @@ print('userid:$userId');
           Text(
             studentName,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
           Text(
             "Class: $className",
             style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           )
         ],
       ),
@@ -570,6 +587,15 @@ print('userid:$userId');
   }
 
   Widget buildSocialMediaRow(Map<String, String> socialMap) {
+    // Filter only non-empty URLs
+    final validSocials = socialMap.entries
+        .where((e) => e.value.isNotEmpty)
+        .toList();
+
+    // Hide entire row if no valid social links
+    if (validSocials.isEmpty) {
+      return const SizedBox.shrink();
+    }
     if (socialMap.isEmpty) {
       return const InfoRow(title: "Social Media", icon: Icons.share, data: "-");
     }
@@ -587,20 +613,20 @@ print('userid:$userId');
           children: [
             const Row(
               children: [
-                Icon(Icons.share, color: Colors.black),
+                Icon(Icons.share, color: Colors.black,size: 15,),
                 SizedBox(width: 10),
-                Text("Social Media", style: TextStyle(color: Colors.black, fontSize: 15)),
+                Text("Social Media", style: TextStyle(color: Colors.black, fontSize: 12)),
               ],
             ),
             Row(
               children: [
-                if (socialMap.containsKey('facebook'))
+                if (socialMap.containsKey('facebook')&& socialMap['facebook']!.isNotEmpty)
                   _socialIcon(FontAwesomeIcons.facebook, Colors.blue, socialMap['facebook']!),
-                if (socialMap.containsKey('instagram'))
+                if (socialMap.containsKey('instagram')&& socialMap['instagram']!.isNotEmpty)
                   _socialIcon(FontAwesomeIcons.instagram, Colors.pink, socialMap['instagram']!),
-                if (socialMap.containsKey('youtube'))
+                if (socialMap.containsKey('youtube') && socialMap['youtube']!.isNotEmpty)
                   _socialIcon(FontAwesomeIcons.youtube, Colors.red, socialMap['youtube']!),
-                if (socialMap.containsKey('linkedin'))
+                if (socialMap.containsKey('linkedin')&& socialMap['linkedin']!.isNotEmpty)
                   _socialIcon(FontAwesomeIcons.linkedin, Colors.blue.shade800, socialMap['linkedin']!),
               ],
             ),
@@ -666,7 +692,7 @@ Widget childListTile(String name, String? imageUrl, bool isSelected, VoidCallbac
       child: Row(
         children: [
           CircleAvatar(
-            radius: 25,
+            radius: 15,
             backgroundColor: const Color(0xff4A90E2),
             backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
                 ? NetworkImage(imageUrl) : null,
@@ -679,10 +705,12 @@ Widget childListTile(String name, String? imageUrl, bool isSelected, VoidCallbac
             child: Text(
               name,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 13,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? const Color(0xff4A90E2) : Colors.black87,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (isSelected) const Icon(Icons.check_circle, color: Color(0xff4A90E2), size: 20),
@@ -704,7 +732,6 @@ class InfoRow extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    // final List<String> data =['Parent@gmail.com','123456789','jai hind Public School','Thirumalasai,chennai','-'];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Container(
@@ -714,29 +741,22 @@ class InfoRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start, // TOP align when text wraps
           children: [
-            Row(
-              children: [
-                Icon(icon,color: Colors.black),
-                SizedBox(width: 10),
-                Text(
-                  "$title :",
-                  style: const TextStyle(color: Colors.black, fontSize: 15),
-                ),
-              ],
+            Icon(icon, color: Colors.black,size: 15,),
+            const SizedBox(width: 10),
+            Text(
+              "$title :",
+              style: const TextStyle(color: Colors.black, fontSize: 12),
             ),
-          //  SizedBox(width:40),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Text(
-                  (data == null || data!.isEmpty) ? '-' : data!,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(color: Colors.black54, fontSize: 15),
-                  softWrap: true, // Allows wrapping to next line if very long
-                  overflow: TextOverflow.visible,
-                ),
+            const SizedBox(width: 8),
+            Expanded( // THIS prevents overflow
+              child: Text(
+                (data == null || data!.isEmpty) ? '-' : data!,
+                textAlign: TextAlign.end,
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+                softWrap: true,       // wraps to next line
+                overflow: TextOverflow.visible, // never cuts text
               ),
             ),
           ],
