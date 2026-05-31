@@ -219,7 +219,6 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         child: Column(
           children: [
             // Header
-            // REPLACE THE TOP CONTAINER (Header & TabBar) WITH THIS:
             Container(
               width: double.infinity,
               decoration: BoxDecoration(

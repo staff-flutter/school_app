@@ -7,42 +7,86 @@ import 'package:school_app/widgets/api_rbac_wrapper.dart';
 import 'package:school_app/core/rbac/api_rbac.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
-import 'package:school_app/models/school_models.dart';
+
+// ── Design tokens (mirrors admin_sidebar.dart) ────────────────────────────────
+const _kBg          = Color(0xFFFFFFFF);
+const _kPageBg      = Color(0xFFF0F5FF);
+const _kBorderColor = Color(0xFFDDE6F5);
+const _kSelectedBg  = Color(0xFFEFF6FF);
+const _kSelectedClr = Color(0xFF2563EB);
+const _kIconDefault = Color(0xFF8A9FC0);
+const _kTextDefault = Color(0xFF1A2A3A);
+const _kLabelColor  = Color(0xFF90A4BE);
+// ─────────────────────────────────────────────────────────────────────────────
 
 class SubscriptionManagementView extends GetView<SubscriptionController> {
   const SubscriptionManagementView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 600;
-    
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
+    // Resolve school from the sidebar's SchoolController
+    final schoolController = Get.find<SchoolController>();
+    final authController   = Get.find<AuthController>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final school = schoolController.selectedSchool.value;
+      if (school != null) {
+        controller.loadSubscription(school.id);
+      } else {
+        final schoolId = authController.user.value?.schoolId;
+        if (schoolId != null) controller.loadSubscription(schoolId);
+      }
+    });
+
+    // Re-load whenever the sidebar school changes
+    ever(schoolController.selectedSchool, (school) {
+      if (school != null) controller.loadSubscription(school.id);
+    });
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F5FF),
+      backgroundColor: _kPageBg,
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildModernHeader(context, isTablet),
+            _PageHeader(isTablet: isTablet, schoolController: schoolController),
             Expanded(
-              child: _buildSubscriptionTab(context, isTablet),
+              child: _SubscriptionBody(
+                controller: controller,
+                isTablet: isTablet,
+                schoolController: schoolController,
+                authController: authController,
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildModernHeader(BuildContext context, bool isTablet) {
+// ── Page header ───────────────────────────────────────────────────────────────
+
+class _PageHeader extends StatelessWidget {
+  final bool isTablet;
+  final SchoolController schoolController;
+
+  const _PageHeader({required this.isTablet, required this.schoolController});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _kBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDE6F5), width: 1),
+        border: Border.all(color: _kBorderColor, width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFDDE6F5).withOpacity(0.5),
+            color: _kBorderColor.withOpacity(0.5),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -50,339 +94,334 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
       ),
       child: Row(
         children: [
+          // Icon badge
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF2563EB).withOpacity(0.10),
+              color: _kSelectedClr.withOpacity(0.10),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.subscriptions_rounded,
-              color: Color(0xFF2563EB),
+              color: _kSelectedClr,
               size: 20,
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Subscription Management',
-                  style: TextStyle(
-                    color: Color(0xFF1A2A3A),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+          // Title + school name
+          Expanded(
+            child: Obx(() {
+              final schoolName =
+                  schoolController.selectedSchool.value?.name ?? '';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Subscription Management',
+                    style: TextStyle(
+                      color: _kTextDefault,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'Manage plans and attendance tracking',
-                  style: TextStyle(
-                    color: Color(0xFF90A4BE),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+                  if (schoolName.isNotEmpty)
+                    Text(
+                      schoolName,
+                      style: const TextStyle(
+                        color: _kLabelColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  else
+                    const Text(
+                      'Manage plans and modules',
+                      style: TextStyle(color: _kLabelColor, fontSize: 11),
+                    ),
+                ],
+              );
+            }),
           ),
         ],
       ),
     );
   }
+}
 
-  // Widget _buildTabBar(BuildContext context) {
-  //   return Container(
-  //     margin: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(16),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.05),
-  //           blurRadius: 10,
-  //           offset: const Offset(0, 2),
-  //         ),
-  //       ],
-  //     ),
-  //     child: TabBar(
-  //       indicator: BoxDecoration(
-  //         color: const Color(0xFF2563EB),
-  //         borderRadius: BorderRadius.circular(12),
-  //       ),
-  //       labelColor: Colors.white,
-  //       unselectedLabelColor: Colors.grey[600],
-  //       labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-  //       tabs: const [
-  //         Tab(text: 'Subscription', icon: Icon(Icons.card_membership, size: 20)),
-  //         // Tab(text: 'Attendance', icon: Icon(Icons.access_time, size: 20)),
-  //       ],
-  //     ),
-  //   );
-  // }
+// ── Body ──────────────────────────────────────────────────────────────────────
 
-  Widget _buildSubscriptionTab(BuildContext context, bool isTablet) {
-    final authController = Get.find<AuthController>();
-    final schoolController = Get.put(SchoolController());
-    final isCorrespondent = authController.user.value?.role?.toLowerCase() == 'correspondent';
-    final selectedSchool = Rxn<School>();
-    
-    // Initialize school
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (isCorrespondent) {
-        
-        
-        
-        schoolController.getAllSchools().then((_) {
+class _SubscriptionBody extends StatelessWidget {
+  final SubscriptionController controller;
+  final bool isTablet;
+  final SchoolController schoolController;
+  final AuthController authController;
 
+  const _SubscriptionBody({
+    required this.controller,
+    required this.isTablet,
+    required this.schoolController,
+    required this.authController,
+  });
 
+  String? get _resolvedSchoolId =>
+      schoolController.selectedSchool.value?.id ??
+          authController.user.value?.schoolId;
 
-          if (schoolController.schools.isNotEmpty) {
-            selectedSchool.value = schoolController.schools.first;
-            controller.loadSubscription(selectedSchool.value!.id);
-          }
-        });
-      } else {
-        final schoolId = authController.user.value?.schoolId;
-        if (schoolId != null) {
-          controller.loadSubscription(schoolId);
-        }
-      }
-    });
-    
+  @override
+  Widget build(BuildContext context) {
     return Obx(() {
       if (controller.isLoading.value) {
-        return Center(
+        return const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: const Color(0xFF2563EB)),
-              const SizedBox(height: 16),
-              Text('Loading subscription...', style: TextStyle(color: Colors.grey.shade600)),
+              CircularProgressIndicator(color: _kSelectedClr),
+              SizedBox(height: 14),
+              Text(
+                'Loading subscription…',
+                style: TextStyle(color: _kLabelColor, fontSize: 13),
+              ),
             ],
           ),
         );
       }
 
       return SingleChildScrollView(
-        padding: EdgeInsets.all(isTablet ? 24 : 16),
+        padding: EdgeInsets.all(isTablet ? 24 : 14),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isCorrespondent) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Obx(() {
-
-                  return DropdownButtonFormField<School>(
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    hintText: 'Select School',
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.school, color: const Color(0xFF2563EB), size: 20),
-                    ),
-                    border: InputBorder.none,
-                  ),
-                  value: selectedSchool.value,
-                  items: schoolController.schools.map((school) {
-                    return DropdownMenuItem<School>(
-                      value: school,
-                      child: Text(school.name),
-                    );
-                  }).toList(),
-                  onChanged: (School? school) {
-                    if (school != null) {
-                      selectedSchool.value = school;
-                      controller.loadSubscription(school.id);
-                    }
-                  },
-                );
-                }),
-              ),
-            ],
-            _buildCurrentSubscriptionCard(context, isTablet),
-            const SizedBox(height: 20),
-            _buildAvailablePlansSection(context, isTablet, selectedSchool.value?.id ?? authController.user.value?.schoolId),
+            const SizedBox(height: 4),
+            _CurrentPlanCard(controller: controller, isTablet: isTablet),
+            const SizedBox(height: 16),
+            _AvailablePlansSection(
+              controller: controller,
+              isTablet: isTablet,
+              schoolId: _resolvedSchoolId,
+            ),
           ],
         ),
       );
     });
   }
+}
 
-  Widget _buildCurrentSubscriptionCard(BuildContext context, bool isTablet) {
+// ── Current plan card ─────────────────────────────────────────────────────────
+
+class _CurrentPlanCard extends StatelessWidget {
+  final SubscriptionController controller;
+  final bool isTablet;
+
+  const _CurrentPlanCard(
+      {required this.controller, required this.isTablet});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(20),
+        color: _kBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorderColor, width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: _kBorderColor.withOpacity(0.6),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card header row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: const BoxDecoration(
+              color: _kSelectedBg,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: _kBorderColor)),
+            ),
+            child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: _kSelectedClr.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.star, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.verified_rounded,
+                    color: _kSelectedClr,
+                    size: 18,
+                  ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Current Subscription',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isTablet ? 20 : 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Current Subscription',
+                  style: TextStyle(
+                    color: _kTextDefault,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            _buildSubscriptionStatus(isTablet),
-          ],
-        ),
+          ),
+          // Status body
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _CurrentPlanBody(
+                controller: controller, isTablet: isTablet),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildSubscriptionStatus(bool isTablet) {
+class _CurrentPlanBody extends StatelessWidget {
+  final SubscriptionController controller;
+  final bool isTablet;
+
+  const _CurrentPlanBody(
+      {required this.controller, required this.isTablet});
+
+  @override
+  Widget build(BuildContext context) {
     return Obx(() {
-      final status = controller.getSubscriptionStatus();
+      final status  = controller.getSubscriptionStatus();
       final modules = status['modules'] as Map<String, dynamic>;
+      final plan    = status['plan'].toString().toUpperCase();
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Plan badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: _kSelectedClr.withOpacity(0.10),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: _kSelectedClr.withOpacity(0.25), width: 1),
             ),
-            child: Text(
-              'Plan: ${status['plan'].toString().toUpperCase()}',
-              style: TextStyle(
-                fontSize: isTablet ? 18 : 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded,
+                    size: 14, color: _kSelectedClr),
+                const SizedBox(width: 6),
+                Text(
+                  plan,
+                  style: const TextStyle(
+                    color: _kSelectedClr,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Enabled Modules:',
+          const SizedBox(height: 14),
+          const Text(
+            'Enabled Modules',
             style: TextStyle(
-              fontSize: isTablet ? 16 : 14,
+              color: _kLabelColor,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: modules.entries.map((entry) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: entry.value ? Colors.white.withOpacity(0.2) : Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: entry.value ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.2),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    entry.value ? Icons.check_circle : Icons.cancel,
-                    color: entry.value ? Colors.white : Colors.white.withOpacity(0.5),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _formatModuleName(entry.key),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: entry.value ? Colors.white : Colors.white.withOpacity(0.7),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            )).toList(),
+            children: modules.entries.map((e) {
+              final enabled = e.value as bool;
+              return _ModuleChip(
+                label: _formatModuleName(e.key),
+                enabled: enabled,
+              );
+            }).toList(),
           ),
         ],
       );
     });
   }
+}
 
-  Widget _buildAvailablePlansSection(BuildContext context, bool isTablet, String? schoolId) {
+// ── Available plans section ───────────────────────────────────────────────────
+
+class _AvailablePlansSection extends StatelessWidget {
+  final SubscriptionController controller;
+  final bool isTablet;
+  final String? schoolId;
+
+  const _AvailablePlansSection({
+    required this.controller,
+    required this.isTablet,
+    required this.schoolId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return ApiRbacWrapper(
       apiEndpoint: 'PUT /api/subscription/update',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Available Plans',
-            style: TextStyle(
-              fontSize: isTablet ? 24 : 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryText,
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 12),
+            child: Text(
+              'Available Plans',
+              style: TextStyle(
+                color: _kTextDefault,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
+          _PlanCards(
+              controller: controller,
+              isTablet: isTablet,
+              schoolId: schoolId),
           const SizedBox(height: 16),
-          _buildPlanCards(isTablet, schoolId),
-          const SizedBox(height: 20),
-          _buildCustomPlanCard(isTablet, schoolId),
+          _CustomPlanCard(
+              controller: controller,
+              isTablet: isTablet,
+              schoolId: schoolId),
         ],
       ),
       fallback: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFEFF6FF),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFBFDBFE)),
+          color: _kSelectedBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kBorderColor),
         ),
         child: Row(
           children: [
-            Icon(Icons.lock_outline, color: const Color(0xFF2563EB), size: 32),
-            const SizedBox(width: 16),
-            Expanded(
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _kSelectedClr.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.lock_outline_rounded,
+                  color: _kSelectedClr, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
               child: Text(
                 'Only correspondents can manage subscriptions.',
                 style: TextStyle(
-                  fontSize: 16,
-                  color: const Color(0xFF1D4ED8),
+                  color: _kTextDefault,
+                  fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -392,542 +431,371 @@ class SubscriptionManagementView extends GetView<SubscriptionController> {
       ),
     );
   }
+}
 
-  Widget _buildPlanCards(bool isTablet, String? schoolId) {
-    final plans = ['basic', 'standard', 'premium'];
-    final gradients = [
-      const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      const LinearGradient(colors: [Color(0xFF1E40AF), Color(0xFF1E3A8A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    ];
+// ── Plan cards ────────────────────────────────────────────────────────────────
+
+class _PlanCards extends StatelessWidget {
+  final SubscriptionController controller;
+  final bool isTablet;
+  final String? schoolId;
+
+  const _PlanCards({
+    required this.controller,
+    required this.isTablet,
+    required this.schoolId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const plans = ['basic', 'standard', 'premium'];
 
     return Column(
-      children: plans.asMap().entries.map((entry) {
-        final index = entry.key;
-        final plan = entry.value;
+      children: plans.map((plan) {
         final modules = SubscriptionService.packages[plan]!;
-        final gradient = gradients[index];
-
         return Container(
-          margin: const EdgeInsets.only(bottom: 16),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(20),
+            color: _kBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _kBorderColor, width: 1),
             boxShadow: [
               BoxShadow(
-                color: gradient.colors.first.withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
+                color: _kBorderColor.withOpacity(0.5),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: Padding(
-            padding: EdgeInsets.all(isTablet ? 24 : 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Plan header
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: _kSelectedBg,
+                  borderRadius:
+                  BorderRadius.vertical(top: Radius.circular(14)),
+                  border: Border(
+                      bottom: BorderSide(color: _kBorderColor)),
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      plan.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: isTablet ? 20 : 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: _kSelectedClr.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.workspace_premium_rounded,
+                          color: _kSelectedClr, size: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        plan.toUpperCase(),
+                        style: const TextStyle(
+                          color: _kTextDefault,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                        ),
                       ),
                     ),
-                    SizedBox(
-                      width: isTablet ? 120 : 100,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ElevatedButton(
-                          onPressed: () => _updateToPlan(plan, schoolId),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                    Obx(() {
+                      final isCurrent =
+                          controller.getCurrentPlan() == plan;
+                      return GestureDetector(
+                        onTap: isCurrent
+                            ? null
+                            : () => _updateToPlan(plan, schoolId),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? _kSelectedClr.withOpacity(0.10)
+                                : _kSelectedClr,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? _kSelectedClr.withOpacity(0.3)
+                                  : _kSelectedClr,
                             ),
                           ),
                           child: Text(
-                            controller.getCurrentPlan() == plan ? 'Current' : 'Select',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                            isCurrent ? 'Current' : 'Select',
+                            style: TextStyle(
+                              color: isCurrent
+                                  ? _kSelectedClr
+                                  : Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Wrap(
+              ),
+              // Modules
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: modules.entries.map((entry) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          entry.value ? Icons.check : Icons.close,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _formatModuleName(entry.key),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                  children: modules.entries.map((e) => _ModuleChip(
+                    label: _formatModuleName(e.key),
+                    enabled: e.value,
                   )).toList(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       }).toList(),
     );
   }
 
-  Widget _buildCustomPlanCard(bool isTablet, String? schoolId) {
-    final modules = ['studentRecord', 'attendance', 'expense', 'club', 'announcement'];
-    final customModules = <String, bool>{}.obs;
-
-    final currentModules = controller.getEnabledModules();
-    for (final module in modules) {
-      customModules[module] = currentModules[module] ?? false;
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.tune, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Custom Plan',
-                  style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryText,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ...modules.map((module) => Obx(() => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: customModules[module] == true ? const Color(0xFF2563EB).withOpacity(0.1) : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: customModules[module] == true ? const Color(0xFF2563EB).withOpacity(0.3) : Colors.grey.shade200,
-                ),
-              ),
-              child: CheckboxListTile(
-                title: Text(
-                  _formatModuleName(module),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: customModules[module] == true ? const Color(0xFF2563EB) : AppTheme.primaryText,
-                  ),
-                ),
-                value: customModules[module] ?? false,
-                activeColor: const Color(0xFF2563EB),
-                onChanged: (value) {
-                  customModules[module] = value ?? false;
-                },
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ))).toList(),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _updateToCustomPlan(customModules, schoolId),
-                  child: const Center(
-                    child: Text(
-                      'Apply Custom Plan',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAttendanceTab(BuildContext context, bool isTablet) {
-    final selectedFilter = 'All'.obs;
-    final searchQuery = ''.obs;
-
-    return SafeArea(
-      child: Column(
-        children: [
-          Container(
-            margin: EdgeInsets.all(isTablet ? 20 : 16),
-            padding: EdgeInsets.all(isTablet ? 24 : 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.white, const Color(0xFF2563EB).withOpacity(0.03)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2563EB).withOpacity(0.08),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.access_time, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'Attendance Tracking',
-                        style: TextStyle(
-                          fontSize: isTablet ? 24 : 20,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF2563EB),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.2)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search students...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500),
-                      prefixIcon: Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.search, color: const Color(0xFF2563EB)),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                    onChanged: (value) => searchQuery.value = value,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Obx(() => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ['All', 'Present', 'Absent', 'Late'].map((filter) {
-                      final isSelected = selectedFilter.value == filter;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: isSelected ? const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                            color: isSelected ? null : Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
-                              color: isSelected ? Colors.transparent : const Color(0xFF2563EB).withOpacity(0.2),
-                            ),
-                            boxShadow: isSelected ? [
-                              BoxShadow(
-                                color: const Color(0xFF2563EB).withOpacity(0.2),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ] : null,
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(25),
-                              onTap: () => selectedFilter.value = filter,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                child: Text(
-                                  filter,
-                                  style: TextStyle(
-                                    color: isSelected ? Colors.white : const Color(0xFF2563EB),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                )),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _buildAttendanceList(context, isTablet),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttendanceList(BuildContext context, bool isTablet) {
-    final attendanceData = [
-      {'name': 'John Doe', 'status': 'Present', 'time': '09:00 AM', 'date': 'Today', 'avatar': 'JD'},
-      {'name': 'Jane Smith', 'status': 'Absent', 'time': '-', 'date': 'Today', 'avatar': 'JS'},
-      {'name': 'Mike Johnson', 'status': 'Late', 'time': '09:15 AM', 'date': 'Today', 'avatar': 'MJ'},
-      {'name': 'Sarah Wilson', 'status': 'Present', 'time': '08:55 AM', 'date': 'Today', 'avatar': 'SW'},
-      {'name': 'Alex Brown', 'status': 'Present', 'time': '08:45 AM', 'date': 'Today', 'avatar': 'AB'},
-      {'name': 'Emma Davis', 'status': 'Late', 'time': '09:20 AM', 'date': 'Today', 'avatar': 'ED'},
-    ];
-
-    return ListView.builder(
-      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
-      itemCount: attendanceData.length,
-      itemBuilder: (context, index) {
-        final student = attendanceData[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(isTablet ? 20 : 16),
-            child: Row(
-              children: [
-                Container(
-                  width: isTablet ? 56 : 48,
-                  height: isTablet ? 56 : 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        _getStatusColor(student['status']!),
-                        _getStatusColor(student['status']!).withOpacity(0.8),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getStatusColor(student['status']!).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      student['avatar']!,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: isTablet ? 18 : 16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        student['name']!,
-                        style: TextStyle(
-                          fontSize: isTablet ? 18 : 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryText,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${student['date']} • ${student['time']}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(student['status']!).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _getStatusColor(student['status']!).withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(student['status']!),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        student['status']!,
-                        style: TextStyle(
-                          color: _getStatusColor(student['status']!),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Present':
-        return const Color(0xFF2563EB);
-      case 'Absent':
-        return AppTheme.errorRed;
-      case 'Late':
-        return const Color(0xFF0EA5E9);
-      default:
-        return const Color(0xFF2563EB);
-    }
-  }
-
   void _updateToPlan(String planName, String? schoolId) async {
     if (schoolId == null) {
-      Get.snackbar('Error', 'Please select a school');
+      Get.snackbar('Error', 'No school selected');
       return;
     }
-    
     final success = await controller.updateSubscription(
-      schoolId: schoolId,
-      planName: planName,
-    );
-    
+        schoolId: schoolId, planName: planName);
     if (success) {
       Get.snackbar('Success', 'Subscription updated to $planName plan');
     }
   }
+}
 
-  void _updateToCustomPlan(RxMap<String, bool> customModules, String? schoolId) async {
+// ── Custom plan card ──────────────────────────────────────────────────────────
+
+class _CustomPlanCard extends StatelessWidget {
+  final SubscriptionController controller;
+  final bool isTablet;
+  final String? schoolId;
+
+  const _CustomPlanCard({
+    required this.controller,
+    required this.isTablet,
+    required this.schoolId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final modules = [
+      'studentRecord',
+      'attendance',
+      'expense',
+      'club',
+      'announcement'
+    ];
+    final customModules = <String, bool>{}.obs;
+    final currentModules = controller.getEnabledModules();
+    for (final m in modules) {
+      customModules[m] = currentModules[m] ?? false;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _kBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBorderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: _kBorderColor.withOpacity(0.5),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: _kSelectedBg,
+              borderRadius:
+              BorderRadius.vertical(top: Radius.circular(14)),
+              border:
+              Border(bottom: BorderSide(color: _kBorderColor)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: _kSelectedClr.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.tune_rounded,
+                      color: _kSelectedClr, size: 16),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'CUSTOM PLAN',
+                  style: TextStyle(
+                    color: _kTextDefault,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Module toggles
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: Column(
+              children: modules.map((module) {
+                return Obx(() => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: customModules[module] == true
+                        ? _kSelectedBg
+                        : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: customModules[module] == true
+                          ? _kBorderColor
+                          : const Color(0xFFEEEEEE),
+                    ),
+                  ),
+                  child: CheckboxListTile(
+                    dense: true,
+                    title: Text(
+                      _formatModuleName(module),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: customModules[module] == true
+                            ? _kSelectedClr
+                            : _kTextDefault,
+                      ),
+                    ),
+                    value: customModules[module] ?? false,
+                    activeColor: _kSelectedClr,
+                    checkColor: Colors.white,
+                    onChanged: (v) =>
+                    customModules[module] = v ?? false,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    side: BorderSide(
+                      color: customModules[module] == true
+                          ? _kSelectedClr
+                          : _kIconDefault,
+                    ),
+                  ),
+                ));
+              }).toList(),
+            ),
+          ),
+          // Apply button
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: GestureDetector(
+              onTap: () => _applyCustom(customModules, schoolId),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: BoxDecoration(
+                  color: _kSelectedClr,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Apply Custom Plan',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyCustom(RxMap<String, bool> modules, String? schoolId) async {
     if (schoolId == null) {
-      Get.snackbar('Error', 'Please select a school');
+      Get.snackbar('Error', 'No school selected');
       return;
     }
-    
-    final success = await controller.updateSubscription(
+    final success = await Get.find<SubscriptionController>().updateSubscription(
       schoolId: schoolId,
       planName: 'custom',
-      customModules: Map<String, bool>.from(customModules),
+      customModules: Map<String, bool>.from(modules),
     );
-    
     if (success) {
       Get.snackbar('Success', 'Custom subscription plan applied');
     }
   }
+}
 
-  String _formatModuleName(String moduleName) {
-    return moduleName
-        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
-        .toUpperCase()
-        .trim();
+// ── Shared chip widget ────────────────────────────────────────────────────────
+
+class _ModuleChip extends StatelessWidget {
+  final String label;
+  final bool enabled;
+
+  const _ModuleChip({required this.label, required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+      decoration: BoxDecoration(
+        color: enabled
+            ? _kSelectedClr.withOpacity(0.08)
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: enabled
+              ? _kSelectedClr.withOpacity(0.25)
+              : const Color(0xFFDDDDDD),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            enabled ? Icons.check_circle_rounded : Icons.cancel_rounded,
+            size: 13,
+            color: enabled ? _kSelectedClr : _kIconDefault,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: enabled ? _kSelectedClr : _kIconDefault,
+            ),
+          ),
+        ],
+      ),
+    );
   }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+String _formatModuleName(String key) {
+  return key
+      .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(1)}')
+      .toUpperCase()
+      .trim();
 }
