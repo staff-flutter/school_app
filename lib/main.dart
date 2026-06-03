@@ -46,6 +46,7 @@ void main() async {
   Get.put(DashboardController(), permanent: true);
   Get.put(ThemeController(), permanent: true);
   Get.put(SchoolController(), permanent: true);
+  Get.lazyPut(() => SchoolController(), fenix: true);
   Get.put(MainNavigationController(), permanent: true);
   Get.put(SubscriptionController(), permanent: true);
   Get.put(ClubController(), permanent: true);

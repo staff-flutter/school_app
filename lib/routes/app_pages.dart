@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
+import '../screens/create_student_profile_page.dart';
 import '../screens/enhanced_profile_view.dart';
 import '../screens/finance_dashboard_view.dart';
 import '../screens/home_page.dart';
@@ -23,6 +24,7 @@ import '../screens/profile_selection_page.dart';
 import '../screens/splash_screen.dart';
 import '../screens/student_form_dialog.dart';
 import '../screens/student_form_page.dart';
+import '../screens/student_management_module_view.dart';
 import '../screens/student_profile_page.dart';
 import '../screens/student_profile_verification_page_for_admin_side.dart';
 import '../screens/teacher_classes_view.dart';
@@ -148,19 +150,18 @@ GetPage(
       binding: AccountingBinding(),
       middlewares: [RoleGuard()],
     ),
-    // GetPage(
-    //   name: AppRoutes.STUDENT_MANAGEMENT,
-    //   page: () => RoleAwareWrapper(child: StudentManagementView()),
-    //   binding: StudentBinding(),
-    //   middlewares: [RoleGuard()],
-    // ),
-    // GetPage(
-    //   name: '/students',
-    //   page: () => RoleAwareWrapper(child: StudentManagementView()),
-    //   binding: StudentBinding(),
-    //   middlewares: [RoleGuard()],
-    // ),
-    // In your GetPages list
+    GetPage(
+      name: AppRoutes.STUDENT_MANAGEMENT,
+      page: () => RoleAwareWrapper(child: StudentManagementView()),
+      binding: StudentBinding(),
+      middlewares: [RoleGuard()],
+    ),
+    GetPage(
+      name: '/students',
+      page: () => RoleAwareWrapper(child: StudentManagementView()),
+      binding: StudentBinding(),
+      middlewares: [RoleGuard()],
+    ),
     GetPage(
       name: AppRoutes.MARKS_UPLOAD,
       page: () => RoleAwareWrapper(child: StudentMarksUploadPage()),
@@ -304,6 +305,13 @@ GetPage(
       page: () => RoleAwareWrapper(child: const StudentMarksViewPage()),
       binding: StudentRecordBinding(),
       middlewares: [RoleGuard()],
+    ),
+    GetPage(
+      name: AppRoutes.STUDENT_PROFILE_CREATION,
+      page: () => RoleAwareWrapper(child: const CreateStudentProfilePage()),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(()=>AuthController());
+      }),
     ),
     GetPage(
       name: '/system-management',

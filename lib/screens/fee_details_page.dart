@@ -49,7 +49,7 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage> with SingleTi
   int _currentPageIndex = 0;
   late Future<List<FeeStructureModel>> _feeFuture;
 
-  final List<String> _feeNames = ['School Fee', 'Exam Fee', 'Activity Fee', 'Tuition Fee', 'Other'];
+  final List<String> _feeNames = ['Overview', 'Fee Dues', 'Total Fee', 'Bus Fee', 'History'];
 
   static const LinearGradient appGradient = LinearGradient(
     colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
@@ -157,7 +157,7 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage> with SingleTi
                         itemBuilder: (context, i) => Column(
                           children: [
                             FeeContainerTile(fee: snapshot.data![i]),
-                            FeeContainerTile(fee: snapshot.data![i]),
+                           // FeeContainerTile(fee: snapshot.data![i]),
 
                           ],
                         ),
@@ -230,8 +230,8 @@ class _FeeContainerTileState extends State<FeeContainerTile> {
         // This ensures no border appears when collapsed
         collapsedShape: const Border(),
         onExpansionChanged: (val) => setState(() => _isExpanded = val),
-        title: Text('${widget.fee.type.toUpperCase()} ADMISSION', style: const TextStyle(color: Colors.white, fontSize: 8, letterSpacing: 1.1)),
-        subtitle: Text('₹ ${widget.fee.totalAmount}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        title: Text('${widget.fee.type == 'new' ? 'New Student' : 'Existing Student'} Fee Structure', style: const TextStyle(color: Colors.white, fontSize: 8, letterSpacing: 1.1)),
+        subtitle: Text('Total Payable: ₹ ${widget.fee.totalAmount}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         trailing: Icon(_isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
         children: [
           Padding(
@@ -240,12 +240,14 @@ class _FeeContainerTileState extends State<FeeContainerTile> {
               children: [
                 const Divider(color: Colors.white24),
                 _row("Admission Fee", widget.fee.feeHead['admissionFee']),
-                _row("First Term Amount", widget.fee.feeHead['firstTermAmt']),
-                _row("Second Term Amount", widget.fee.feeHead['secondTermAmt']),
+                _row("Term 1 Fee", widget.fee.feeHead['firstTermAmt']),
+                _row("Term 2 Fee", widget.fee.feeHead['secondTermAmt']),
                 if ((widget.fee.feeHead['busFirstTermAmt'] ?? 0) > 0)
-                  _row("Bus Fee (T1)", widget.fee.feeHead['busFirstTermAmt']),
+                  _row("Bus Fee (Term 1)", widget.fee.feeHead['busFirstTermAmt']),
+                if ((widget.fee.feeHead['busSecondTermAmt'] ?? 0) > 0)
+                  _row("Bus Fee (Term 2)", widget.fee.feeHead['busSecondTermAmt']),
                 const Divider(color: Colors.white24),
-                _row("Total Payable", widget.fee.totalAmount, isBold: true),
+                _row("Total Due", widget.fee.totalAmount, isBold: true),
               ],
             ),
           ),

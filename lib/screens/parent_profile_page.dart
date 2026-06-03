@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
@@ -438,33 +439,48 @@ print('userid:$userId');
     );
   }
   Future<void> _handleLogout() async {
-    // Show a confirmation dialog
     Get.dialog(
       AlertDialog(
         title: const Text("Logout"),
         content: const Text("Are you sure you want to exit?"),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text("Cancel"),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
+              Get.back(); // close dialog first
+
+              // 1. Clear FlutterSecureStorage (parent-specific keys)
               await storage.delete(key: 'user_token');
               await storage.delete(key: 'parentId');
 
-              // final prefs = await SharedPreferences.getInstance();
-              // await prefs.clear(); // Clears all saved tokens/data
-              Get.offAllNamed('/login'); // Redirect to login and clear stack
+              // 2. Clear UserSession — THIS was missing, causing stale token
+              if (Get.isRegistered<UserSession>()) {
+                final userSession = Get.find<UserSession>();
+                userSession.token = null;
+                userSession.schoolId = null;
+                userSession.role = null;
+                userSession.update();
+              }
+
+              // 3. Clear AuthController — THIS was missing
+              if (Get.isRegistered<AuthController>()) {
+                final auth = Get.find<AuthController>();
+                auth.user.value = null;
+                // also wipe GetStorage so checkAuthStatus() doesn't restore parent
+                auth.storage.remove('token');
+                auth.storage.remove('user');
+                auth.storage.remove('userSchool');
+              }
+
+              Get.offAllNamed('/login');
             },
             child: const Text("Logout", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-  }
-  Widget buildGradientSection({
+  }  Widget buildGradientSection({
     required String title,
     required IconData icon,
     required List<Widget> children,

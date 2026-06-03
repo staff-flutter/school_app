@@ -309,14 +309,23 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     marksController = Get.put(MarksController());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Load data for whatever school is already selected in sidebar
+      final school = controller.selectedSchool.value;
+      if (school != null) {
+        controller.getAllClasses(school.id);
+        controller.getAllSections(schoolId: school.id);
+        controller.getAllStudents(schoolId: school.id);
+        userController.loadUsers(
+          schoolId: school.id,
+          role: userController.selectedRole.value,
+        );
+      }
       controller.getAllSchools();
-      _initializeSchoolForUser();
     });
 
-    // 👇 Watch sidebar school selection
+    // React to sidebar school changes
     _schoolWatcher = ever(controller.selectedSchool, (school) {
       if (school == null) return;
-      // Reload all tab data when school changes
       controller.getAllClasses(school.id);
       controller.getAllSections(schoolId: school.id);
       controller.getAllStudents(schoolId: school.id);
@@ -1022,15 +1031,21 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
 
   Widget _buildClassCard(SchoolClass schoolClass, String currentUserRole) {
     return _card(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.only(top: 12,bottom: 12,left: 8),
       child: Row(children: [
         _iconBox(Icons.class_rounded,bg: const Color(0xFFE0F7FA), fg: const Color(0xFF006064)),
         const SizedBox(width: 14),
-        Expanded(child: Text(schoolClass.name, style: const TextStyle(
-            fontSize: 15, fontWeight: FontWeight.w600, color: _DS.textPrimary))),
+        Expanded(
+            child: Text(schoolClass.name,
+                style: const TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w600,
+                    color: _DS.textPrimary,),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )),
         if (schoolClass.hasSections)
           _badge('Has Sections', bg: _DS.successSoft, fg: _DS.success),
-        const SizedBox(width: 8),
+        const SizedBox(width: 2),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_horiz_rounded, color: _DS.textMuted, size: 22),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radius)),
@@ -1315,7 +1330,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
 
   Widget _buildStudentCard(Student student, String currentUserRole, bool canManageClubs) {
     return _card(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.only(top: 12,bottom: 12,left: 8),
       child: Row(children: [
         // Avatar
         Container(
@@ -1337,12 +1352,20 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(student.name ?? 'N/A', style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w600, color: _DS.textPrimary)),
+              fontSize: 15, fontWeight: FontWeight.w600, color: _DS.textPrimary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+
+          ),
           const SizedBox(height: 2),
           Text(
               (student.rollNumber == null || student.rollNumber!.trim().isEmpty)
                   ? 'No roll number' : 'Roll: ${student.rollNumber}',
-              style: const TextStyle(fontSize: 12, color: _DS.textMuted)),
+              style: const TextStyle(fontSize: 12, color: _DS.textMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+
+          ),
         ])),
         if (canManageClubs) ...[
           SizedBox(
@@ -1372,7 +1395,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               child: const Text('+ Club', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
         ],
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_horiz_rounded, color: _DS.textMuted, size: 22),

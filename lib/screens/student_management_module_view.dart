@@ -61,12 +61,13 @@ class StudentManagementView extends GetView<StudentController> {
                           onChanged: (value) => controller.selectedClass.value = value ?? '',
                         )),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Obx(() => DropdownButtonFormField<String>(
                           value: controller.selectedSection.value.isEmpty ? null : controller.selectedSection.value,
                           decoration: const InputDecoration(
                             labelText: 'Section',
+
                             border: OutlineInputBorder(),
                           ),
                           items: ['', 'A', 'B', 'C', 'D']

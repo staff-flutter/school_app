@@ -42,6 +42,7 @@ class AppRoutes {
 
 
   static const String STUDENT_RECORDS = '/student-records';
+  static const String STUDENT_PROFILE_CREATION = '/student-profile-creation';
   static const String STUDENT_PROFILE_VERIFICATION = '/student-profile-verification';
   static const String SUBSCRIPTION_MANAGEMENT = '/subscription-management';
   static const String teacherClasses = '/my-classes';

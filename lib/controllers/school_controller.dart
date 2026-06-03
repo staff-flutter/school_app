@@ -47,7 +47,25 @@ class SchoolController extends GetxController {
       return false;
     }
   }
+  void resetControllerState() {
+    schools.clear();
+    selectedSchool.value = null;
 
+    _schoolsLoaded = false;
+
+    update();
+  }
+  void clearSessionData() {
+    schools.clear();
+    selectedSchool.value = null;
+    classes.clear();
+    sections.clear();
+    students.clear();
+    teachers.clear();
+    _schoolsLoaded = false;
+    _isLoadingSchools = false;
+    _teachersLoaded = false;
+  }
   // --- Helper for Snackbar ---
   void _showSnackbar(String title, String message, Color color) {
     // Use SchedulerBinding to avoid setState during build
@@ -175,7 +193,7 @@ class SchoolController extends GetxController {
   }
 
   // Get all schools with debouncing and retry logic
-  Future<void> getAllSchools({int retryCount = 0}) async {
+  Future<void> getAllSchools({int retryCount = 0,bool forceRefresh = false}) async {
     const int maxRetries = 3;
     const Duration retryDelay = Duration(seconds: 1);
 
@@ -183,7 +201,9 @@ class SchoolController extends GetxController {
       await _loadUserSchool();
       return;
     }
-
+    if (!forceRefresh && _schoolsLoaded && !_isLoadingSchools && schools.isNotEmpty) {
+      return;
+    }
     if (_schoolsLoaded && !_isLoadingSchools && schools.isNotEmpty) {
       return;
     }

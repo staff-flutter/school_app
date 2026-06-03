@@ -45,6 +45,7 @@ class ApiConstants {
   static const String updateStudent = '/api/student/update';
   static const String deleteStudent = '/api/student/delete';
   static const String getStudent = '/api/student/get';
+
   
   // Dashboard Endpoints
   static const String accountingDashboard = '/api/accounting/dashboard';

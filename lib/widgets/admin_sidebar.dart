@@ -1,4 +1,6 @@
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:school_app/controllers/auth_controller.dart';
@@ -95,6 +97,7 @@ class _AdminSidebarState extends State<AdminSidebar>
   late final AnimationController _anim;
   late final Animation<double> _progress;
   final ValueNotifier<String> _selectedKey = ValueNotifier<String>('');
+  Worker? _authWorker;
 
   @override
   void initState() {
@@ -103,7 +106,46 @@ class _AdminSidebarState extends State<AdminSidebar>
     _progress = CurvedAnimation(parent: _anim, curve: _kCurve);
     widget.expandedNotifier?.addListener(_onExternal);
     _selectedKey.value = Get.currentRoute;
-    _loadSchoolData();
+
+    final auth = Get.find<AuthController>();
+
+    if (auth.user.value != null) {
+      _loadSchoolData(clearFirst: false); // cold start — use cache if available
+    }
+
+    _authWorker = ever(auth.user, (user) {
+      if (user != null) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _loadSchoolData(clearFirst: true); // login/switch — force fresh API call
+          }
+        });
+      }
+    });
+  }
+  void _initSchoolData() {
+    final auth = Get.find<AuthController>();
+
+    // If user already available, load immediately
+    if (auth.user.value != null) {
+      _loadSchoolData(clearFirst: false);
+      return;
+    }
+
+    // Otherwise poll until auth is ready (cold start token restoration)
+    int attempts = 0;
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 200));
+      attempts++;
+      if (!mounted) return false;
+
+      if (auth.user.value != null) {
+        _loadSchoolData(clearFirst: false);
+        return false; // stop polling
+      }
+
+      return attempts < 20; // max 4 seconds
+    });
   }
 
   void _onExternal() {
@@ -113,6 +155,7 @@ class _AdminSidebarState extends State<AdminSidebar>
 
   @override
   void dispose() {
+    _authWorker?.dispose();
     widget.expandedNotifier?.removeListener(_onExternal);
     _anim.dispose();
     _selectedKey.dispose();
@@ -214,24 +257,34 @@ class _AdminSidebarState extends State<AdminSidebar>
     );
   }
 
-  void _loadSchoolData() async {
+  void _loadSchoolData({bool clearFirst = false}) async {
     try {
-      final schoolController = Get.find<SchoolController>();
-
-      if (schoolController.schools.isEmpty) {
-        await schoolController.getAllSchools();
+      // SAFE: re-register if somehow deleted
+      if (!Get.isRegistered<SchoolController>()) {
+        Get.put(SchoolController(), permanent: true);
+        await Future.delayed(const Duration(milliseconds: 200));
       }
 
-      if (schoolController.schools.isNotEmpty) {
-        final auth = Get.find<AuthController>();
-        final role = auth.user.value?.role?.toLowerCase() ?? '';
+      final schoolController = Get.find<SchoolController>();
+      final auth = Get.find<AuthController>();
 
-        if (role != 'correspondent') {
-          schoolController.selectedSchool.value = schoolController.schools.first;
-        }
+      if (auth.user.value == null) return;
+
+      if (clearFirst) {
+        schoolController.selectedSchool.value = null;
+        schoolController.clearSessionData();
+      }
+
+      await schoolController.getAllSchools(forceRefresh: clearFirst);
+
+      if (!mounted) return;
+
+      if (schoolController.schools.isNotEmpty &&
+          schoolController.selectedSchool.value == null) {
+        schoolController.selectedSchool.value = schoolController.schools.first;
       }
     } catch (e) {
-      print('❌ Error loading school: $e');
+      print('Error loading school data: $e');
     }
   }
 }
@@ -370,6 +423,7 @@ class _Header extends StatelessWidget {
       });
     } catch (_) {
       // Fallback: always show hamburger
+      print('Header error: $e');
       return Center(
         child: Icon(Icons.menu_rounded, size: 22, color: _kIconDefault),
       );
@@ -518,96 +572,115 @@ class _Header extends StatelessWidget {
 
   void _showSchoolPicker(SchoolController controller, List<dynamic> schools) {
     Get.bottomSheet(
-      Container(
-        decoration: const BoxDecoration(
-          color: _kBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _kBorderColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
+      // Wrap in DraggableScrollableSheet for full control
+      DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: _kBg,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Select School',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextDefault,
-                ),
-              ),
-            ),
-            const Divider(height: 1, color: _kDividerColor),
-            ...schools.map((school) {
-              final isSelected =
-                  controller.selectedSchool.value?.id == school.id;
-              final logoUrl = school.logo?['url'] as String?;
-              return ListTile(
-                leading: Container(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle + header — fixed, not scrollable
+                const SizedBox(height: 12),
+                Container(
                   width: 36,
-                  height: 36,
+                  height: 4,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? _kSelectedClr : _kBorderColor,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    color: _kSelectedBg,
-                  ),
-                  child: logoUrl != null && logoUrl.isNotEmpty
-                      ? ClipOval(
-                    child: Image.network(
-                      logoUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.school_rounded,
-                        size: 16,
-                        color: _kSelectedClr,
-                      ),
-                    ),
-                  )
-                      : const Icon(
-                    Icons.school_rounded,
-                    size: 16,
-                    color: _kSelectedClr,
+                    color: _kBorderColor,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                title: Text(
-                  school.name ?? '',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? _kSelectedClr : _kTextDefault,
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Select School',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: _kTextDefault,
+                    ),
                   ),
                 ),
-                trailing: isSelected
-                    ? const Icon(Icons.check_circle_rounded,
-                    color: _kSelectedClr, size: 18)
-                    : null,
-                onTap: () {
-                  controller.selectedSchool.value = school;
-                  Get.back();
-                },
-              );
-            }),
-            const SizedBox(height: 16),
-          ],
-        ),
+                const Divider(height: 1, color: _kDividerColor),
+                // Scrollable school list
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.only(bottom: 24),
+                    itemCount: schools.length,
+                    itemBuilder: (context, index) {
+                      final school = schools[index];
+                      final isSelected =
+                          controller.selectedSchool.value?.id == school.id;
+                      final logoUrl = school.logo?['url'] as String?;
+                      return ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? _kSelectedClr : _kBorderColor,
+                              width: isSelected ? 2 : 1,
+                            ),
+                            color: _kSelectedBg,
+                          ),
+                          child: logoUrl != null && logoUrl.isNotEmpty
+                              ? ClipOval(
+                            child: Image.network(
+                              logoUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.school_rounded,
+                                size: 16,
+                                color: _kSelectedClr,
+                              ),
+                            ),
+                          )
+                              : const Icon(
+                            Icons.school_rounded,
+                            size: 16,
+                            color: _kSelectedClr,
+                          ),
+                        ),
+                        title: Text(
+                          school.name ?? '',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? _kSelectedClr : _kTextDefault,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle_rounded,
+                            color: _kSelectedClr, size: 18)
+                            : null,
+                        onTap: () {
+                          controller.selectedSchool.value = school;
+                          Get.back();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
       isScrollControlled: true,
+      ignoreSafeArea: false,
+      backgroundColor: Colors.transparent,
     );
-  }
-}
+  }}
 
 // ─── Menu body ────────────────────────────────────────────────────────────────
 
@@ -649,7 +722,9 @@ class _MenuBody extends StatelessWidget {
   }
 
   static List<_Section> _getSections(String role) {
-    final _authCtrl = Get.find<AuthController>();
+    // Safe lookup: check if registered first to prevent throwing an immediate exception
+    final authCtrl = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+    final canUploadMarks = authCtrl?.canUploadMarks ?? false;
 
     if (role == 'correspondent') {
       return [
@@ -672,21 +747,18 @@ class _MenuBody extends StatelessWidget {
             _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
         ]),
         _Section('Manage', [
+          _Item('Student Profile creation', Icons.person_add_alt_1_outlined, AppRoutes.STUDENT_PROFILE_CREATION),
           if (RoleModules.hasModule(role, 'attendance'))
-           // _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
-          _Item('Student Attendance', Icons.how_to_reg_rounded, '${AppRoutes.ATTENDANCE}/student'),
-        //  if (RoleModules.hasModule(role, 'studentRecords'))
-       //     _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
+            _Item('Student Attendance', Icons.how_to_reg_rounded, '${AppRoutes.ATTENDANCE}/student'),
           if (RoleModules.hasModule(role, 'clubs'))
-            _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
+            _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
           if (RoleModules.hasModule(role, 'campusManagementPage'))
-            _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+            _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
           _Item('Notifications', Icons.notifications, '/notifications'),
           _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
-
           _Item('Timetable', Icons.calendar_today_rounded, AppRoutes.TIMETABLE_MANAGEMENT),
           _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
-          _Item('Profile Verification',Icons.perm_contact_calendar_outlined,AppRoutes.STUDENT_PROFILE_VERIFICATION)
+          _Item('Profile Verification', Icons.perm_contact_calendar_outlined, AppRoutes.STUDENT_PROFILE_VERIFICATION)
         ]),
         _Section('Other', [
           if (RoleModules.hasModule(role, 'subscription'))
@@ -715,6 +787,8 @@ class _MenuBody extends StatelessWidget {
             _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
         ]),
         _Section('Other', [
+          //_Item('Student Profile creation', Icons.how_to_reg_rounded, AppRoutes.STUDENT_MANAGEMENT),
+
           _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
@@ -728,18 +802,17 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
-          _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
+         // _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
         ]),
         _Section('Manage', [
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
           _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
-          _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
-          _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
-          if (_authCtrl.canUploadMarks)
+          _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
+          _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+          if (canUploadMarks) // Clean, safe check
             _Item('Students performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
-          _Item('Profile Verification',Icons.perm_contact_calendar_outlined,AppRoutes.STUDENT_PROFILE_VERIFICATION)
-
+          _Item('Profile Verification', Icons.perm_contact_calendar_outlined, AppRoutes.STUDENT_PROFILE_VERIFICATION)
         ]),
         _Section('Other', [
           if (RoleModules.hasModule(role, 'subscription'))
@@ -765,8 +838,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Notifications', Icons.notifications, '/notifications'),
           _Item('Students', Icons.school_rounded, '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=students'),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
-          _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
-          _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+          _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
+          _Item('Campus Management', Icons.groups_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
         ]),
         _Section('Other', [
           _Item('Profile', Icons.person_rounded, '/profile'),
@@ -785,7 +858,7 @@ class _MenuBody extends StatelessWidget {
           _Item('Notifications', Icons.notifications, '/notifications'),
           _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
           _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
-          if (_authCtrl.canUploadMarks)
+          if (canUploadMarks) // Clean, safe check
             _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
         ]),
         _Section('Other', [
@@ -820,6 +893,7 @@ class _MenuBody extends StatelessWidget {
       ]),
     ];
   }
+
 }
 
 // ─── Section block ────────────────────────────────────────────────────────────
@@ -973,7 +1047,7 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     AuthController? auth;
     try {
-      auth = Get.find<AuthController>();
+      auth = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
     } catch (_) {}
 
     return ClipRect(
@@ -1005,16 +1079,18 @@ class _Footer extends StatelessWidget {
                   child: Center(
                     child: auth == null
                         ? const Icon(Icons.person, color: Colors.white, size: 16)
-                        : Obx(() => Text(
-                      (auth!.user.value?.userName ?? 'U')
-                          .substring(0, 1)
-                          .toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    )),
+                        : Obx(() {
+                      final name = auth?.user.value?.userName ?? 'U';
+                      final letter = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'U';
+                      return Text(
+                        letter,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      );
+                    }),
                   ),
                 ),
                 if (progress > 0.25 && auth != null)
@@ -1029,7 +1105,7 @@ class _Footer extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Obx(() => Text(
-                                auth!.user.value?.userName ?? 'User',
+                                auth?.user.value?.userName ?? 'User',
                                 style: const TextStyle(
                                   color: _kTextDefault,
                                   fontSize: 12,
@@ -1039,7 +1115,7 @@ class _Footer extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               )),
                               Obx(() => Text(
-                                auth!.user.value?.email ?? '',
+                                auth?.user.value?.email ?? '',
                                 style: const TextStyle(
                                   color: _kSectionLabel,
                                   fontSize: 10,
@@ -1106,6 +1182,7 @@ class _Footer extends StatelessWidget {
         TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
+            // 1. Reset user state session variables
             if (Get.isRegistered<UserSession>()) {
               final userSession = Get.find<UserSession>();
               userSession.token = null;
@@ -1113,9 +1190,25 @@ class _Footer extends StatelessWidget {
               userSession.role = null;
               userSession.update();
             }
-            Get.offAllNamed(AppRoutes.LOGIN);
+
+            // 2. Clear out the persistent global SchoolController cache safely
+            if (Get.isRegistered<SchoolController>()) {
+              final schoolCtrl = Get.find<SchoolController>();
+
+              // CRITICAL: Call clearSessionData to strip lists and force reset internal flags back to false
+              schoolCtrl.clearSessionData();
+            }
+
+            // 3. Clear auth user session parameters
+            if (auth != null) {
+              auth.logout();
+            }
+
+            // 4. Close the Alert Dialog safely
             Get.back();
-            auth?.logout();
+
+            // 5. Direct navigation back to login page
+            Get.offAllNamed(AppRoutes.LOGIN);
           },
           style: ElevatedButton.styleFrom(backgroundColor: _kLogoutClr),
           child: const Text('Logout', style: TextStyle(color: Colors.white)),
@@ -1123,6 +1216,7 @@ class _Footer extends StatelessWidget {
       ],
     ));
   }
+
 }
 
 // ─── Models ───────────────────────────────────────────────────────────────────

@@ -405,7 +405,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       return Column(
         children: [
           _buildFiltersCard(context, isTablet),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildTabsSection(context, isTablet),
         ],
       );
@@ -413,273 +413,174 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   }
 
   Widget _buildFiltersCard(BuildContext context, bool isTablet) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Obx(() => Column(
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
+            // Class chip
+            GestureDetector(
+              onTap: () => _showClassFilterSheet(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selectedClass.value != null
+                      ? const Color(0xFF2563EB).withOpacity(0.1)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: selectedClass.value != null
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFDDE6F5),
+                    width: selectedClass.value != null ? 1.5 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.class_rounded,
+                      size: 14,
+                      color: selectedClass.value != null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF90A4BE)),
+                  const SizedBox(width: 6),
+                  Text(
+                    selectedClass.value?.name ?? 'All Classes',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selectedClass.value != null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: selectedClass.value != null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF90A4BE)),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Section chip
+            GestureDetector(
+              onTap: () => _showSectionFilterSheet(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selectedSection.value != null
+                      ? const Color(0xFF2563EB).withOpacity(0.1)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: selectedSection.value != null
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFDDE6F5),
+                    width: selectedSection.value != null ? 1.5 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.group_rounded,
+                      size: 14,
+                      color: selectedSection.value != null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF90A4BE)),
+                  const SizedBox(width: 6),
+                  Text(
+                    selectedSection.value?.name ?? 'All Sections',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selectedSection.value != null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: selectedSection.value != null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF90A4BE)),
+                ]),
+              ),
+            ),
+    ]),
+            SizedBox(height: 10,),
+            Row(children: [
+            //const Spacer(),
+            // Search button
+            GestureDetector(
+              onTap: _applyFilter,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB),
+                  borderRadius: BorderRadius.circular(100),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.search_rounded, size: 14, color: Colors.white),
+                  SizedBox(width: 5),
+                  Text('Search',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                ]),
+              ),
+            ),
+            // Clear button — only when something selected
+            if (selectedClass.value != null || selectedSection.value != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  selectedClass.value = null;
+                  selectedSection.value = null;
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.warningGradient,
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(100),
                   ),
-                  child: const Icon(Icons.filter_list, color: Colors.white, size: 15),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Filters',
-                  style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryText,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              final isClassesLoading = schoolController.isLoading.value;
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: isClassesLoading
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                        child: Row(
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.class_, color: Colors.white, size: 14),
-                            ),
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Loading classes...',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppTheme.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : DropdownButtonFormField<SchoolClass>(
-                        decoration: InputDecoration(
-                          labelText: 'Select Class',
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.all(8),
-                          labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 12),
-                          prefixIcon: Container(
-                            margin: const EdgeInsets.all(8),
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.class_, color: Colors.white, size: 14),
-                          ),
-                        ),
-                        value: schoolController.classes.contains(selectedClass.value)
-                            ? selectedClass.value
-                            : null,
-                        items: schoolController.classes.map((cls) {
-                          return DropdownMenuItem<SchoolClass>(
-                            value: cls,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.primaryGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  cls.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.primaryText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: selectedSchool.value == null ? null : (cls) {
-                          selectedClass.value = cls;
-                          selectedSection.value = null;
-                          if (cls != null) {
-                            schoolController.getAllSections(classId: cls.id, schoolId: selectedSchool.value!.id);
-                          }
-                        },
-                      ),
-              );
-            }),
-            const SizedBox(height: 16),
-            Obx(() {
-              final isSectionsLoading = schoolController.isLoading.value && selectedClass.value != null;
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: DropdownButtonFormField<Section>(
-                  decoration: InputDecoration(
-                    labelText: schoolController.sections.isEmpty && selectedClass.value != null
-                        ? 'No sections found'
-                        : 'Select Section',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(8),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 12),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.all(8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.warningGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.group, color: Colors.white, size: 14),
-                    ),
-                  ),
-                  value: schoolController.sections.contains(selectedSection.value)
-                      ? selectedSection.value
-                      : null,
-                  items: schoolController.sections.isEmpty
-                      ? []
-                      : schoolController.sections.map((section) {
-                          return DropdownMenuItem<Section>(
-                            value: section,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.warningGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  section.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.primaryText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                  onChanged: selectedClass.value == null || schoolController.sections.isEmpty ? null : (section) {
-                    selectedSection.value = section;
-                  },
-                ),
-              );
-            }),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 35,
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryBlue.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: _applyFilter,
-                  child: const Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search, color: Colors.white, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Apply Filter',
-                          style: TextStyle(
-                            color: Colors.white,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.close_rounded, size: 13, color: Colors.red.shade600),
+                    const SizedBox(width: 4),
+                    Text('Clear',
+                        style: TextStyle(
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                            color: Colors.red.shade600)),
+                  ]),
                 ),
               ),
-            ),
+            ],
           ],
         ),
-      ),
+      ],
+    )
     );
   }
-
   Widget _buildTabsSection(BuildContext context, bool isTablet) {
     return DefaultTabController(
       length: 2,
@@ -941,7 +842,253 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       barrierDismissible: true,
     );
   }
-}
+
+  void _showClassFilterSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDDE6F5),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A2A3A))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: Color(0xFF90A4BE), size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: Color(0xFFEAF0FB)),
+          // All Classes option
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedClass.value == null
+                    ? const Color(0xFF2563EB).withOpacity(0.1)
+                    : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: selectedClass.value == null
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF90A4BE)),
+            ),
+            title: const Text('All Classes',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFF1A2A3A))),
+            trailing: selectedClass.value == null
+                ? const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF2563EB), size: 20)
+                : null,
+            onTap: () {
+              selectedClass.value = null;
+              selectedSection.value = null;
+              Get.back();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: Obx(() => ListView.builder(
+              shrinkWrap: true,
+              itemCount: schoolController.classes.length,
+              itemBuilder: (_, i) {
+                final c = schoolController.classes[i];
+                final isSelected = selectedClass.value?.id == c.id;
+                return ListTile(
+                  leading: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF2563EB).withOpacity(0.1)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.class_rounded,
+                        size: 18,
+                        color: isSelected
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF90A4BE)),
+                  ),
+                  title: Text(c.name,
+                      style: TextStyle(
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        fontSize: 14,
+                        color: isSelected
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF1A2A3A),
+                      )),
+                  trailing: isSelected
+                      ? const Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF2563EB), size: 20)
+                      : null,
+                  onTap: () {
+                    selectedClass.value = c;
+                    selectedSection.value = null;
+                    schoolController.getAllSections(
+                        classId: c.id,
+                        schoolId: selectedSchool.value!.id);
+                    Get.back();
+                  },
+                );
+              },
+            )),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _showSectionFilterSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDDE6F5),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Section',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A2A3A))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: Color(0xFF90A4BE), size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: Color(0xFFEAF0FB)),
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedSection.value == null
+                    ? const Color(0xFF2563EB).withOpacity(0.1)
+                    : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: selectedSection.value == null
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF90A4BE)),
+            ),
+            title: const Text('All Sections',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFF1A2A3A))),
+            trailing: selectedSection.value == null
+                ? const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF2563EB), size: 20)
+                : null,
+            onTap: () {
+              selectedSection.value = null;
+              Get.back();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: Obx(() {
+              if (schoolController.sections.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                      selectedClass.value == null
+                          ? 'Select a class first'
+                          : 'No sections found',
+                      style: const TextStyle(
+                          color: Color(0xFF90A4BE), fontSize: 13)),
+                );
+              }
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: schoolController.sections.length,
+                itemBuilder: (_, i) {
+                  final s = schoolController.sections[i];
+                  final isSelected = selectedSection.value?.id == s.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF2563EB).withOpacity(0.1)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.group_rounded,
+                          size: 18,
+                          color: isSelected
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF90A4BE)),
+                    ),
+                    title: Text(s.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF1A2A3A),
+                        )),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: Color(0xFF2563EB), size: 20)
+                        : null,
+                    onTap: () {
+                      selectedSection.value = s;
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }}
 
 class _RecordsTab extends StatelessWidget {
   final RxList<Map<String, dynamic>> records;
@@ -1999,7 +2146,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
     final screenHeight = MediaQuery.of(context).size.height;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final availableHeight = screenHeight - keyboardHeight - 150; // Leave padding for dialog
-    
+
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: availableHeight > 400 ? availableHeight : 400,
@@ -2016,18 +2163,18 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       gradient: AppTheme.successGradient,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.local_offer, color: Colors.white, size: 24),
+                    child: const Icon(Icons.local_offer, color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 16),
                   Text(
                     'Apply Concession',
                     style: TextStyle(
-                      fontSize: isTablet ? 24 : 20,
+                      fontSize: isTablet ? 18 : 15,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryText,
                     ),
@@ -2094,13 +2241,14 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                             labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
                             prefixIcon: Container(
-                              margin: const EdgeInsets.only(left: 12, right: 8),
-                              padding: const EdgeInsets.all(8),
+                              margin: const EdgeInsets.only(left: 8, right: 6),
+                              padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
+                                // gradient: AppTheme.primaryGradient,
+                                color: Color(0xFF2563EB),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.class_, color: Colors.white, size: 16),
+                              child: const Icon(Icons.class_, color: Colors.white, size: 13),
                             ),
                           ),
                           value: selectedClass,
@@ -2136,7 +2284,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                               selectedStudent = null;
                             });
                             if (cls != null) {
-                              
+
                               schoolController.getAllSections(classId: cls.id, schoolId: widget.schoolId);
                             }
                           },
@@ -2166,7 +2314,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                   ),
                   child: isSectionsLoading
                       ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           child: Row(
                             children: [
                               Container(
@@ -2208,7 +2356,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                               color: schoolController.sections.isEmpty && selectedClass != null
                                   ? AppTheme.errorRed
                                   : AppTheme.mutedText,
-                              fontSize: 16
+                              fontSize: 13
                             ),
                             prefixIcon: Container(
                               margin: const EdgeInsets.only(left: 12, right: 8),
@@ -2243,7 +2391,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                               selectedStudent = null;
                             });
                             if (selectedClass != null && section != null) {
-                              
+
                               schoolController.getAllStudents(
                                 schoolId: widget.schoolId,
                                 classId: selectedClass!.id,
@@ -2331,8 +2479,8 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                               child: Row(
                                 children: [
                                   Container(
-                                    width: 8,
-                                    height: 8,
+                                    width: 6,
+                                    height: 6,
                                     decoration: BoxDecoration(
                                       gradient: AppTheme.successGradient,
                                       shape: BoxShape.circle,
@@ -2343,7 +2491,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                                     student.name ?? 'Unknown Student',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
-                                      color: AppTheme.primaryText,
+                                      color: AppTheme.primaryText,fontSize: 13
                                     ),
                                   ),
                                 ],
@@ -2519,7 +2667,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                   ),
                   keyboardType: TextInputType.number,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.primaryText,
                   ),
@@ -2588,12 +2736,12 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               gradient: AppTheme.primaryGradient,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.upload_file, color: Colors.white, size: 20),
+                            child: const Icon(Icons.upload_file, color: Colors.white, size: 16),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -2611,7 +2759,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                                   Text(
                                     'Selected: ${path.basename(proofFile!.path)}',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       color: AppTheme.successGreen,
                                     ),
                                   )
@@ -2619,7 +2767,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                                   Text(
                                     'Tap to select document',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       color: AppTheme.mutedText,
                                     ),
                                   ),
@@ -2695,7 +2843,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 14,
+                                        fontSize: 13,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),

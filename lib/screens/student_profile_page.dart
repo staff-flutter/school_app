@@ -27,17 +27,19 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+
+  bool get isProfileEmpty {
+    // Checks if every single field is either empty or contains your placeholder '---'
+    return _fieldValues.values.every((val) => val.isEmpty || val == '---');
+  }
+
   final schoolController = Get.find<SchoolController>();
 
   final Map<String, TextEditingController> _editControllers = {};
   final Set<String> _editingFields = {};
   final Set<String> _savingFields = {};
 
-  // ── Live (approved) values ──────────────────────────────────────
   Map<String, String> _fieldValues = {};
-
-  // ── Pending changes waiting for admin approval ──────────────────
-  // key = field label, value = what the parent requested
   Map<String, String> _pendingValues = {};
   String? _pendingRequestId;
 
@@ -79,6 +81,65 @@ class _ProfilePageState extends State<ProfilePage> {
     'Disability Percent', 'Blood Group',
   };
 
+  // ── camelCase → display label map (used for pending changes) ────
+  static const Map<String, String> _apiKeyToLabelMap = {
+    'gender': 'Gender',
+    'fatherName': 'Father Name',
+    'motherName': 'Mother Name',
+    'guardianName': 'Guardian Name',
+    'mobileNumber': 'Mobile Number',
+    'alternateMobile': 'Alternate Mobile',
+    'email': 'Email',
+    'dob': 'Date of Birth',
+    'aadhaarNumber': 'Aadhaar Number',
+    'aadhaarName': 'Aadhaar Name',
+    'educationNumber': 'Education Number',
+    'address': 'Address',
+    'pincode': 'Pincode',
+    'motherTongue': 'Mother Tongue',
+    'socialCategory': 'Social Category',
+    'minorityGroup': 'Minority Group',
+    'bpl': 'BPL',
+    'aay': 'AAY',
+    'ews': 'EWS',
+    'cwsn': 'CWSN',
+    'impairments': 'Impairments',
+    'indian': 'Indian',
+    'outOfSchool': 'Out Of School',
+    'mainstreamedDate': 'Mainstreamed Date',
+    'disabilityCert': 'Disability Certificate',
+    'disabilityPercent': 'Disability Percent',
+    'bloodGroup': 'Blood Group',
+    'facilitiesProvided': 'Facilities Provided',
+    'facilitiesForCWSN': 'Facilities For CWSN',
+    'screenedForSLD': 'Screened For SLD',
+    'sldType': 'SLD Type',
+    'screenedForASD': 'Screened for ASD',
+    'screenedForADHD': 'Screened for ADHD',
+    'isGiftedOrTalented': 'Gifted Talented',
+    'participatedInCompetitions': 'Participated in Competitions',
+    'participatedInActivities': 'Participated in Activities',
+    'canHandleDigitalDevices': 'Can Handle Digital Devices',
+    'heightInCm': 'Height (cm)',
+    'weightInKg': 'Weight (Kg)',
+    'distanceToSchool': 'Distance to School',
+    'parentEducationLevel': 'Parent Education Level',
+    'admissionNumber': 'Admission Number',
+    'admissionDate': 'Admission Date',
+    'rollNumber': 'Roll Number',
+    'mediumOfInstruction': 'Medium of Instruction',
+    'languagesStudied': 'Languages Studied',
+    'academicStream': 'Academic Stream',
+    'subjectsStudied': 'Subjects Studied',
+    'statusInPreviousYear': 'Status in Previous Year',
+    'gradeStudiedLastYear': 'Grade Studied Last Year',
+    'enrolledUnder': 'Enrolled Under',
+    'previousResult': 'Previous Result',
+    'marksList': 'Marks List',
+    'marksObtainedPercentage': 'Marks List',
+    'daysAttendedLastYear': 'Days Attended Last Year',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -91,7 +152,7 @@ class _ProfilePageState extends State<ProfilePage> {
     for (final l in _udiseLabelsList) _fieldValues[l] = '';
   }
 
-  // ─── Cache ──────────────────────────────────────────────────────
+  // ─── Cache helpers ───────────────────────────────────────────────
   String get _cacheKey => 'student_profile_$_studentId';
   String get _pendingCacheKey => 'student_pending_$_studentId';
 
@@ -121,25 +182,27 @@ class _ProfilePageState extends State<ProfilePage> {
         .map((k, v) => MapEntry(k, v.toString()));
   }
 
-  // ─── Load ───────────────────────────────────────────────────────
+  // ─── Load ────────────────────────────────────────────────────────
   Future<void> _load() async {
     try {
       final childController = Get.find<MyChildrenController>();
       _studentId = childController.selectedChild['_id'] ?? '';
 
-      debugPrint('Loading profile for studentId: $_studentId'); // verify ID
+      debugPrint('▶ Loading profile for studentId: $_studentId');
 
       if (_studentId.isEmpty) {
-        debugPrint('ERROR: studentId is empty!');
+        debugPrint('✗ studentId is empty — aborting load');
         if (mounted) setState(() => _isLoading = false);
         return;
       }
 
+      // 1. Populate from passed Student object immediately
       if (widget.student != null) {
         _populateFromStudent(widget.student!);
         if (mounted) setState(() => _isLoading = false);
       }
 
+      // 2. Layer in disk cache
       final cached = await _loadFromCache();
       if (cached != null && cached.isNotEmpty) {
         if (mounted) setState(() { _mergeValues(cached); _isLoading = false; });
@@ -150,15 +213,16 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() => _pendingValues = cachedPending);
       }
 
+      // 3. Fetch live data
       await _fetchStudentProfile();
       await _fetchPendingRequest();
-
     } catch (e) {
-      debugPrint('Load error: $e');
+      debugPrint('✗ Load error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
   String? _getToken() {
     try { return Get.find<UserSession>().token; } catch (_) { return null; }
   }
@@ -166,24 +230,31 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _getUserId() {
     try { return Get.find<UserSession>().parentId; } catch (_) { return null; }
   }
+
   String? _getSchoolId() {
     try { return Get.find<UserSession>().schoolId; } catch (_) { return null; }
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // API #29  GET /api/student/get/:id
+  //
+  // Schema is always nested:
+  //   { data: { mandatory: { gender, fatherName, ... },
+  //             nonMandatory: { facilitiesProvided, ... } } }
+  //
+  // We also gracefully handle the edge case where the wrapper key
+  // is "student" instead of "data", or fields are promoted to root.
+  // ─────────────────────────────────────────────────────────────────
   Future<void> _fetchStudentProfile() async {
     final token = _getToken();
-
-    if (token == null) {
-      debugPrint('ERROR: token is null');
-      return;
-    }
-    if (_studentId.isEmpty) {
-      debugPrint('ERROR: studentId is empty, cannot fetch profile');
+    if (token == null || _studentId.isEmpty) {
+      debugPrint('✗ fetchStudentProfile aborted — token=$token id=$_studentId');
       return;
     }
 
-    final uri = Uri.parse('${ApiConstants.baseUrl}/api/student/get/$_studentId');
-    debugPrint('Fetching profile from: $uri');
+    final uri =
+    Uri.parse('${ApiConstants.baseUrl}/api/student/get/$_studentId');
+    debugPrint('▶ GET $uri');
 
     try {
       final response = await http.get(uri, headers: {
@@ -191,251 +262,207 @@ class _ProfilePageState extends State<ProfilePage> {
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 15));
 
-      debugPrint('Profile status: ${response.statusCode}');
-      debugPrint('Profile body: ${response.body}');
+      debugPrint('◀ status : ${response.statusCode}');
+      debugPrint('◀ body   : ${response.body}');
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        debugPrint('✗ Non-200 — cannot parse profile');
+        return;
+      }
 
-        // Handle multiple possible response shapes:
-        // { data: { mandatory: {}, nonMandatory: {} } }
-        // { data: { gender: '', fatherName: '' ... } }
-        // { mandatory: {}, nonMandatory: {} }
-        // { gender: '', fatherName: '' ... }
-        Map<String, dynamic>? data;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        debugPrint('✗ Unexpected root type: ${decoded.runtimeType}');
+        return;
+      }
 
-        if (decoded is Map<String, dynamic>) {
-          if (decoded['data'] is Map<String, dynamic>) {
-            data = decoded['data'] as Map<String, dynamic>;
-          } else if (decoded['student'] is Map<String, dynamic>) {
-            data = decoded['student'] as Map<String, dynamic>;
-          } else {
-            data = decoded;
+      // ── Step 1: unwrap to the student document ───────────────────
+      // Possible wrappers: { data: {...} } | { student: {...} } | root itself
+      Map<String, dynamic> doc = decoded;
+      if (decoded['data'] is Map<String, dynamic>) {
+        doc = decoded['data'] as Map<String, dynamic>;
+      } else if (decoded['student'] is Map<String, dynamic>) {
+        doc = decoded['student'] as Map<String, dynamic>;
+      }
+      debugPrint('▶ doc keys: ${doc.keys.toList()}');
+
+      // ── Step 2: extract mandatory / nonMandatory sub-maps ────────
+      // Schema guarantees these keys exist; default to {} if missing.
+      final Map<String, dynamic> m =
+      (doc['mandatory']    is Map<String, dynamic>)
+          ? doc['mandatory']    as Map<String, dynamic>
+          : <String, dynamic>{};
+      final Map<String, dynamic> n =
+      (doc['nonMandatory'] is Map<String, dynamic>)
+          ? doc['nonMandatory'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      debugPrint('▶ mandatory    keys: ${m.keys.toList()}');
+      debugPrint('▶ nonMandatory keys: ${n.keys.toList()}');
+
+      // ── Step 3: safe value extractor ─────────────────────────────
+      // Checks mandatory → nonMandatory → doc root (fallback safety).
+      String v(String key, [Map<String, dynamic>? extra]) {
+        for (final src in [m, n, if (extra != null) extra, doc]) {
+          final val = src[key];
+          if (val != null &&
+              val.toString().isNotEmpty &&
+              val.toString() != 'null') {
+            return val.toString();
           }
         }
-
-        debugPrint('Parsed data keys: ${data?.keys.toList()}');
-        debugPrint('mandatory keys: ${(data?['mandatory'] as Map?)?.keys.toList()}');
-        debugPrint('nonMandatory keys: ${(data?['nonMandatory'] as Map?)?.keys.toList()}');
-
-        if (data != null && mounted) {
-          setState(() => _mapResponseToFields(data!));
-          await _saveToCache(_fieldValues);
-          debugPrint('Gender after mapping: ${_fieldValues['Gender']}');
-          debugPrint('Father Name after mapping: ${_fieldValues['Father Name']}');
-          debugPrint('Mobile after mapping: ${_fieldValues['Mobile Number']}');
-        }
-      } else {
-        debugPrint('Profile fetch failed: ${response.statusCode} ${response.body}');
+        return '';
       }
-    } catch (e) {
-      debugPrint('Profile fetch error: $e');
+
+      // ── Step 4: map every schema field to its display label ───────
+      final updated = <String, String>{
+        // ── mandatory fields (exact schema keys) ───────────────────
+        'Gender':                 v('gender'),
+        'Father Name':            v('fatherName'),
+        'Mother Name':            v('motherName'),
+        'Guardian Name':          v('guardianName'),
+        'Mobile Number':          v('mobileNumber'),
+        'Alternate Mobile':       v('alternateMobile'),
+        'Email':                  v('email'),
+        'Date of Birth':          v('dob'),
+        'Aadhaar Number':         v('aadhaarNumber'),
+        'Aadhaar Name':           v('aadhaarName'),
+        'Education Number':       v('educationNumber'),
+        'Address':                v('address'),
+        'Pincode':                v('pincode'),
+        'Mother Tongue':          v('motherTongue'),
+        'Social Category':        v('socialCategory'),
+        'Minority Group':         v('minorityGroup'),
+        'BPL':                    v('bpl'),
+        'AAY':                    v('aay'),
+        'EWS':                    v('ews'),
+        'CWSN':                   v('cwsn'),
+        'Impairments':            v('impairments'),
+        'Indian':                 v('indian'),
+        'Out Of School':          v('outOfSchool'),
+        'Mainstreamed Date':      v('mainstreamedDate'),
+        'Disability Certificate': v('disabilityCert'),
+        'Disability Percent':     v('disabilityPercent'),
+        'Blood Group':            v('bloodGroup'),
+
+        // ── nonMandatory fields (exact schema keys) ─────────────────
+        'Facilities Provided':          v('facilitiesProvided'),
+        'Facilities For CWSN':          v('facilitiesForCWSN'),
+        'Screened For SLD':             v('screenedForSLD'),
+        'SLD Type':                     v('sldType'),
+        'Screened for ASD':             v('screenedForASD'),
+        'Screened for ADHD':            v('screenedForADHD'),
+        'Gifted Talented':              v('isGiftedOrTalented'),
+        'Participated in Competitions': v('participatedInCompetitions'),
+        'Participated in Activities':   v('participatedInActivities'),
+        'Can Handle Digital Devices':   v('canHandleDigitalDevices'),
+        'Height (cm)':                  v('heightInCm'),
+        'Weight (Kg)':                  v('weightInKg'),
+        'Distance to School':           v('distanceToSchool'),
+        'Parent Education Level':       v('parentEducationLevel'),
+        'Admission Number':             v('admissionNumber'),
+        'Admission Date':               v('admissionDate'),
+        'Roll Number':                  v('rollNumber'),
+        'Medium of Instruction':        v('mediumOfInstruction'),
+        'Languages Studied':            v('languagesStudied'),
+        'Academic Stream':              v('academicStream'),
+        'Subjects Studied':             v('subjectsStudied'),
+        'Status in Previous Year':      v('statusInPreviousYear'),
+        'Grade Studied Last Year':      v('gradeStudiedLastYear'),
+        'Enrolled Under':               v('enrolledUnder'),
+        'Previous Result':              v('previousResult'),
+        // Schema uses marksObtainedPercentage (not marksList)
+        'Marks List':                   v('marksObtainedPercentage'),
+        'Days Attended Last Year':      v('daysAttendedLastYear'),
+      };
+
+      // ── Diagnostic summary ────────────────────────────────────────
+      final filled = updated.entries
+          .where((e) => e.value.isNotEmpty)
+          .map((e) => '  ${e.key}: ${e.value}')
+          .join('\n');
+      debugPrint('▶ Resolved non-empty fields:\n$filled');
+
+      if (mounted) {
+        setState(() {
+          for (final e in updated.entries) {
+            if (e.value.isNotEmpty) _fieldValues[e.key] = e.value;
+          }
+          final norm = _normalizeGender(_fieldValues['Gender']);
+          _fieldValues['Gender'] = norm ?? '';
+          selectedGender = norm;
+        });
+        await _saveToCache(_fieldValues);
+      }
+    } catch (e, st) {
+      debugPrint('✗ fetchStudentProfile error: $e\n$st');
     }
-  }  // ── Fetch any pending request for this student ─────────────────
-// ── Fetch any pending request for this student ─────────────────
+  }
+
+  // ─── Fetch pending requests for this student ─────────────────────
   Future<void> _fetchPendingRequest() async {
     final token = _getToken();
+    if (token == null || _studentId.isEmpty) return;
+
     final uri = Uri.parse('${ApiConstants.baseUrl}/api/student/pending-requests')
         .replace(queryParameters: {'studentId': _studentId});
+
     try {
       final response = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
 
-      debugPrint('Pending status: ${response.statusCode}');
-      debugPrint('Pending body: ${response.body}'); // check key names here
+      debugPrint('▶ pending status: ${response.statusCode}');
+      debugPrint('▶ pending body  : ${response.body}');
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        final List<dynamic> list = decoded['data'] ?? [];
-        final pending = list.firstWhere(
-              (r) => r['status'] == 'pending',
-          orElse: () => null,
-        );
+      if (response.statusCode != 200) return;
 
-        if (pending != null && mounted) {
-          final rawChanges = (pending['changes'] as Map<String, dynamic>?) ?? {};
+      final decoded = jsonDecode(response.body);
+      final List<dynamic> list = decoded['data'] ?? [];
+      final pending = list.firstWhere(
+            (r) => r['status'] == 'pending',
+        orElse: () => null,
+      );
 
-          // Convert camelCase API keys → display labels
-          final labelChanges = <String, String>{};
-          rawChanges.forEach((apiKey, value) {
-            if (value != null && value.toString() != 'null' && value.toString().isNotEmpty) {
-              final label = _apiKeyToLabel(apiKey);
-              if (label != null) labelChanges[label] = value.toString();
-            }
-          });
+      if (pending != null && mounted) {
+        final rawChanges = (pending['changes'] as Map<String, dynamic>?) ?? {};
+        final labelChanges = <String, String>{};
 
-          setState(() {
-            _pendingValues = labelChanges;
-            _pendingRequestId = pending['_id']?.toString();
-          });
-          await _savePendingToCache(labelChanges);
-        } else if (mounted) {
-          setState(() { _pendingValues = {}; _pendingRequestId = null; });
-          await _savePendingToCache({});
-        }
+        rawChanges.forEach((apiKey, value) {
+          if (value != null &&
+              value.toString() != 'null' &&
+              value.toString().isNotEmpty) {
+            final label = _apiKeyToLabelMap[apiKey];
+            if (label != null) labelChanges[label] = value.toString();
+          }
+        });
+
+        debugPrint('▶ pending changes (label→value): $labelChanges');
+
+        setState(() {
+          _pendingValues = labelChanges;
+          _pendingRequestId = pending['_id']?.toString();
+        });
+        await _savePendingToCache(labelChanges);
+      } else if (mounted) {
+        setState(() { _pendingValues = {}; _pendingRequestId = null; });
+        await _savePendingToCache({});
       }
-    } catch (e) { debugPrint('Pending fetch error: $e'); }
-  }
-
-// Reverse lookup: camelCase API key → display label
-  String? _apiKeyToLabel(String apiKey) {
-    const map = {
-      'gender': 'Gender',
-      'fatherName': 'Father Name',
-      'motherName': 'Mother Name',
-      'guardianName': 'Guardian Name',
-      'mobileNumber': 'Mobile Number',
-      'alternateMobile': 'Alternate Mobile',
-      'email': 'Email',
-      'dob': 'Date of Birth',
-      'aadhaarNumber': 'Aadhaar Number',
-      'aadhaarName': 'Aadhaar Name',
-      'educationNumber': 'Education Number',
-      'address': 'Address',
-      'pincode': 'Pincode',
-      'motherTongue': 'Mother Tongue',
-      'socialCategory': 'Social Category',
-      'minorityGroup': 'Minority Group',
-      'bpl': 'BPL',
-      'aay': 'AAY',
-      'ews': 'EWS',
-      'cwsn': 'CWSN',
-      'impairments': 'Impairments',
-      'indian': 'Indian',
-      'outOfSchool': 'Out Of School',
-      'mainstreamedDate': 'Mainstreamed Date',
-      'disabilityCert': 'Disability Certificate',
-      'disabilityPercent': 'Disability Percent',
-      'bloodGroup': 'Blood Group',
-      'facilitiesProvided': 'Facilities Provided',
-      'facilitiesForCWSN': 'Facilities For CWSN',
-      'screenedForSLD': 'Screened For SLD',
-      'sldType': 'SLD Type',
-      'screenedForASD': 'Screened for ASD',
-      'screenedForADHD': 'Screened for ADHD',
-      'isGiftedOrTalented': 'Gifted Talented',
-      'participatedInCompetitions': 'Participated in Competitions',
-      'participatedInActivities': 'Participated in Activities',
-      'canHandleDigitalDevices': 'Can Handle Digital Devices',
-      'heightInCm': 'Height (cm)',
-      'weightInKg': 'Weight (Kg)',
-      'distanceToSchool': 'Distance to School',
-      'parentEducationLevel': 'Parent Education Level',
-      'admissionNumber': 'Admission Number',
-      'admissionDate': 'Admission Date',
-      'rollNumber': 'Roll Number',
-      'mediumOfInstruction': 'Medium of Instruction',
-      'languagesStudied': 'Languages Studied',
-      'academicStream': 'Academic Stream',
-      'subjectsStudied': 'Subjects Studied',
-      'statusInPreviousYear': 'Status in Previous Year',
-      'gradeStudiedLastYear': 'Grade Studied Last Year',
-      'enrolledUnder': 'Enrolled Under',
-      'previousResult': 'Previous Result',
-      'marksList': 'Marks List',
-      'daysAttendedLastYear': 'Days Attended Last Year',
-    };
-    return map[apiKey];
-  }
-  // ─── Map API response to fields ─────────────────────────────────
-  void _mapResponseToFields(Map<String, dynamic> data) {
-    final m = data['mandatory'] is Map<String, dynamic>
-        ? data['mandatory'] as Map<String, dynamic>
-        : <String, dynamic>{};
-    final n = data['nonMandatory'] is Map<String, dynamic>
-        ? data['nonMandatory'] as Map<String, dynamic>
-        : <String, dynamic>{};
-
-    String pick(List<String> keys) {
-      for (final k in keys) {
-        final v = m[k] ?? n[k] ?? data[k];
-        if (v != null && v.toString().isNotEmpty && v.toString() != 'null') {
-          return v.toString();
-        }
-      }
-      return '';
+    } catch (e) {
+      debugPrint('✗ fetchPendingRequest error: $e');
     }
-
-    final updated = <String, String>{
-      // ── Mandatory ──────────────────────────────────────────────────
-      'Gender':                 pick(['gender']),
-      'Father Name':            pick(['fatherName']),
-      'Mother Name':            pick(['motherName']),
-      'Guardian Name':          pick(['guardianName']),
-      'Mobile Number':          pick(['mobileNumber']),
-      'Alternate Mobile':       pick(['alternateMobile']),
-      'Email':                  pick(['email']),
-      'Date of Birth':          pick(['dob']),
-      'Aadhaar Number':         pick(['aadhaarNumber']),
-      'Aadhaar Name':           pick(['aadhaarName']),
-      'Education Number':       pick(['educationNumber']),
-      'Address':                pick(['address']),
-      'Pincode':                pick(['pincode']),
-      'Mother Tongue':          pick(['motherTongue']),
-      'Social Category':        pick(['socialCategory']),
-      'Minority Group':         pick(['minorityGroup']),
-      'BPL':                    pick(['bpl']),
-      'AAY':                    pick(['aay']),
-      'EWS':                    pick(['ews']),
-      'CWSN':                   pick(['cwsn']),
-      'Impairments':            pick(['impairments']),
-      'Indian':                 pick(['indian']),
-      'Out Of School':          pick(['outOfSchool']),
-      'Mainstreamed Date':      pick(['mainstreamedDate']),
-      'Disability Certificate': pick(['disabilityCert']),
-      'Disability Percent':     pick(['disabilityPercent']),
-      'Blood Group':            pick(['bloodGroup']),
-
-      // ── Non-Mandatory (UDISE) ──────────────────────────────────────
-      'Facilities Provided':          pick(['facilitiesProvided']),
-      'Facilities For CWSN':          pick(['facilitiesForCWSN']),
-      'Screened For SLD':             pick(['screenedForSLD']),
-      'SLD Type':                     pick(['sldType']),
-      'Screened for ASD':             pick(['screenedForASD']),
-      'Screened for ADHD':            pick(['screenedForADHD']),
-      'Gifted Talented':              pick(['isGiftedOrTalented']),
-      'Participated in Competitions': pick(['participatedInCompetitions']),
-      'Participated in Activities':   pick(['participatedInActivities']),
-      'Can Handle Digital Devices':   pick(['canHandleDigitalDevices']),
-      'Height (cm)':                  pick(['heightInCm']),
-      'Weight (Kg)':                  pick(['weightInKg']),
-      'Distance to School':           pick(['distanceToSchool']),
-      'Parent Education Level':       pick(['parentEducationLevel']),
-      'Admission Number':             pick(['admissionNumber']),
-      'Admission Date':               pick(['admissionDate']),
-      'Roll Number':                  pick(['rollNumber']),
-      'Medium of Instruction':        pick(['mediumOfInstruction']),
-      'Languages Studied':            pick(['languagesStudied']),
-      'Academic Stream':              pick(['academicStream']),
-      'Subjects Studied':             pick(['subjectsStudied']),
-      'Status in Previous Year':      pick(['statusInPreviousYear']),
-      'Grade Studied Last Year':      pick(['gradeStudiedLastYear', 'gradeStudiedLastYear']),
-      'Enrolled Under':               pick(['enrolledUnder']),
-      'Previous Result':              pick(['previousResult']),
-      'Marks List':                   pick(['marksList']),
-      'Days Attended Last Year':      pick(['daysAttendedLastYear']),
-    };
-
-    for (final entry in updated.entries) {
-      if (entry.value.isNotEmpty) _fieldValues[entry.key] = entry.value;
-    }
-
-    final g = _fieldValues['Gender'] ?? '';
-    final normalized = _normalizeGender(g);
-    _fieldValues['Gender'] = normalized ?? '';
-    selectedGender = normalized;
   }
 
+  // ─── Merge values ────────────────────────────────────────────────
   void _mergeValues(Map<String, String> incoming) {
-    for (final entry in incoming.entries) {
-      if (entry.value.isNotEmpty) _fieldValues[entry.key] = entry.value;
+    for (final e in incoming.entries) {
+      if (e.value.isNotEmpty) _fieldValues[e.key] = e.value;
     }
     final g = _fieldValues['Gender'] ?? '';
-    final normalized = _normalizeGender(g);
-    _fieldValues['Gender'] = normalized ?? '';
-    selectedGender = normalized;
+    final norm = _normalizeGender(g);
+    _fieldValues['Gender'] = norm ?? '';
+    selectedGender = norm;
   }
 
   void _populateFromStudent(Student student) {
@@ -469,52 +496,108 @@ class _ProfilePageState extends State<ProfilePage> {
     set('Disability Certificate', student.disabilityCert);
     set('Disability Percent', student.disabilityPercent);
     set('Blood Group', student.bloodGroup);
-    final g = student.gender ?? '';
-    final normalized = _normalizeGender(g);
-    _fieldValues['Gender'] = normalized ?? '';
-    selectedGender = normalized;
+    final norm = _normalizeGender(student.gender);
+    _fieldValues['Gender'] = norm ?? '';
+    selectedGender = norm;
   }
 
-  // ─── Submit pending update request ──────────────────────────────
+  // ── Reverse map: display label → camelCase API key ───────────────
+  static const Map<String, String> _labelToApiKeyMap = {
+    'Gender': 'gender',
+    'Father Name': 'fatherName',
+    'Mother Name': 'motherName',
+    'Guardian Name': 'guardianName',
+    'Mobile Number': 'mobileNumber',
+    'Alternate Mobile': 'alternateMobile',
+    'Email': 'email',
+    'Date of Birth': 'dob',
+    'Aadhaar Number': 'aadhaarNumber',
+    'Aadhaar Name': 'aadhaarName',
+    'Education Number': 'educationNumber',
+    'Address': 'address',
+    'Pincode': 'pincode',
+    'Mother Tongue': 'motherTongue',
+    'Social Category': 'socialCategory',
+    'Minority Group': 'minorityGroup',
+    'BPL': 'bpl',
+    'AAY': 'aay',
+    'EWS': 'ews',
+    'CWSN': 'cwsn',
+    'Impairments': 'impairments',
+    'Indian': 'indian',
+    'Out Of School': 'outOfSchool',
+    'Mainstreamed Date': 'mainstreamedDate',
+    'Disability Certificate': 'disabilityCert',
+    'Disability Percent': 'disabilityPercent',
+    'Blood Group': 'bloodGroup',
+    'Facilities Provided': 'facilitiesProvided',
+    'Facilities For CWSN': 'facilitiesForCWSN',
+    'Screened For SLD': 'screenedForSLD',
+    'SLD Type': 'sldType',
+    'Screened for ASD': 'screenedForASD',
+    'Screened for ADHD': 'screenedForADHD',
+    'Gifted Talented': 'isGiftedOrTalented',
+    'Participated in Competitions': 'participatedInCompetitions',
+    'Participated in Activities': 'participatedInActivities',
+    'Can Handle Digital Devices': 'canHandleDigitalDevices',
+    'Height (cm)': 'heightInCm',
+    'Weight (Kg)': 'weightInKg',
+    'Distance to School': 'distanceToSchool',
+    'Parent Education Level': 'parentEducationLevel',
+    'Admission Number': 'admissionNumber',
+    'Admission Date': 'admissionDate',
+    'Roll Number': 'rollNumber',
+    'Medium of Instruction': 'mediumOfInstruction',
+    'Languages Studied': 'languagesStudied',
+    'Academic Stream': 'academicStream',
+    'Subjects Studied': 'subjectsStudied',
+    'Status in Previous Year': 'statusInPreviousYear',
+    'Grade Studied Last Year': 'gradeStudiedLastYear',
+    'Enrolled Under': 'enrolledUnder',
+    'Previous Result': 'previousResult',
+    'Marks List': 'marksObtainedPercentage',
+    'Days Attended Last Year': 'daysAttendedLastYear',
+  };
+
+  // ─── Submit update request ───────────────────────────────────────
   Future<void> _submitUpdateRequest(String label, String newValue) async {
     setState(() => _savingFields.add(label));
 
-    final token = _getToken();
+    final token  = _getToken();
     final userId = _getUserId();
 
-    // Guard clause against missing session tokens
     if (token == null || userId == null) {
       setState(() => _savingFields.remove(label));
       _showSnack('Session expired. Please log in again.', Colors.red);
       return;
     }
 
-    // Merge with existing pending changes
-    final allChanges = Map<String, String>.from(_pendingValues)..[label] = newValue;
-    final allPrevious = <String, String>{};
+    // Merge this change with any existing pending label→value map
+    final allLabelChanges = Map<String, String>.from(_pendingValues)..[label] = newValue;
 
-    for (final k in allChanges.keys) {
-      allPrevious[k] = _fieldValues[k] ?? '';
-    }
-    final allSections = <String, String>{};
-    for (final k in allChanges.keys) {
-      allSections[k] = _mandatoryLabels.contains(k) ? 'mandatory' : 'nonMandatory';
-    }
-    // Create payload body matching the exact expectations of your verification schema
+    // ── Convert display label keys → camelCase API keys ─────────────
+    final Map<String, String> changes = {};
+    final Map<String, String> previousValues = {};
+    final Map<String, String> section = {};
+
+    allLabelChanges.forEach((lbl, val) {
+      final apiKey = _labelToApiKeyMap[lbl] ?? lbl;
+      changes[apiKey]        = val;
+      previousValues[apiKey] = _fieldValues[lbl] ?? '';
+      section[apiKey]        = _mandatoryLabels.contains(lbl) ? 'mandatory' : 'nonMandatory';
+    });
+
     final body = {
       'studentId':      _studentId,
       'schoolId':       _getSchoolId() ?? '',
       'requestedBy':    userId,
-      'changes':        allChanges,
-      'previousValues': allPrevious,
-      'section':        allSections,
+      'changes':        changes,
+      'previousValues': previousValues,
+      'section':        section,
     };
 
     try {
-      // Print payload immediately before sending to copy-paste into Postman/Thunder Client
-      debugPrint('--- SENDING PAYLOAD ---');
-      debugPrint(jsonEncode(body));
-      debugPrint('-----------------------');
+      debugPrint('▶ POST request-update payload:\n${jsonEncode(body)}');
 
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/student/request-update'),
@@ -525,35 +608,32 @@ class _ProfilePageState extends State<ProfilePage> {
         body: jsonEncode(body),
       ).timeout(const Duration(seconds: 15));
 
+      debugPrint('◀ status: ${response.statusCode}  body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final decoded = jsonDecode(response.body);
         setState(() {
           _pendingValues[label] = newValue;
-          _pendingRequestId = decoded['data']?['_id']?.toString() ?? _pendingRequestId;
+          _pendingRequestId =
+              decoded['data']?['_id']?.toString() ?? _pendingRequestId;
           _editingFields.remove(label);
-
-          // Target specific controller teardown safely
-          if (_editControllers.containsKey(label)) {
-            _editControllers[label]?.dispose();
-            _editControllers.remove(label);
-          }
+          _editControllers[label]?.dispose();
+          _editControllers.remove(label);
         });
         await _savePendingToCache(_pendingValues);
         _showSnack('✓ Sent for admin verification', Colors.orange.shade700);
       } else {
-        // Print backend error details to narrow down what broke on the server side
-        debugPrint('Backend Error [${response.statusCode}]: ${response.body}');
+        debugPrint('✗ Backend [${response.statusCode}]: ${response.body}');
         _showSnack('Failed to submit — try again', Colors.red);
       }
     } catch (e) {
-      debugPrint('Submit error: $e');
+      debugPrint('✗ Submit error: $e');
       _showSnack('Connection error', Colors.red);
     } finally {
-      if (mounted) {
-        setState(() => _savingFields.remove(label));
-      }
+      if (mounted) setState(() => _savingFields.remove(label));
     }
   }
+
   void _showSnack(String msg, Color color) {
     if (Get.isSnackbarOpen) Get.closeCurrentSnackbar();
     Get.snackbar('', msg,
@@ -566,85 +646,27 @@ class _ProfilePageState extends State<ProfilePage> {
         duration: const Duration(seconds: 3));
   }
 
-  // ─── Gender normalizer ───────────────────────────────────────────
+  // ─── Gender normaliser ───────────────────────────────────────────
   static const _genderOptions = ['Male', 'Female', 'Other'];
+
   String? _normalizeGender(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     final lower = raw.toLowerCase().trim();
     if (lower == 'male'   || lower == 'm') return 'Male';
     if (lower == 'female' || lower == 'f') return 'Female';
-    if (lower == 'other') return 'Other';
+    if (lower == 'other')                  return 'Other';
     return _genderOptions.contains(raw) ? raw : null;
   }
 
-  String _labelToApiKey(String label) {
-    const map = {
-      'Gender': 'gender',
-      'Father Name': 'fatherName',
-      'Mother Name': 'motherName',
-      'Guardian Name': 'guardianName',
-      'Mobile Number': 'mobileNumber',
-      'Alternate Mobile': 'alternateMobile',
-      'Email': 'email',
-      'Date of Birth': 'dob',
-      'Aadhaar Number': 'aadhaarNumber',
-      'Aadhaar Name': 'aadhaarName',
-      'Education Number': 'educationNumber',
-      'Address': 'address',
-      'Pincode': 'pincode',
-      'Mother Tongue': 'motherTongue',
-      'Social Category': 'socialCategory',
-      'Minority Group': 'minorityGroup',
-      'BPL': 'bpl',
-      'AAY': 'aay',
-      'EWS': 'ews',
-      'CWSN': 'cwsn',
-      'Impairments': 'impairments',
-      'Indian': 'indian',
-      'Out Of School': 'outOfSchool',
-      'Mainstreamed Date': 'mainstreamedDate',
-      'Disability Certificate': 'disabilityCert',
-      'Disability Percent': 'disabilityPercent',
-      'Blood Group': 'bloodGroup',
-      'Facilities Provided': 'facilitiesProvided',
-      'Facilities For CWSN': 'facilitiesForCWSN',
-      'Screened For SLD': 'screenedForSLD',
-      'SLD Type': 'sldType',
-      'Screened for ASD': 'screenedForASD',
-      'Screened for ADHD': 'screenedForADHD',
-      'Gifted Talented': 'isGiftedOrTalented',
-      'Participated in Competitions': 'participatedInCompetitions',
-      'Participated in Activities': 'participatedInActivities',
-      'Can Handle Digital Devices': 'canHandleDigitalDevices',
-      'Height (cm)': 'heightInCm',
-      'Weight (Kg)': 'weightInKg',
-      'Distance to School': 'distanceToSchool',
-      'Parent Education Level': 'parentEducationLevel',
-      'Admission Number': 'admissionNumber',
-      'Admission Date': 'admissionDate',
-      'Roll Number': 'rollNumber',
-      'Medium of Instruction': 'mediumOfInstruction',
-      'Languages Studied': 'languagesStudied',
-      'Academic Stream': 'academicStream',
-      'Subjects Studied': 'subjectsStudied',
-      'Status in Previous Year': 'statusInPreviousYear',
-      'Grade Studied Last Year': 'gradeStudiedLastYear',
-      'Enrolled Under': 'enrolledUnder',
-      'Previous Result': 'previousResult',
-      'Marks List': 'marksList',
-      'Days Attended Last Year': 'daysAttendedLastYear',
-    };
-    return map[label] ?? label;
-  }
   // ─── Build ───────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+
     final childController = Get.find<MyChildrenController>();
     final String studentName =
         childController.selectedChild['studentName'] ?? 'Student';
     final String studentImageUrl =
         childController.selectedChild['studentImage']?['url'] ?? '';
-
     final pendingCount = _pendingValues.length;
 
     return PopScope(
@@ -677,18 +699,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : RefreshIndicator(
-                         onRefresh: () async {
-                         await _fetchStudentProfile();
-                         await _fetchPendingRequest();
-                           },
-                         child: SingleChildScrollView(
-                                            physics: const AlwaysScrollableScrollPhysics(),
-                                            child: Column(children: [
+                    onRefresh: () async {
+                      await _fetchStudentProfile();
+                      await _fetchPendingRequest();
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(children: [
                         _buildHeader(studentName, studentImageUrl),
                         const SizedBox(height: 75),
                         Text('$studentName Profile',
                             style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w600)),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
                         Container(
                           width: 120, height: 2,
@@ -701,10 +724,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
-                        // ── Pending banner ─────────────────────
-                        if (pendingCount > 0) _buildPendingBanner(pendingCount),
-                        
+                        if (pendingCount > 0)
+                          _buildPendingBanner(pendingCount),
                         const SizedBox(height: 8),
                         _buildSection(
                           title: 'Mandatory Information',
@@ -718,29 +739,35 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 30),
                         Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 40),
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 40),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: [Color(0xff4A90E2), Color(0xff6FD3F7)]),
+                            gradient: const LinearGradient(colors: [
+                              Color(0xff4A90E2),
+                              Color(0xff6FD3F7)
+                            ]),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
-                              minimumSize: const Size(double.infinity, 48),
+                              minimumSize:
+                              const Size(double.infinity, 48),
                             ),
                             onPressed: () => _showSnack(
                                 "Your child's form is submitted for verification",
                                 Colors.green),
-                            child: const Text('Submit For Verification',
-                                style: TextStyle(color: Colors.white)),
+                            child: const Text(
+                                'Submit For Verification',
+                                style:
+                                TextStyle(color: Colors.white)),
                           ),
                         ),
                         const SizedBox(height: 40),
-                                            ]),
-                                          ),
-                      ),
+                      ]),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -750,7 +777,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ── Pending changes banner ───────────────────────────────────────
+  // ── Pending banner ───────────────────────────────────────────────
   Widget _buildPendingBanner(int count) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -764,29 +791,30 @@ class _ProfilePageState extends State<ProfilePage> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.orange.shade100,
-            shape: BoxShape.circle,
-          ),
+              color: Colors.orange.shade100, shape: BoxShape.circle),
           child: Icon(Icons.pending_actions_rounded,
               color: Colors.orange.shade800, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-              '$count field${count == 1 ? '' : 's'} pending verification',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: Colors.orange.shade900),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Your changes are waiting for admin approval. '
-                  'Current values are shown until approved.',
-              style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
-            ),
-          ]),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count field${count == 1 ? '' : 's'} pending verification',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Colors.orange.shade900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Your changes are waiting for admin approval. '
+                      'Current values are shown until approved.',
+                  style:
+                  TextStyle(fontSize: 11, color: Colors.orange.shade800),
+                ),
+              ]),
         ),
       ]),
     );
@@ -803,7 +831,8 @@ class _ProfilePageState extends State<ProfilePage> {
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
           ),
@@ -821,10 +850,13 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 15, offset: const Offset(0, 5),
-                )],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  )
+                ],
               ),
               child: CircleAvatar(
                 radius: 55, backgroundColor: Colors.white,
@@ -833,7 +865,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   backgroundImage:
                   imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
                   child: imageUrl.isEmpty
-                      ? const Icon(Icons.person, size: 40) : null,
+                      ? const Icon(Icons.person, size: 40)
+                      : null,
                 ),
               ),
             ),
@@ -853,10 +886,13 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: Colors.white,
-        boxShadow: [BoxShadow(
-          color: Colors.blue.withOpacity(0.2),
-          blurRadius: 12, offset: const Offset(0, 6),
-        )],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          )
+        ],
       ),
       child: Theme(
         data: ThemeData().copyWith(
@@ -883,17 +919,17 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildFieldRow(String label) {
-    if (label == 'Gender') return _buildGenderRow();
+    if (label == 'Gender')       return _buildGenderRow();
     if (label == 'Date of Birth') return _buildDateRow(label);
     return _buildTextRow(label);
   }
 
   // ─── Generic text row ────────────────────────────────────────────
   Widget _buildTextRow(String label) {
-    final isEditing = _editingFields.contains(label);
-    final isSaving  = _savingFields.contains(label);
-    final value     = _fieldValues[label] ?? '';
-    final pending   = _pendingValues[label];
+    final isEditing  = _editingFields.contains(label);
+    final isSaving   = _savingFields.contains(label);
+    final value      = _fieldValues[label] ?? '';
+    final pending    = _pendingValues[label];
     final hasPending = pending != null && pending != value;
 
     return Padding(
@@ -1023,8 +1059,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 _editingFields.remove('Gender');
                 selectedGender = _normalizeGender(_fieldValues['Gender']);
               }),
-              onSave: () => _submitUpdateRequest(
-                  'Gender', selectedGender ?? ''),
+              onSave: () =>
+                  _submitUpdateRequest('Gender', selectedGender ?? ''),
             ),
           ]),
         ),
@@ -1044,20 +1080,26 @@ class _ProfilePageState extends State<ProfilePage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: hasPending ? Colors.orange.shade50 : const Color(0xffF1F4F9),
+          color: hasPending
+              ? Colors.orange.shade50
+              : const Color(0xffF1F4F9),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: hasPending ? Colors.orange.shade300 : Colors.transparent,
+            color: hasPending
+                ? Colors.orange.shade300
+                : Colors.transparent,
             width: 1.5,
           ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(children: [
-            Expanded(child: _fieldDisplay(label, value, pendingValue: pending)),
+            Expanded(
+                child: _fieldDisplay(label, value, pendingValue: pending)),
             const SizedBox(width: 8),
             isSaving
-                ? const SizedBox(width: 24, height: 24,
+                ? const SizedBox(
+                width: 24, height: 24,
                 child: CircularProgressIndicator(strokeWidth: 2))
                 : GestureDetector(
               onTap: () async {
@@ -1105,7 +1147,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ─── Field display — shows current value + pending chip ─────────
+  // ─── Field display ───────────────────────────────────────────────
   Widget _fieldDisplay(String label, String value, {String? pendingValue}) {
     final hasPending = pendingValue != null && pendingValue != value;
     return Column(
@@ -1119,27 +1161,29 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: Colors.grey.shade600,
                 fontWeight: FontWeight.w500)),
         const SizedBox(height: 2),
-        // Current approved value
         Text(
           value.isNotEmpty ? value : '—',
           style: TextStyle(
             fontSize: 15,
-            color: value.isNotEmpty ? Colors.black87 : Colors.grey.shade400,
+            color:
+            value.isNotEmpty ? Colors.black87 : Colors.grey.shade400,
             fontWeight: FontWeight.w500,
-            decoration: hasPending ? TextDecoration.lineThrough : null,
+            decoration:
+            hasPending ? TextDecoration.lineThrough : null,
             decorationColor: Colors.orange.shade400,
           ),
         ),
-        // Pending value chip shown below current value
         if (hasPending) ...[
           const SizedBox(height: 4),
           Row(children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.orange.shade100,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.orange.shade300, width: 0.5),
+                border: Border.all(
+                    color: Colors.orange.shade300, width: 0.5),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.pending_rounded,
@@ -1157,7 +1201,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(width: 6),
             Text('pending',
-                style: TextStyle(fontSize: 10, color: Colors.orange.shade600)),
+                style: TextStyle(
+                    fontSize: 10, color: Colors.orange.shade600)),
           ]),
         ],
         const SizedBox(height: 8),
@@ -1176,7 +1221,9 @@ class _ProfilePageState extends State<ProfilePage> {
     required VoidCallback onSave,
   }) {
     if (isSaving) {
-      return const SizedBox(width: 24, height: 24,
+      return const SizedBox(
+          width: 24,
+          height: 24,
           child: CircularProgressIndicator(strokeWidth: 2));
     }
     if (isEditing) {
@@ -1200,12 +1247,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   colors: [Color(0xff4A90E2), Color(0xff6FD3F7)]),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check, size: 16, color: Colors.white),
+            child:
+            const Icon(Icons.check, size: 16, color: Colors.white),
           ),
         ),
       ]);
     }
-    // Show orange edit icon if pending, blue otherwise
     return GestureDetector(
       onTap: onEdit,
       child: Container(
@@ -1242,6 +1289,7 @@ class HeaderClipper extends CustomClipper<Path> {
     path.close();
     return path;
   }
+
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

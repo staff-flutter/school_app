@@ -819,7 +819,31 @@ class ProfileView extends GetView<AuthController> {
             ),
             const SizedBox(height: 20),
             Obx(() {
-              final school = controller.userSchool.value;
+            final role = controller.user.value?.role?.toLowerCase() ?? '';
+
+            // For correspondent: use sidebar-selected school
+            // For others: use auth controller's userSchool (their own school)
+            Map<String, dynamic>? school;
+
+            if (role == 'correspondent') {
+            final schoolCtrl = Get.isRegistered<SchoolController>()
+            ? Get.find<SchoolController>()
+                : null;
+            final selectedSchool = schoolCtrl?.selectedSchool.value;
+            if (selectedSchool != null) {
+            school = {
+            '_id': selectedSchool.id,
+            'name': selectedSchool.name,
+            'address': selectedSchool.address ?? '',
+            'email': selectedSchool.email ?? '',
+            'logo': selectedSchool.logo,
+            };
+            }
+            } else {
+            school = controller.userSchool.value;
+            }
+
+
 
               if (school != null) {
                 return Column(
@@ -829,7 +853,7 @@ class ProfileView extends GetView<AuthController> {
                         child: Stack(
                           children: [
                             GestureDetector(
-                              onTap: () => _showFullScreenLogo(context, school['logo']['url']),
+                              onTap: () => _showFullScreenLogo(context, school?['logo']['url']),
                               child: Container(
                                 width: 80,
                                 height: 80,
@@ -859,7 +883,7 @@ class ProfileView extends GetView<AuthController> {
                               right: 0,
                               child: controller.user.value?.role.toLowerCase() == 'correspondent'
                                   ? GestureDetector(
-                                onTap: () => _showImagePicker(context, school['_id'] ?? school['id']),
+                                onTap: () => _showImagePicker(context, school?['_id'] ?? school?['id']),
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
@@ -1525,7 +1549,9 @@ class ProfileView extends GetView<AuthController> {
   }
 
   void _showImagePicker(BuildContext context, String schoolId) {
-    var schlcontroller = Get.put(SchoolController());
+    final schlcontroller = Get.isRegistered<SchoolController>()
+        ? Get.find<SchoolController>()
+        : Get.put(SchoolController(), permanent: true);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1665,8 +1691,9 @@ class ProfileView extends GetView<AuthController> {
     final linkedinController = TextEditingController();
     final youtubeController = TextEditingController();
     final isLoading = false.obs;
-    final schoolController = Get.put(SchoolController());
-
+    final schoolController = Get.isRegistered<SchoolController>()
+        ? Get.find<SchoolController>()
+        : Get.put(SchoolController(), permanent: true);
     // Load current values
     _getSocialMediaLinks(schoolId).then((links) {
       instagramController.text = links['instagram'] ?? '';
