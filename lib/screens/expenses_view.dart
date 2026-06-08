@@ -598,18 +598,18 @@ class _ExpensesViewState extends State<ExpensesView> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.receipt, color: Colors.white, size: 24),
+                  child: const Icon(Icons.receipt, color: Colors.white, size: 18),
                 ),
                 const SizedBox(width: 16),
                 Text(
                   'Expense Details',
                   style: TextStyle(
-                    fontSize: isTablet ? 15 : 13,
+                    fontSize: isTablet ? 13 : 12,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryText,
                   ),
@@ -656,12 +656,12 @@ class _ExpensesViewState extends State<ExpensesView> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.security, color: Colors.white, size: 24),
+                  child: const Icon(Icons.security, color: Colors.white, size: 18),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -671,7 +671,7 @@ class _ExpensesViewState extends State<ExpensesView> {
                       Text(
                         'Evidence Section',
                         style: TextStyle(
-                          fontSize: isTablet ? 15 : 13,
+                          fontSize: isTablet ? 13 : 11,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryText,
                         ),
@@ -681,7 +681,7 @@ class _ExpensesViewState extends State<ExpensesView> {
                         style: TextStyle(
                           color: const Color(0xFF2563EB),
                           fontWeight: FontWeight.w500,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -752,7 +752,7 @@ class _ExpensesViewState extends State<ExpensesView> {
                         'Save Expense',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: isTablet ? 18 : 16,
+                          fontSize: isTablet ? 15 : 13,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -776,6 +776,7 @@ class _ExpensesViewState extends State<ExpensesView> {
         decoration: const InputDecoration(
           labelText: 'Amount *',
           prefixText: '₹ ',
+          labelStyle: const TextStyle(fontSize: 11),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
@@ -801,7 +802,7 @@ class _ExpensesViewState extends State<ExpensesView> {
           'Category *',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: isTablet ? 16 : 14,
+            fontSize: isTablet ? 13 : 11,
             color: AppTheme.primaryText,
           ),
         ),
@@ -821,7 +822,7 @@ class _ExpensesViewState extends State<ExpensesView> {
             items: ['Salary', 'EB', 'Fuel', 'Operations', 'Maintenance']
                 .map((category) => DropdownMenuItem(
                       value: category,
-                      child: Text(category),
+                      child: Text(category,style: TextStyle(fontSize: 13),),
                     ))
                 .toList(),
             onChanged: (value) {
@@ -841,7 +842,7 @@ class _ExpensesViewState extends State<ExpensesView> {
           'Payment Mode *',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: isTablet ? 16 : 14,
+            fontSize: isTablet ? 13 : 11,
             color: AppTheme.primaryText,
           ),
         ),
@@ -873,13 +874,13 @@ class _ExpensesViewState extends State<ExpensesView> {
                   onTap: () => selectedPaymentMode.value = mode,
                   borderRadius: BorderRadius.circular(25),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Text(
                       mode.toUpperCase(),
                       style: TextStyle(
                         color: isSelected ? Colors.white : AppTheme.primaryText,
                         fontWeight: FontWeight.w600,
-                        fontSize: isTablet ? 14 : 12,
+                        fontSize: isTablet ? 12 : 10,
                       ),
                     ),
                   ),
@@ -907,6 +908,10 @@ class _ExpensesViewState extends State<ExpensesView> {
                   decoration: const InputDecoration(
                     labelText: 'Cheque Number *',
                     border: InputBorder.none,
+                    labelStyle: TextStyle(
+                      fontSize: 12.0, // Set your desired font size here
+
+                    ),
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   validator: (value) {
@@ -929,6 +934,7 @@ class _ExpensesViewState extends State<ExpensesView> {
                   controller: _bankNameController,
                   decoration: const InputDecoration(
                     labelText: 'Bank Name *',
+                    labelStyle: TextStyle(fontSize: 12),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
@@ -954,7 +960,7 @@ class _ExpensesViewState extends State<ExpensesView> {
           'Date *',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: isTablet ? 16 : 14,
+            fontSize: isTablet ? 13 : 11,
             color: AppTheme.primaryText,
           ),
         ),
@@ -984,7 +990,7 @@ class _ExpensesViewState extends State<ExpensesView> {
                 const SizedBox(width: 12),
                 Text(
                   DateFormat('yyyy-MM-dd').format(selectedDate.value),
-                  style: const TextStyle(fontSize: 16),
+                  style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
@@ -1028,7 +1034,7 @@ class _ExpensesViewState extends State<ExpensesView> {
           title,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: isTablet ? 16 : 14,
+            fontSize: isTablet ? 13 : 11,
             color: AppTheme.primaryText,
           ),
         ),
@@ -1036,7 +1042,7 @@ class _ExpensesViewState extends State<ExpensesView> {
         Text(
           subtitle,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 10,
             color: AppTheme.mutedText,
           ),
         ),
@@ -1613,6 +1619,7 @@ class _ExpensesViewState extends State<ExpensesView> {
             child: Text(
               '$label:',
               style: TextStyle(
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.mutedText,
               ),
@@ -1622,6 +1629,7 @@ class _ExpensesViewState extends State<ExpensesView> {
             child: Text(
               value,
               style: TextStyle(
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.primaryText,
               ),

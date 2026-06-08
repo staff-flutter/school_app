@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/constants/api_constants.dart';
 import 'home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -72,7 +73,7 @@ class _ProfileSelectionState extends State<ProfileSelection> {
     };
     print('userId:$userid');
     const userId = "694ab187bab204b91c6b6849";
-    final uri = Uri.https('bmbbackend.com', '/api/user/associated-students/get/$userid');
+    final uri = Uri.https('${ApiConstants.baseUrl}', '/api/user/associated-students/get/$userid');
 
     final response = await http.get(
       uri,

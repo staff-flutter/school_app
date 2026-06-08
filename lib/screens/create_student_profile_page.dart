@@ -9,6 +9,8 @@ import 'package:school_app/constants/api_constants.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/school_controller.dart';
+import '../models/school_models.dart';
+import '../models/student_model.dart';
 import '../services/api_service.dart';
 
 // =============================================================================
@@ -16,39 +18,28 @@ import '../services/api_service.dart';
 // =============================================================================
 
 class _AppColors {
-  // Primary blue — matches the sidebar active item blue
   static const primary       = Color(0xFF1565C0);
   static const primaryLight  = Color(0xFFE3EEF9);
   static const primaryMid    = Color(0xFF1976D2);
   static const primaryDark   = Color(0xFF0D47A1);
-
-  // Surface / backgrounds
   static const surface       = Color(0xFFF5F7FA);
   static const cardBg        = Color(0xFFFFFFFF);
   static const sectionBg     = Color(0xFFF0F4FA);
-
-  // Text
   static const textPrimary   = Color(0xFF1A2340);
   static const textSecondary = Color(0xFF5B6880);
   static const textHint      = Color(0xFF9AA5B4);
-
-  // Border
   static const border        = Color(0xFFDDE3EC);
   static const borderFocus   = Color(0xFF1976D2);
-
-  // Semantic
   static const success       = Color(0xFF2E7D32);
   static const successBg     = Color(0xFFE8F5E9);
   static const error         = Color(0xFFC62828);
   static const errorBg       = Color(0xFFFFEBEE);
-
-  // Step indicator
   static const stepDone      = Color(0xFF1976D2);
   static const stepInactive  = Color(0xFFCDD4E0);
 }
 
 // =============================================================================
-// MODELS (unchanged from original)
+// MODELS
 // =============================================================================
 
 class StudentPayload {
@@ -142,11 +133,20 @@ class NonMandatoryDetails {
 }
 
 // =============================================================================
-// CREATE STUDENT PROFILE PAGE
+// CREATE / EDIT STUDENT PROFILE PAGE
 // =============================================================================
 
 class CreateStudentProfilePage extends StatefulWidget {
-  const CreateStudentProfilePage({super.key});
+  final String? schoolId;
+  final Student? student;
+  final bool isEdit;
+
+  const CreateStudentProfilePage({
+    super.key,
+    this.schoolId,
+    this.student,
+    this.isEdit = false,
+  });
 
   @override
   State<CreateStudentProfilePage> createState() =>
@@ -159,6 +159,9 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final _school = Get.find<SchoolController>();
 
   String? get _resolvedSchoolId {
+    if (widget.schoolId != null && widget.schoolId!.isNotEmpty) {
+      return widget.schoolId;
+    }
     final role = _auth.user.value?.role?.toLowerCase() ?? '';
     if (role == 'correspondent') return _school.selectedSchool.value?.id;
     return _auth.user.value?.schoolId;
@@ -167,12 +170,12 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   bool get _isCorrespondent =>
       (_auth.user.value?.role?.toLowerCase() ?? '') == 'correspondent';
 
-  // ── Step 0 ─────────────────────────────────────────────────────────────────
-  String? _pickedClass;
-  String? _pickedSection;
+  String? _pickedClassId;
+  String? _pickedClassName;
+  String? _pickedSectionId;
+  String? _pickedSectionName;
   bool _selectionDone = false;
 
-  // ── Stepper ────────────────────────────────────────────────────────────────
   final _pageCtrl = PageController();
   int _currentPage = 0;
   bool _isSubmitting = false;
@@ -181,18 +184,15 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
 
-  // ── Form keys ──────────────────────────────────────────────────────────────
   final _basicKey      = GlobalKey<FormState>();
   final _mandatoryKey  = GlobalKey<FormState>();
   final _additionalKey = GlobalKey<FormState>();
   final _enrollmentKey = GlobalKey<FormState>();
 
-  // ── Controllers: Basic ─────────────────────────────────────────────────────
   final _nameCtrl = TextEditingController();
   final _srIdCtrl = TextEditingController();
   bool _isActive  = true;
 
-  // ── Controllers: Mandatory ─────────────────────────────────────────────────
   final _dobCtrl              = TextEditingController();
   final _eduNoCtrl            = TextEditingController();
   final _motherCtrl           = TextEditingController();
@@ -212,8 +212,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final _disabilityPctCtrl    = TextEditingController();
   String? _selGender, _selBlood, _selSocialCat;
   String? _selBpl, _selAay, _selEws, _selCwsn, _selIndian, _selOos, _selDisCert;
+  String? _selMedium, _selStream, _selPrevStatus, _selPrevResult;
 
-  // ── Controllers: Additional ────────────────────────────────────────────────
   final _heightCtrl     = TextEditingController();
   final _weightCtrl     = TextEditingController();
   final _distanceCtrl   = TextEditingController();
@@ -224,7 +224,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final _facCwsnCtrl    = TextEditingController();
   String? _selSLD, _selASD, _selADHD, _selGifted, _selCompetitions, _selDigital;
 
-  // ── Controllers: Enrollment ────────────────────────────────────────────────
   final _admNoCtrl     = TextEditingController();
   final _admDateCtrl   = TextEditingController();
   final _rollNoCtrl    = TextEditingController();
@@ -234,18 +233,11 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final _gradeLastCtrl = TextEditingController();
   final _marksPctCtrl  = TextEditingController();
   final _daysCtrl      = TextEditingController();
-  String? _selMedium, _selStream, _selPrevStatus, _selPrevResult;
 
-  // ── Options ────────────────────────────────────────────────────────────────
   static const _yesNo   = ['Yes', 'No'];
   static const _genders = ['Male', 'Female', 'Other'];
   static const _bloods  = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   static const _socCats = ['General', 'OBC', 'SC', 'ST'];
-  static const _classes = [
-    'LKG','UKG','Class 1','Class 2','Class 3','Class 4','Class 5','Class 6',
-    'Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'
-  ];
-  static const _sections = ['A', 'B', 'C', 'D'];
   static const _mediums  = ['Telugu', 'Hindi', 'English', 'Urdu', 'Tamil'];
   static const _streams  = ['Science', 'Commerce', 'Arts', 'Vocational'];
   static const _prevSts  = ['Promoted', 'Detained', 'Transferred', 'Dropped out'];
@@ -258,8 +250,10 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     Icons.monitor_heart_outlined,
     Icons.school_outlined,
   ];
+
   Map<String, dynamic> _stripNulls(Map<String, dynamic> map) =>
       Map.fromEntries(map.entries.where((e) => e.value != null));
+
   @override
   void initState() {
     super.initState();
@@ -267,8 +261,115 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         vsync: this, duration: const Duration(milliseconds: 400));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _showClassSectionPicker());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sid = _resolvedSchoolId;
+      if (sid != null) {
+        _school.getAllClasses(sid).then((_) {
+          if (widget.isEdit && widget.student?.classId != null) {
+            _school.getAllSections(
+              classId: widget.student!.classId,
+              schoolId: sid,
+            ).then((_) => _applyEditPreFill());
+          }
+        });
+      }
+
+      if (widget.isEdit && widget.student != null) {
+        _applyEditPreFill();
+        if (_pickedClassId == null) {
+          _showClassSectionPicker();
+        }
+      } else {
+        _showClassSectionPicker();
+      }
+    });
+  }
+
+  void _applyEditPreFill() {
+    final s = widget.student;
+    if (s == null) return;
+
+    _nameCtrl.text  = s.name ?? '';
+    _srIdCtrl.text  = s.srId ?? '';
+    _isActive       = s.isActive ?? true;
+
+    if (s.classId != null) {
+      final matchedClass = _school.classes
+          .firstWhereOrNull((c) => c.id == s.classId);
+      _pickedClassId   = s.classId;
+      _pickedClassName = matchedClass?.name ?? s.classId;
+    }
+    if (s.sectionId != null) {
+      final matchedSection = _school.sections
+          .firstWhereOrNull((sec) => sec.id == s.sectionId);
+      _pickedSectionId   = s.sectionId;
+      _pickedSectionName = matchedSection?.name ?? s.sectionId;
+    }
+
+    // Valid if class is matched, regardless of section existence
+    if (_pickedClassId != null) {
+      _selectionDone = true;
+    }
+
+    _selGender         = s.gender;
+    _dobCtrl.text      = s.dob ?? '';
+    _eduNoCtrl.text    = s.educationNumber ?? '';
+    _motherCtrl.text   = s.motherName ?? '';
+    _fatherCtrl.text   = s.fatherName ?? '';
+    _guardianCtrl.text = s.guardianName ?? '';
+    _aadhaarNoCtrl.text   = s.aadhaarNumber ?? '';
+    _aadhaarNameCtrl.text = s.aadhaarName ?? '';
+    _addressCtrl.text  = s.address ?? '';
+    _pincodeCtrl.text  = s.pincode ?? '';
+    _mobileCtrl.text   = s.mobileNumber ?? '';
+    _altMobileCtrl.text = s.alternateMobile ?? '';
+    _emailCtrl.text    = s.email ?? '';
+    _motherTongueCtrl.text = s.motherTongue ?? '';
+    _selSocialCat      = s.socialCategory;
+    _minorityCtrl.text = s.minorityGroup ?? '';
+    _selBpl            = s.bpl;
+    _selAay            = s.aay;
+    _selEws            = s.ews;
+    _selCwsn           = s.cwsn;
+    _impairmentsCtrl.text = s.impairments ?? '';
+    _selIndian         = s.indian;
+    _selOos            = s.outOfSchool;
+    _mainstreamedDateCtrl.text = s.mainstreamedDate ?? '';
+    _selDisCert        = s.disabilityCert;
+    _disabilityPctCtrl.text = s.disabilityPercent ?? '';
+    _selBlood          = s.bloodGroup;
+
+    _facilitiesCtrl.text = s.facilitiesProvided ?? '';
+    _facCwsnCtrl.text    = s.facilitiesForCWSN ?? '';
+    _selSLD              = s.screenedForSLD;
+    _sldTypeCtrl.text    = s.sldType ?? '';
+    _selASD              = s.screenedForASD;
+    _selADHD             = s.screenedForADHD;
+    _selGifted           = s.isGiftedOrTalented;
+    _selCompetitions     = s.participatedInCompetitions;
+    _activitiesCtrl.text = s.participatedInActivities ?? '';
+    _selDigital          = s.canHandleDigitalDevices;
+    _heightCtrl.text     = s.heightInCm ?? '';
+    _weightCtrl.text     = s.weightInKg ?? '';
+    _distanceCtrl.text   = s.distanceToSchool ?? '';
+    _parentEduCtrl.text  = s.parentEducationLevel ?? '';
+
+    _admNoCtrl.text      = s.admissionNumber ?? '';
+    _admDateCtrl.text    = s.admissionDate ?? '';
+    _rollNoCtrl.text     = s.rollNumber ?? '';
+    _selMedium           = s.mediumOfInstruction;
+    _languagesCtrl.text  = s.languagesStudied ?? '';
+    _selStream           = s.academicStream;
+    _subjectsCtrl.text   = s.subjectsStudied ?? '';
+    _selPrevStatus       = s.statusInPreviousYear;
+    _gradeLastCtrl.text  = s.gradeStudiedLastYear ?? '';
+    _enrolledCtrl.text   = s.enrolledUnder ?? '';
+    _selPrevResult       = s.previousResult;
+    _marksPctCtrl.text   = s.marksObtainedPercentage ?? '';
+    _daysCtrl.text       = s.daysAttendedLastYear ?? '';
+
+    setState(() {});
   }
 
   @override
@@ -288,10 +389,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     super.dispose();
   }
 
-  // ── Class / Section bottom sheet ───────────────────────────────────────────
-
   void _showClassSectionPicker() {
-    if (_isCorrespondent && (_school.selectedSchool.value == null)) {
+    if (_isCorrespondent && _school.selectedSchool.value == null && widget.schoolId == null) {
       Get.snackbar('No School Selected',
           'Please select a school from the sidebar first.',
           snackPosition: SnackPosition.BOTTOM,
@@ -301,165 +400,30 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       return;
     }
 
-    String? tempClass   = _pickedClass;
-    String? tempSection = _pickedSection;
+    if (_pickedClassId != null && _school.sections.isEmpty) {
+      _school.getAllSections(
+        classId: _pickedClassId,
+        schoolId: _resolvedSchoolId,
+      );
+    }
 
     Get.bottomSheet(
-      StatefulBuilder(
-        builder: (ctx, setSheet) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: _AppColors.cardBg,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              20, 8, 20,
-              MediaQuery.of(ctx).viewInsets.bottom + 32,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 20, top: 8),
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(
-                      color: _AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-
-                // Header
-                Row(children: [
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(
-                      color: _AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.school_rounded,
-                        color: _AppColors.primary, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Select Class & Section',
-                        style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700,
-                          color: _AppColors.textPrimary,
-                        )),
-                    const Text('Assign student to class and section',
-                        style: TextStyle(
-                            fontSize: 12, color: _AppColors.textSecondary)),
-                  ]),
-                ]),
-                const SizedBox(height: 24),
-
-                // Class label
-                const _SheetSectionLabel('Class'),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8, runSpacing: 8,
-                  children: _classes.map((cls) {
-                    final sel = tempClass == cls;
-                    return GestureDetector(
-                      onTap: () => setSheet(() => tempClass = cls),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: sel ? _AppColors.primary : _AppColors.sectionBg,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: sel ? _AppColors.primary : _AppColors.border,
-                            width: sel ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Text(cls,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: sel ? Colors.white : _AppColors.textPrimary,
-                            )),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-
-                // Section label
-                const _SheetSectionLabel('Section'),
-                const SizedBox(height: 10),
-                Row(
-                  children: _sections.map((sec) {
-                    final sel = tempSection == sec;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: GestureDetector(
-                        onTap: () => setSheet(() => tempSection = sec),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: 52, height: 52,
-                          decoration: BoxDecoration(
-                            color: sel ? _AppColors.primary : _AppColors.sectionBg,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: sel ? _AppColors.primary : _AppColors.border,
-                              width: sel ? 1.5 : 1,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(sec,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: sel ? Colors.white : _AppColors.textPrimary,
-                              )),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 28),
-
-                // CTA
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: (tempClass != null && tempSection != null)
-                        ? () {
-                      setState(() {
-                        _pickedClass   = tempClass;
-                        _pickedSection = tempSection;
-                        _selectionDone = true;
-                      });
-                      Get.back();
-                    }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _AppColors.primary,
-                      disabledBackgroundColor: _AppColors.stepInactive,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(
-                      (tempClass != null && tempSection != null)
-                          ? 'Continue · $tempClass, Section $tempSection'
-                          : 'Select class and section to continue',
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
+      _ClassSectionPickerSheet(
+        schoolController: _school,
+        resolvedSchoolId: _resolvedSchoolId,
+        isEdit: widget.isEdit,
+        initialClassId:     _pickedClassId,
+        initialClassName:   _pickedClassName,
+        initialSectionId:   _pickedSectionId,
+        initialSectionName: _pickedSectionName,
+        onConfirm: (classId, className, sectionId, sectionName) {
+          setState(() {
+            _pickedClassId     = classId;
+            _pickedClassName   = className;
+            _pickedSectionId   = sectionId;
+            _pickedSectionName = sectionName;
+            _selectionDone     = true;
+          });
         },
       ),
       isScrollControlled: true,
@@ -467,8 +431,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       backgroundColor: Colors.transparent,
     );
   }
-
-  // ── Navigation ─────────────────────────────────────────────────────────────
 
   bool _validateCurrentStep() {
     switch (_currentPage) {
@@ -533,35 +495,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       c.text.trim().isEmpty ? null : c.text.trim();
 
   StudentPayload _buildPayload() {
-    // 1. Resolve the matching Class ObjectId from SchoolController cache
-    String? resolvedClassId;
-    if (_pickedClass != null) {
-      try {
-        // 🟢 FIXED: Changed .className to .name
-        final matchingClass = _school.classes.firstWhere(
-                (c) => c.name.toString().toLowerCase().trim() == _pickedClass!.toLowerCase().replaceAll('class', '').trim()
-                || c.name.toString().toLowerCase().trim() == _pickedClass!.toLowerCase().trim()
-        );
-        resolvedClassId = matchingClass.id;
-      } catch (_) {
-        resolvedClassId = null;
-      }
-    }
-
-    // 2. Resolve the matching Section ObjectId from SchoolController cache
-    String? resolvedSectionId;
-    if (_pickedSection != null) {
-      try {
-        // 🟢 FIXED: Changed .sectionName to .name
-        final matchingSection = _school.sections.firstWhere(
-                (s) => s.name.toString().toLowerCase().trim() == _pickedSection!.toLowerCase().trim()
-        );
-        resolvedSectionId = matchingSection.id;
-      } catch (_) {
-        resolvedSectionId = null;
-      }
-    }
-
     final mandatory = MandatoryDetails()
       ..gender           = _selGender
       ..dob              = _t(_dobCtrl)
@@ -624,8 +557,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       schoolId:         _resolvedSchoolId!,
       srId:             _t(_srIdCtrl),
       studentName:      _nameCtrl.text.trim(),
-      currentClassId:   resolvedClassId,
-      currentSectionId: resolvedSectionId,
+      currentClassId:   _pickedClassId,
+      currentSectionId: _pickedSectionId,
       isActive:         _isActive,
       mandatory:        mandatory,
       nonMandatory:     nonMandatory,
@@ -647,76 +580,116 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       final apiService = Get.find<ApiService>();
       final payload    = _buildPayload();
 
-      // Always strip nulls from nested objects
-      final mandatoryMap    = _stripNulls(payload.mandatory.toJson());
-      final nonMandatoryMap = _stripNulls(payload.nonMandatory.toJson());
-      final mandatoryJson    = jsonEncode(_stripNulls(payload.mandatory.toJson()).isEmpty
-          ? <String, dynamic>{}
-          : _stripNulls(payload.mandatory.toJson()));
-      final nonMandatoryJson = jsonEncode(_stripNulls(payload.nonMandatory.toJson()).isEmpty
-          ? <String, dynamic>{}
-          : _stripNulls(payload.nonMandatory.toJson()));
+      final mandatoryJson    = jsonEncode(
+          _stripNulls(payload.mandatory.toJson()).isEmpty
+              ? <String, dynamic>{}
+              : _stripNulls(payload.mandatory.toJson()));
+      final nonMandatoryJson = jsonEncode(
+          _stripNulls(payload.nonMandatory.toJson()).isEmpty
+              ? <String, dynamic>{}
+              : _stripNulls(payload.nonMandatory.toJson()));
 
+      if (widget.isEdit) {
+        final studentId = widget.student!.id;
 
-      if (_pickedImage != null) {
-        final formData = FormData.fromMap({
-          'schoolId': schoolId,
-          if (payload.srId != null) 'srId': payload.srId,
-          'studentName': payload.studentName,
-          if (payload.currentClassId != null) 'currentClassId': payload.currentClassId,
-          if (payload.currentSectionId != null) 'currentSectionId': payload.currentSectionId,
-          'isActive': payload.isActive.toString(),
-          'mandatory':    mandatoryJson,   // JSON string
-          'nonMandatory': nonMandatoryJson, // JSON string
-          'studentImage': await MultipartFile.fromFile(
-            _pickedImage!.path,
-            filename: 'student_image.${_pickedImage!.path.split('.').last}',
-          ),
-        });
-        final res = await apiService.dio.post(
-          ApiConstants.createStudent,
-          data: formData,
-          options: Options(headers: {'x-school-id': schoolId}),
-        );
-        if (!mounted) return;
-        _handleResponse(res.data);
-
-      } else {
-        // Server expects mandatory/nonMandatory as JSON STRINGS even in JSON body
-        // because it calls JSON.parse() on them server-side
-        final res = await apiService.dio.post(
-
-          ApiConstants.createStudent,
-          data: {
-            'schoolId':     schoolId,
+        if (_pickedImage != null) {
+          final formData = FormData.fromMap({
+            'schoolId': schoolId,
             if (payload.srId != null) 'srId': payload.srId,
-            'studentName':  payload.studentName,
-            if (payload.currentClassId != null) 'currentClassId': payload.currentClassId,
-            if (payload.currentSectionId != null) 'currentSectionId': payload.currentSectionId,
-            'isActive':     payload.isActive,
-            'mandatory':    mandatoryJson,    // JSON string, NOT a Map
-            'nonMandatory': nonMandatoryJson, // JSON string, NOT a Map
-          },
-          options: Options(headers: {
-            'x-school-id':  schoolId,
-            'Content-Type': 'application/json',
-          }),
-        );
-        print('=== RAW RESPONSE ===');
-        print('status: ${res.statusCode}');
-        print('data: ${res.data}');
-        print('data type: ${res.data.runtimeType}');
-
-        if (!mounted) return;
-        _handleResponse(res.data);
+            'studentName': payload.studentName,
+            if (payload.currentClassId != null)
+              'currentClassId': payload.currentClassId,
+            if (payload.currentSectionId != null)
+              'currentSectionId': payload.currentSectionId,
+            'isActive': payload.isActive.toString(),
+            'mandatory':    mandatoryJson,
+            'nonMandatory': nonMandatoryJson,
+            'studentImage': await MultipartFile.fromFile(
+              _pickedImage!.path,
+              filename: 'student_image.${_pickedImage!.path.split('.').last}',
+            ),
+          });
+          final res = await apiService.dio.put(
+            '${ApiConstants.updateStudent}/$studentId',
+            data: formData,
+            options: Options(headers: {'x-school-id': schoolId}),
+          );
+          if (!mounted) return;
+          _handleResponse(res.data, isEdit: true);
+        } else {
+          final res = await apiService.dio.put(
+            '${ApiConstants.updateStudent}/$studentId',
+            data: {
+              'schoolId':     schoolId,
+              if (payload.srId != null) 'srId': payload.srId,
+              'studentName':  payload.studentName,
+              if (payload.currentClassId != null)
+                'currentClassId': payload.currentClassId,
+              if (payload.currentSectionId != null)
+                'currentSectionId': payload.currentSectionId,
+              'isActive':     payload.isActive,
+              'mandatory':    mandatoryJson,
+              'nonMandatory': nonMandatoryJson,
+            },
+            options: Options(headers: {
+              'x-school-id':  schoolId,
+              'Content-Type': 'application/json',
+            }),
+          );
+          if (!mounted) return;
+          _handleResponse(res.data, isEdit: true);
+        }
+      } else {
+        if (_pickedImage != null) {
+          final formData = FormData.fromMap({
+            'schoolId': schoolId,
+            if (payload.srId != null) 'srId': payload.srId,
+            'studentName': payload.studentName,
+            if (payload.currentClassId != null)
+              'currentClassId': payload.currentClassId,
+            if (payload.currentSectionId != null)
+              'currentSectionId': payload.currentSectionId,
+            'isActive': payload.isActive.toString(),
+            'mandatory':    mandatoryJson,
+            'nonMandatory': nonMandatoryJson,
+            'studentImage': await MultipartFile.fromFile(
+              _pickedImage!.path,
+              filename: 'student_image.${_pickedImage!.path.split('.').last}',
+            ),
+          });
+          final res = await apiService.dio.post(
+            ApiConstants.createStudent,
+            data: formData,
+            options: Options(headers: {'x-school-id': schoolId}),
+          );
+          if (!mounted) return;
+          _handleResponse(res.data);
+        } else {
+          final res = await apiService.dio.post(
+            ApiConstants.createStudent,
+            data: {
+              'schoolId':     schoolId,
+              if (payload.srId != null) 'srId': payload.srId,
+              'studentName':  payload.studentName,
+              if (payload.currentClassId != null)
+                'currentClassId': payload.currentClassId,
+              if (payload.currentSectionId != null)
+                'currentSectionId': payload.currentSectionId,
+              'isActive':     payload.isActive,
+              'mandatory':    mandatoryJson,
+              'nonMandatory': nonMandatoryJson,
+            },
+            options: Options(headers: {
+              'x-school-id':  schoolId,
+              'Content-Type': 'application/json',
+            }),
+          );
+          if (!mounted) return;
+          _handleResponse(res.data);
+        }
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      print('=== DIO ERROR ===');
-      print('Status: ${e.response?.statusCode}');
-      print('Data: ${e.response?.data}');   // <-- full server message
-      print('Message: ${e.message}');
-
       _showError(e.response?.data?['message']?.toString()
           ?? e.message ?? 'Request failed');
     } catch (e) {
@@ -726,11 +699,13 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
-  void _handleResponse(dynamic data) {
+
+  void _handleResponse(dynamic data, {bool isEdit = false}) {
     if (data is Map && data['ok'] == true) {
+      final action = isEdit ? 'Updated' : 'Created';
       Get.snackbar(
-        '✅ Student Created',
-        'Profile for ${_nameCtrl.text.trim()} has been created successfully!',
+        '✅ Student $action',
+        'Profile for ${_nameCtrl.text.trim()} has been $action successfully!',
         snackPosition: SnackPosition.TOP,
         backgroundColor: const Color(0xFF2E7D32),
         colorText: Colors.white,
@@ -741,15 +716,16 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         isDismissible: false,
         forwardAnimationCurve: Curves.easeOutBack,
       );
-      // Wait for snackbar to be visible before navigating back
       Future.delayed(const Duration(seconds: 3), () {
         Get.back(result: true);
       });
     } else {
       _showError((data is Map ? data['message']?.toString() : null)
-          ?? 'Failed to create student.');
+          ?? 'Failed to ${isEdit ? 'update' : 'create'} student.');
     }
-  }  void _showError(String message) {
+  }
+
+  void _showError(String message) {
     Get.snackbar('Error', message,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: _AppColors.error,
@@ -795,27 +771,25 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     );
   }
 
-  // ── App bar ────────────────────────────────────────────────────────────────
-
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: _AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
-
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Create Student Profile',
-              style: TextStyle(
+          Text(
+              widget.isEdit ? 'Edit Student Profile' : 'Create Student Profile',
+              style: const TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w700,
                 color: Colors.white,
               )),
           if (_selectionDone)
             Text(
-              '$_pickedClass  ·  Section $_pickedSection'
-                  '${_isCorrespondent ? '  ·  ${_school.selectedSchool.value?.name ?? ''}' : ''}',
+              '$_pickedClassName${_pickedSectionName != null ? "  ·  Section $_pickedSectionName" : ""}'
+                  '${_isCorrespondent ? "  ·  ${_school.selectedSchool.value?.name ?? ''}" : ""}',
               style: TextStyle(
                   fontSize: 11,
                   color: Colors.white.withOpacity(0.8),
@@ -825,8 +799,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       ),
     );
   }
-
-  // ── Context banner (class/section pill) ────────────────────────────────────
 
   Widget _buildContextBanner() {
     return Container(
@@ -843,7 +815,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.class_outlined, size: 13, color: Colors.white),
             const SizedBox(width: 5),
-            Text('$_pickedClass  ·  Sec $_pickedSection',
+            Text('$_pickedClassName${_pickedSectionName != null ? "  ·  Sec $_pickedSectionName" : ""}',
                 style: const TextStyle(
                     fontSize: 12, color: Colors.white,
                     fontWeight: FontWeight.w600)),
@@ -870,8 +842,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       ]),
     );
   }
-
-  // ── Stepper bar ────────────────────────────────────────────────────────────
 
   Widget _buildStepperBar() {
     return Container(
@@ -922,8 +892,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     );
   }
 
-  // ── Bottom bar ─────────────────────────────────────────────────────────────
-
   Widget _buildBottomBar() {
     final isLast = _currentPage == 3;
     return Container(
@@ -946,7 +914,9 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             ],
             Expanded(
               child: _NavButton(
-                label: isLast ? 'Create Student' : 'Next Step',
+                label: isLast
+                    ? (widget.isEdit ? 'Update Student' : 'Create Student')
+                    : 'Next Step',
                 icon: isLast
                     ? Icons.check_circle_outline_rounded
                     : Icons.arrow_forward_ios_rounded,
@@ -960,8 +930,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       ),
     );
   }
-
-  // ── Selection prompt (before class/section chosen) ─────────────────────────
 
   Widget _buildSelectionPrompt() {
     return FadeTransition(
@@ -1017,17 +985,12 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     );
   }
 
-  // ==========================================================================
-  // PAGES
-  // ==========================================================================
-
   Widget _buildBasicPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: Form(
         key: _basicKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Photo upload card
           _FormCard(
             child: Column(children: [
               GestureDetector(
@@ -1354,10 +1317,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     );
   }
 
-  // ==========================================================================
-  // WIDGET HELPERS
-  // ==========================================================================
-
   Widget _secHeader(IconData icon, String title) => Padding(
     padding: const EdgeInsets.only(bottom: 0),
     child: Row(children: [
@@ -1453,8 +1412,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         items: items
             .map((e) => DropdownMenuItem(
           value: e,
-          child: Text(e,
-              style: const TextStyle(fontSize: 14)),
+          child: Text(e, style: const TextStyle(fontSize: 14)),
         ))
             .toList(),
         onChanged: onChanged,
@@ -1469,8 +1427,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       isExpanded: true,
       icon: const Icon(Icons.keyboard_arrow_down_rounded,
           color: _AppColors.textHint, size: 18),
-      style: const TextStyle(
-          fontSize: 13, color: _AppColors.textPrimary),
+      style: const TextStyle(fontSize: 13, color: _AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(
@@ -1535,11 +1492,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   }
 }
 
-// =============================================================================
-// REUSABLE COMPONENTS
-// =============================================================================
-
-/// Card container for form sections
 class _FormCard extends StatelessWidget {
   final Widget child;
   const _FormCard({required this.child});
@@ -1566,7 +1518,6 @@ class _FormCard extends StatelessWidget {
   }
 }
 
-/// Sheet section label helper
 class _SheetSectionLabel extends StatelessWidget {
   final String text;
   const _SheetSectionLabel(this.text);
@@ -1585,7 +1536,6 @@ class _SheetSectionLabel extends StatelessWidget {
   }
 }
 
-/// Step indicator dot with label
 class _StepIndicator extends StatelessWidget {
   final int index;
   final String label;
@@ -1633,7 +1583,291 @@ class _StepIndicator extends StatelessWidget {
   }
 }
 
-/// Navigation button (Back / Next / Submit)
+// =============================================================================
+// CLASS / SECTION PICKER SHEET
+// =============================================================================
+
+class _ClassSectionPickerSheet extends StatefulWidget {
+  final SchoolController schoolController;
+  final String? resolvedSchoolId;
+  final bool isEdit;
+  final String? initialClassId;
+  final String? initialClassName;
+  final String? initialSectionId;
+  final String? initialSectionName;
+  final void Function(
+      String classId,
+      String className,
+      String? sectionId,     // Changed to Nullable String
+      String? sectionName,   // Changed to Nullable String
+      ) onConfirm;
+
+  const _ClassSectionPickerSheet({
+    required this.schoolController,
+    required this.resolvedSchoolId,
+    required this.isEdit,
+    required this.onConfirm,
+    this.initialClassId,
+    this.initialClassName,
+    this.initialSectionId,
+    this.initialSectionName,
+  });
+
+  @override
+  State<_ClassSectionPickerSheet> createState() =>
+      _ClassSectionPickerSheetState();
+}
+
+class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
+  String? _classId;
+  String? _className;
+  String? _sectionId;
+  String? _sectionName;
+
+  @override
+  void initState() {
+    super.initState();
+    _classId     = widget.initialClassId;
+    _className   = widget.initialClassName;
+    _sectionId   = widget.initialSectionId;
+    _sectionName = widget.initialSectionName;
+  }
+
+  void _selectClass(SchoolClass cls) {
+    setState(() {
+      _classId     = cls.id;
+      _className   = cls.name;
+      _sectionId   = null;
+      _sectionName = null;
+    });
+    widget.schoolController.getAllSections(
+      classId: cls.id,
+      schoolId: widget.resolvedSchoolId,
+    );
+  }
+
+  void _selectSection(Section sec) {
+    setState(() {
+      _sectionId   = sec.id;
+      _sectionName = sec.name;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: _AppColors.cardBg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20, 8, 20,
+        MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 20, top: 8),
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: _AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.school_rounded,
+                    color: _AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                    widget.isEdit
+                        ? 'Change Class & Section'
+                        : 'Select Class & Section',
+                    style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700,
+                      color: _AppColors.textPrimary,
+                    )),
+                const Text('Assign student to class and section',
+                    style: TextStyle(
+                        fontSize: 12, color: _AppColors.textSecondary)),
+              ]),
+            ]),
+            const SizedBox(height: 24),
+
+            // ── CLASS CHIPS ──────────────────────────────────────────────
+            const _SheetSectionLabel('CLASS'),
+            const SizedBox(height: 10),
+            Obx(() {
+              final classes = widget.schoolController.classes;
+              if (classes.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text('No classes available',
+                      style: TextStyle(fontSize: 13, color: _AppColors.textHint)),
+                );
+              }
+              return Wrap(
+                spacing: 8, runSpacing: 8,
+                children: classes.map((cls) {
+                  final sel = _classId == cls.id;
+                  return GestureDetector(
+                    onTap: () => _selectClass(cls),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel ? _AppColors.primary : _AppColors.sectionBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: sel ? _AppColors.primary : _AppColors.border,
+                          width: sel ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Text(cls.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: sel ? Colors.white : _AppColors.textPrimary,
+                          )),
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
+
+            // ── SECTION CHIPS (Hidden if no class is selected yet) ───────
+
+
+            Obx(() {
+              final hasNoSections = widget.schoolController.sections.isEmpty;
+
+              final sections = widget.schoolController.sections;
+              if (_classId == null) {
+                 Text('select class to continue');
+                return const SizedBox.shrink();
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  const _SheetSectionLabel('SECTION'),
+                  const SizedBox(height: 10),
+                  if (hasNoSections) // Use the variable we already read
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('No sections available for this class',
+                          style: TextStyle(fontSize: 13, color: _AppColors.textHint)),
+                    )
+                  else
+                    Wrap(
+                      spacing: 12, runSpacing: 12,
+                      children: sections.map((sec) {
+                        final sel = _sectionId == sec.id;
+                        return GestureDetector(
+                          onTap: () => _selectSection(sec),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 52, height: 52,
+                            decoration: BoxDecoration(
+                              color: sel ? _AppColors.primary : _AppColors.sectionBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: sel ? _AppColors.primary : _AppColors.border,
+                                width: sel ? 1.5 : 1,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(sec.name,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: sel ? Colors.white : _AppColors.textPrimary,
+                                )),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              );
+
+            }),
+            const SizedBox(height: 28),
+
+            // ── CTA BUTTON (Now smart-evaluates clean fallback paths) ─────
+            Obx(() {
+              final isListEmpty = widget.schoolController.sections.isEmpty;
+              final sections = widget.schoolController.sections;
+
+
+              // Valid to continue if class is chosen AND either (sections are empty OR a section is picked)
+              final bool standsValid = _classId != null &&
+                  (isListEmpty  || _sectionId != null);
+
+              String buttonText = 'Select class and section to continue';
+              if (_classId != null) {
+                if (sections.isEmpty) {
+                  buttonText = 'Continue · $_className';
+                } else if (_sectionId != null) {
+                  buttonText = 'Continue · $_className, Section $_sectionName';
+                } else {
+                  buttonText = 'Select a section to continue';
+                }
+              }
+
+              return SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: standsValid
+                      ? () {
+                    widget.onConfirm(
+                      _classId!,
+                      _className!,
+                      _sectionId,     // Pass String? string cleanly
+                      _sectionName,   // Pass String? string cleanly
+                    );
+                    Get.back();
+                  }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _AppColors.primary,
+                    disabledBackgroundColor: _AppColors.stepInactive,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NavButton extends StatelessWidget {
   final String label;
   final IconData icon;

@@ -1,9 +1,12 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/models/school_models.dart';
-import 'package:school_app/screens/upload_student_marks.dart';
+import 'package:school_app/services/api_service.dart';
 
 import '../widgets/admin_sidebar.dart';
 
@@ -29,12 +32,14 @@ class _MarkEntry {
   final String studentName;
   final String rollNumber;
   final Map<String, TextEditingController> controllers;
+  bool isAbsent;
 
   _MarkEntry({
     required this.studentId,
     required this.studentName,
     required this.rollNumber,
     required List<String> subjects,
+    this.isAbsent = false,
   }) : controllers = {for (final s in subjects) s: TextEditingController()};
 
   void dispose() { for (final c in controllers.values) c.dispose(); }
@@ -54,6 +59,7 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
 
   final _schoolCtrl = Get.find<SchoolController>();
   final _authCtrl   = Get.find<AuthController>();
+  final _api        = Get.find<ApiService>();
 
   late final TabController _tabCtrl;
 
@@ -66,6 +72,15 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
   int          _maxMarks  = 100;
   final _maxMarksCtrl = TextEditingController(text: '100');
 
+  // ── Config state ──
+  String?                   _configId;
+  String                    _academicYear = '2025-2026';
+  List<Map<String,dynamic>> _configExams    = [];
+  List<Map<String,dynamic>> _configSubjects = [];
+
+  // ── Existing reports (studentId -> report doc) ──
+  Map<String, Map<String,dynamic>> _studentReports = {};
+
   // ── Subjects ──
   List<String> _subjects = List.from(kDefaultSubjects);
 
@@ -73,7 +88,10 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
   List<_MarkEntry> _entries     = [];
   bool             _isLoading   = false;
   bool             _isSaving    = false;
-  bool             _showFilters = true;   // inline expand/collapse like CampusView
+  bool             _showFilters = true;
+
+  // ── Per-student saving state ──
+  final Map<String, bool> _savingStudent = {};
 
   // ── Search ──
   final _searchCtrl = TextEditingController();
@@ -110,6 +128,25 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     super.dispose();
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Returns true only if [id] looks like a 24-char hex MongoDB ObjectId.
+  bool _isValidObjectId(String? id) {
+    if (id == null || id.isEmpty) return false;
+    return RegExp(r'^[a-f\d]{24}$', caseSensitive: false).hasMatch(id);
+  }
+
+  /// Extract the MongoDB _id from a config response map.
+  String? _extractConfigId(Map<String,dynamic> cfg) {
+    for (final key in ['_id', 'id', 'configId']) {
+      final val = cfg[key]?.toString();
+      if (_isValidObjectId(val)) return val;
+    }
+    debugPrint('[VIEW CONFIG ID SEARCH] No valid ObjectId found. Keys: ${cfg.keys.toList()}');
+    debugPrint('[VIEW CONFIG ID SEARCH] Values: ${cfg.entries.map((e) => "${e.key}=${e.value}").join(", ")}');
+    return null;
+  }
+
   // ── Grade ─────────────────────────────────────────────────────────────────
   Map<String, dynamic> _grade(int? marks) {
     if (marks == null) return {'label': '—', 'color': Colors.grey[400]!, 'bg': Colors.grey.shade100};
@@ -131,55 +168,378 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     return any ? sum : null;
   }
 
+  // ── Extract roll number from raw student map ──────────────────────────────
+  String _extractRollNumber(Map<String, dynamic> s) {
+    final nonMandatory = s['nonMandatory'];
+    if (nonMandatory is Map) {
+      final roll = nonMandatory['rollNumber']?.toString()
+          ?? nonMandatory['roll']?.toString();
+      if (roll != null && roll.isNotEmpty) return roll;
+    }
+    return s['rollNumber']?.toString()
+        ?? s['roll']?.toString()
+        ?? '—';
+  }
+
+  // ── Fetch config (tries with and without academicYear) ────────────────────
+  Future<Map<String,dynamic>?> _fetchConfig({required bool withAcademicYear}) async {
+    try {
+      final params = <String, dynamic>{
+        'schoolId': _school!.id,
+        'classId': _schoolClass!.id,
+        if (withAcademicYear) 'academicYear': _academicYear,
+      };
+      debugPrint('[VIEW CONFIG FETCH] params=$params');
+      final resp = await _api.get(ApiConstants.getMarkReportConfigByClass, queryParameters: params);
+      debugPrint('[VIEW CONFIG FETCH] ok=${resp.data['ok']} hasData=${resp.data['data'] != null}');
+      if (resp.data['ok'] == true && resp.data['data'] != null) {
+        return resp.data['data'] as Map<String,dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[VIEW CONFIG FETCH error withAcademicYear=$withAcademicYear] $e');
+    }
+    return null;
+  }
 
   // ── Load students ─────────────────────────────────────────────────────────
   Future<void> _loadStudents() async {
     if (_school == null || _schoolClass == null) return;
-    setState(() { _isLoading = true; _entries = []; });
+    setState(() { _isLoading = true; _entries = []; _studentReports = {}; _savingStudent.clear(); });
 
-    // TODO: replace with real API
-    // final students = await studentController.getAllStudents(
-    //   schoolId: _school!.id, classId: _schoolClass!.id, sectionId: _section?.id);
-    await Future.delayed(const Duration(milliseconds: 700));
-    final demo = List.generate(10, (i) => {
-      'id': 'sid_$i',
-      'name': ['Arun Kumar','Priya S','Ravi M','Deepa R','Karthik L',
-        'Sathya P','Meena V','Arjun D','Lakshmi K','Vijay T'][i],
-      'roll': '${i + 1}'.padLeft(3, '0'),
-    });
+    try {
+      // 1. Load mark report config
+      Map<String, dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
+      if (cfg == null) {
+        debugPrint('[VIEW CONFIG] First attempt failed, trying without academicYear...');
+        cfg = await _fetchConfig(withAcademicYear: false);
+      }
 
-    if (!mounted) return;
-    setState(() {
-      _entries     = demo.map((s) => _MarkEntry(
-        studentId:   s['id']!,
-        studentName: s['name']!,
-        rollNumber:  s['roll']!,
-        subjects:    _subjects,
-      )).toList();
-      _isLoading   = false;
-      _showFilters = false;   // collapse filters after loading — same as CampusView
-    });
+      if (cfg != null) {
+        debugPrint('[VIEW CONFIG] Raw cfg keys: ${cfg.keys.toList()}');
+        final extractedId = _extractConfigId(cfg);
+        _configId       = extractedId;
+        _configExams    = List<Map<String,dynamic>>.from(cfg['exams']    ?? []);
+        _configSubjects = List<Map<String,dynamic>>.from(cfg['subjects'] ?? []);
+        debugPrint('[VIEW CONFIG] id=$_configId exams=${_configExams.length} subjects=${_configSubjects.length}');
+        if (!_isValidObjectId(_configId)) {
+          debugPrint('[VIEW CONFIG] WARNING: configId "$_configId" is not a valid ObjectId!');
+        }
+        if (_configSubjects.isNotEmpty) {
+          setState(() {
+            _subjects = _configSubjects
+                .map((s) => s['subjectName']?.toString() ?? '')
+                .where((s) => s.isNotEmpty)
+                .toList();
+          });
+        }
+        if (_configExams.isNotEmpty) {
+          final cfgExamNames = _configExams.map((e) => e['examName']?.toString() ?? '').toList();
+          if (!cfgExamNames.contains(_examType)) {
+            _examType = cfgExamNames.first;
+          }
+          _maxMarks = (_configExams.firstWhereOrNull(
+                  (e) => e['examName']?.toString() == _examType)?['maxMarks'] ?? 100) as int;
+          _maxMarksCtrl.text = _maxMarks.toString();
+        }
+      } else {
+        debugPrint('[VIEW CONFIG] No config found for class=${_schoolClass!.id}');
+      }
+
+      // 2. Fetch students
+      final sResp = await _api.get(ApiConstants.getAllStudents, queryParameters: {
+        'schoolId': _school!.id,
+        'classId': _schoolClass!.id,
+        if (_section != null) 'sectionId': _section!.id,
+      });
+      final rawStudents = <Map<String,dynamic>>[];
+      if (sResp.data['ok'] == true || sResp.data['data'] != null) {
+        rawStudents.addAll(
+            List<Map<String,dynamic>>.from(sResp.data['data'] ?? sResp.data ?? []));
+      }
+
+      // 3. Fetch existing mark reports
+      final rResp = await _api.get(ApiConstants.getAllMarkReportsV1, queryParameters: {
+        'schoolId': _school!.id,
+        'classId': _schoolClass!.id,
+        if (_section != null) 'sectionId': _section!.id,
+        'academicYear': _academicYear,
+      });
+      if (rResp.data['ok'] == true) {
+        final reports = List<Map<String,dynamic>>.from(rResp.data['data'] ?? []);
+        setState(() {
+          _studentReports = {
+            for (final r in reports)
+              (r['studentId'] is Map ? r['studentId']['_id'] : r['studentId'])
+                  ?.toString() ?? '': r
+          };
+        });
+      }
+
+      // 4. Build entries
+      if (!mounted) return;
+      setState(() {
+        _entries = rawStudents.map((s) {
+          final sid  = s['_id']?.toString() ?? '';
+          final name = s['name']?.toString()
+              ?? s['studentName']?.toString()
+              ?? s['fullName']?.toString()
+              ?? s['userName']?.toString()
+              ?? 'Unknown';
+          final roll     = _extractRollNumber(s);
+          final report   = _studentReports[sid];
+          final isAbsent = report?['isAbsent'] as bool? ?? false;
+
+          final entry = _MarkEntry(
+            studentId: sid,
+            studentName: name,
+            rollNumber: roll,
+            subjects: _subjects,
+            isAbsent: isAbsent,
+          );
+
+          if (report != null) {
+            final examRecords = List<Map<String,dynamic>>.from(report['examRecords'] ?? []);
+            final examRecord  = examRecords.firstWhereOrNull(
+                  (er) => er['examName']?.toString() == _examType,
+            );
+            if (examRecord != null) {
+              final subs = List<Map<String,dynamic>>.from(examRecord['subjects'] ?? []);
+              for (final sub in subs) {
+                final subName = (sub['subject'] ?? sub['subjectName'])?.toString() ?? '';
+                final marks   = sub['marksObtained'];
+                if (entry.controllers.containsKey(subName) && marks != null && marks != 0) {
+                  entry.controllers[subName]!.text = marks.toString();
+                }
+              }
+            }
+          }
+          return entry;
+        }).toList();
+
+        for (final e in _entries) _savingStudent[e.studentId] = false;
+        _isLoading   = false;
+        _showFilters = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _snack('Error', 'Failed to load students: $e', error: true);
+    }
   }
 
-  // ── Save marks ────────────────────────────────────────────────────────────
+  // ── Save all marks ────────────────────────────────────────────────────────
   Future<void> _saveMarks() async {
+    if (_school == null || _schoolClass == null) return;
+    if (!_isValidObjectId(_configId)) {
+      _snack('No Config',
+          'No valid configuration found for this class. '
+              'Please ask the administrator to set it up.',
+          error: true);
+      return;
+    }
     for (final e in _entries) {
       for (final s in _subjects) {
         final v = int.tryParse(e.controllers[s]?.text ?? '');
         if (v != null && v > _maxMarks) {
-          _snack('Validation Error', '${e.studentName} — $s exceeds max marks ($_maxMarks)', error: true);
+          _snack('Validation Error',
+              '${e.studentName} — $s exceeds max marks ($_maxMarks)', error: true);
           return;
         }
       }
     }
     setState(() => _isSaving = true);
+    int saved = 0; int failed = 0;
+    try {
+      for (final entry in _entries) {
+        final err = await _saveEntryMarks(entry);
+        if (err == null) saved++; else failed++;
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+    if (failed == 0) {
+      _snack('Saved', 'Marks saved for $saved student${saved != 1 ? 's' : ''}');
+    } else {
+      _snack('Partial', '$saved saved, $failed failed', error: failed > saved);
+    }
+  }
 
-    // TODO: call marksController.uploadMarks(...)
-    await Future.delayed(const Duration(seconds: 1));
+  // ── Save a single student — returns null on success, error string on failure ──
+  Future<String?> _saveEntryMarks(_MarkEntry entry) async {
+    final sid = entry.studentId;
 
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    _snack('Success', 'Marks saved successfully');
+    final cfgExam = _configExams.firstWhereOrNull(
+            (e) => e['examName']?.toString() == _examType);
+    final examSubjects = _subjects.map((subName) => {
+      'subject'        : subName,
+      'marksObtained'  : int.tryParse(entry.controllers[subName]?.text.trim() ?? '') ?? 0,
+      'maxMarks'       : cfgExam?['maxMarks'] ?? _maxMarks,
+      'minPassingMarks': cfgExam?['passingMarks'] ?? 35,
+    }).toList();
+
+    // Top-level subjects from config (names/codes only, NOT marks)
+    final topLevelSubjects = _configSubjects.isNotEmpty
+        ? _configSubjects.map((s) => {
+      'subject'    : s['subjectName']?.toString() ?? '',
+      'subjectCode': s['subjectCode']?.toString() ?? '',
+    }).toList()
+        : _subjects.map((s) => {'subject': s, 'subjectCode': ''}).toList();
+
+    final newExamRecord = {'examName': _examType, 'subjects': examSubjects};
+    final existing = _studentReports[sid];
+
+    // Helper: extract readable error from DioException
+    String dioError(dynamic e) {
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map && data['message'] != null) return data['message'].toString();
+        return 'HTTP ${e.response?.statusCode ?? 'error'}: ${e.message}';
+      }
+      return e.toString();
+    }
+
+    if (existing != null) {
+      // ── UPDATE ─────────────────────────────────────────────────────────────
+      // Normalise existing examRecords back to plain format
+      final rawRecords = List<Map<String,dynamic>>.from(existing['examRecords'] ?? []);
+      final allExamRecords = <Map<String,dynamic>>[];
+      bool replaced = false;
+
+      for (final er in rawRecords) {
+        final eName = er['examName']?.toString() ?? '';
+        if (eName == _examType) {
+          allExamRecords.add(newExamRecord);
+          replaced = true;
+        } else {
+          final subs = List<Map<String,dynamic>>.from(er['subjects'] ?? []);
+          allExamRecords.add({
+            'examName': eName,
+            'subjects': subs.map((s) {
+              final raw = s['subject'];
+              final subjectName = raw is Map
+                  ? (raw['name'] ?? raw['subjectName'] ?? '')?.toString()
+                  : raw?.toString() ?? s['subjectName']?.toString() ?? '';
+              return {
+                'subject'        : subjectName,
+                'marksObtained'  : s['marksObtained'] ?? 0,
+                'maxMarks'       : s['maxMarks'] ?? 100,
+                'minPassingMarks': s['minPassingMarks'] ?? s['passingMarks'] ?? 35,
+              };
+            }).toList(),
+          });
+        }
+      }
+      if (!replaced) allExamRecords.add(newExamRecord);
+
+      final rid = existing['_id']?.toString() ?? '';
+
+      // Use the report's own markReportConfigId as fallback if _configId is invalid
+      String? effectiveConfigId = _isValidObjectId(_configId) ? _configId : null;
+      if (effectiveConfigId == null) {
+        final reportCfgId = existing['markReportConfigId'];
+        final reportCfgIdStr = reportCfgId is Map
+            ? reportCfgId['_id']?.toString()
+            : reportCfgId?.toString();
+        if (_isValidObjectId(reportCfgIdStr)) effectiveConfigId = reportCfgIdStr;
+      }
+
+      debugPrint('[VIEW UPDATE] rid=$rid configId=$effectiveConfigId exams=${allExamRecords.length}');
+
+      if (effectiveConfigId == null) {
+        return 'No valid configuration ID available. Please reload students or contact your administrator.';
+      }
+
+      try {
+        final payload = {
+          'schoolId'          : _school!.id,
+          'classId'           : _schoolClass!.id,
+          if (_section != null) 'sectionId': _section!.id,
+          'studentId'         : sid,
+          'academicYear'      : _academicYear,
+          'markReportConfigId': effectiveConfigId,
+          'examRecords'       : allExamRecords,
+          'subjects'          : topLevelSubjects,
+          'isAbsent'          : entry.isAbsent,
+        };
+        debugPrint('[VIEW UPDATE] payload configId=${payload['markReportConfigId']}');
+        final resp = await _api.put('${ApiConstants.updateMarkReportV1}/$rid', data: payload);
+        debugPrint('[VIEW UPDATE] ok=${resp.data['ok']} msg=${resp.data['message']}');
+        if (resp.data['ok'] == true) {
+          if (resp.data['data'] != null) {
+            setState(() => _studentReports[sid] = resp.data['data']);
+          }
+          return null;
+        }
+        return resp.data['message']?.toString() ?? 'Update failed';
+      } catch (e) {
+        debugPrint('[VIEW UPDATE ERROR] $e');
+        return dioError(e);
+      }
+    } else {
+      // ── CREATE ─────────────────────────────────────────────────────────────
+      if (!_isValidObjectId(_configId)) {
+        return 'No valid class configuration found. Please ask the administrator to set it up.';
+      }
+      debugPrint('[VIEW CREATE] sid=$sid exam=$_examType configId=$_configId');
+
+      try {
+        final payload = {
+          'schoolId'          : _school!.id,
+          'classId'           : _schoolClass!.id,
+          if (_section != null) 'sectionId': _section!.id,
+          'studentId'         : sid,
+          'academicYear'      : _academicYear,
+          'markReportConfigId': _configId!,
+          'examRecords'       : [newExamRecord],
+          'subjects'          : topLevelSubjects,
+          'isAbsent'          : entry.isAbsent,
+        };
+        debugPrint('[VIEW CREATE] payload configId=${payload['markReportConfigId']}');
+        final resp = await _api.post(ApiConstants.createMarkReportV1, data: payload);
+        debugPrint('[VIEW CREATE] ok=${resp.data['ok']} msg=${resp.data['message']}');
+        if (resp.data['ok'] == true) {
+          if (resp.data['data'] != null) {
+            setState(() => _studentReports[sid] = resp.data['data']);
+          }
+          return null;
+        }
+        return resp.data['message']?.toString() ?? 'Create failed';
+      } catch (e) {
+        debugPrint('[VIEW CREATE ERROR] $e');
+        return dioError(e);
+      }
+    }
+  }
+
+  // ── Save a single student inline ──────────────────────────────────────────
+  Future<void> _saveSingleStudent(_MarkEntry entry) async {
+    if (!_isValidObjectId(_configId)) {
+      // For updates, we can still proceed if the existing report has a valid configId
+      final existing = _studentReports[entry.studentId];
+      if (existing == null) {
+        _snack('No Config',
+            'No valid configuration found for this class. '
+                'Please ask the administrator to set it up.',
+            error: true);
+        return;
+      }
+    }
+    for (final s in _subjects) {
+      final v = int.tryParse(entry.controllers[s]?.text ?? '');
+      if (v != null && v > _maxMarks) {
+        _snack('Validation Error',
+            '${entry.studentName} — $s exceeds max marks ($_maxMarks)', error: true);
+        return;
+      }
+    }
+    setState(() => _savingStudent[entry.studentId] = true);
+    final err = await _saveEntryMarks(entry);
+    if (mounted) setState(() => _savingStudent[entry.studentId] = false);
+    if (err == null) {
+      _snack('Saved', 'Marks saved for ${entry.studentName}');
+    } else {
+      _snack('Error', err, error: true);
+    }
   }
 
   void _snack(String title, String msg, {bool error = false}) {
@@ -187,7 +547,7 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
       backgroundColor: error ? Colors.red[700] : const Color(0xFF059669),
       colorText: Colors.white,
       snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
     );
   }
 
@@ -196,7 +556,8 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     final ctrl = TextEditingController();
     Get.dialog(AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Add Subject', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      title: const Text('Add Subject',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       content: _styledInput(ctrl, 'Subject name', 'e.g. Physics'),
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
@@ -206,7 +567,9 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
             if (name.isNotEmpty && !_subjects.contains(name)) {
               setState(() {
                 _subjects.add(name);
-                for (final e in _entries) e.controllers[name] = TextEditingController();
+                for (final e in _entries) {
+                  e.controllers[name] = TextEditingController();
+                }
               });
             }
             Get.back();
@@ -238,23 +601,16 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         e.rollNumber.contains(_query)
     ).toList();
 
-    return  Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        appBar: _buildAppBar(),
-        body: Column(children: [
-         // _buildTabBar(),
-          Expanded(
-
-            child:
-              _buildEnterMarksTab(filtered),
-            //  _buildSummaryTab(filtered),
-
-          ),
-        ]),
-      );
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: _buildAppBar(),
+      body: Column(children: [
+        Expanded(child: _buildEnterMarksTab(filtered)),
+      ]),
+    );
   }
 
-  // ── App Bar (matches CampusManagementView) ────────────────────────────────
+  // ── App Bar ───────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
@@ -281,12 +637,13 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
                 ? const Padding(
               padding: EdgeInsets.all(12),
               child: SizedBox(width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1A1A2E))),
+                  child: CircularProgressIndicator(strokeWidth: 2,
+                      color: Color(0xFF1A1A2E))),
             )
                 : ElevatedButton.icon(
               onPressed: _saveMarks,
               icon: const Icon(Icons.save_rounded, size: 16),
-              label: const Text('Save', style: TextStyle(fontSize: 13)),
+              label: const Text('Save All', style: TextStyle(fontSize: 13)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue[700],
                 foregroundColor: Colors.white,
@@ -300,56 +657,18 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     );
   }
 
-  // ── Tab Bar (matches CampusManagementView exactly) ────────────────────────
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-        border: Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 1)),
-      ),
-      child: TabBar(
-        controller: _tabCtrl,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        indicator: UnderlineTabIndicator(
-          borderSide: BorderSide(width: 3.0, color: Colors.blue[700]!),
-          insets: const EdgeInsets.symmetric(horizontal: 16.0),
-        ),
-        indicatorSize: TabBarIndicatorSize.label,
-        labelColor: Colors.blue[700],
-        unselectedLabelColor: Colors.grey[500],
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-        tabs: const [
-          Tab(child: Row(children: [
-            Icon(Icons.upload_rounded, size: 18),
-            SizedBox(width: 8),
-            Text('View Marks'),
-          ])),
-          // Tab(child: Row(children: [
-          //   Icon(Icons.bar_chart_rounded, size: 18),
-          //   SizedBox(width: 8),
-          //   Text('Summary'),
-          // ])),
-        ],
-      ),
-    );
-  }
-
   // ── Enter Marks Tab ───────────────────────────────────────────────────────
   Widget _buildEnterMarksTab(List<_MarkEntry> filtered) {
     return ListView(
       children: [
-        // ── Section header with toggle ──
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Filters & Settings', style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+                  fontSize: 14, fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A2E))),
               GestureDetector(
                 onTap: () => setState(() => _showFilters = !_showFilters),
                 child: Container(
@@ -372,20 +691,12 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           ),
         ),
 
-        // ── Inline filter form (like _buildForm in ClubsTab) ──
         if (_showFilters) _buildFiltersForm(),
-
-        // ── Compact summary row when filters hidden ──
-        if (!_showFilters && _schoolClass != null)
-          _buildCompactFilterChips(),
-
-        // ── Subject bar ──
+        if (!_showFilters && _schoolClass != null) _buildCompactFilterChips(),
         if (_entries.isNotEmpty) _buildSubjectBar(),
-
-        // ── Search ──
         if (_entries.isNotEmpty) _buildSearchBar(),
+        if (_entries.isNotEmpty && !_showFilters) _buildConfigBanner(),
 
-        // ── Content ──
         if (_isLoading)
           const Padding(
             padding: EdgeInsets.only(top: 60),
@@ -393,13 +704,13 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           )
         else if (_entries.isEmpty)
           _buildEmptyState()
-        else
-          ...[
+        else ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Text(
                 '${filtered.length} student${filtered.length == 1 ? '' : 's'}',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 13, color: Colors.grey[600],
+                    fontWeight: FontWeight.w500),
               ),
             ),
             ...filtered.map((e) => _buildStudentCard(e)),
@@ -409,7 +720,61 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     );
   }
 
-  // ── Filters Form (matches _buildForm in ClubsTab) ─────────────────────────
+  // ── Config status banner ──────────────────────────────────────────────────
+  Widget _buildConfigBanner() {
+    if (_isValidObjectId(_configId)) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFD1FAE5),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF6EE7B7)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF059669)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            'Config loaded · ${_configExams.length} exam${_configExams.length == 1 ? '' : 's'}'
+                ' · ${_subjects.length} subject${_subjects.length == 1 ? '' : 's'}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF065F46),
+                fontWeight: FontWeight.w500),
+          )),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.blue[700],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(_examType, style: const TextStyle(
+                fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      );
+    } else {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFDBA74)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.warning_amber_rounded, size: 15, color: Color(0xFFD97706)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            'No valid configuration found for this class / academic year. '
+                'Marks can only be updated for existing reports. '
+                'Please ask the administrator to set up a configuration.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+          )),
+        ]),
+      );
+    }
+  }
+
+  // ── Filters Form ──────────────────────────────────────────────────────────
   Widget _buildFiltersForm() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -421,27 +786,8 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // School
-        // GetX<SchoolController>(builder: (sc) {
-        //   if (sc.schools.length <= 1) {
-        //     return _readonlyRow(Icons.school_rounded, _school?.name ?? 'Loading...', 'School');
-        //   }
-        //   return _styledDropdown<School>(
-        //     label: 'School',
-        //     value: _school,
-        //     hint: 'Select school',
-        //     items: sc.schools.map((s) => DropdownMenuItem(
-        //       value: s, child: Text(s.name, style: const TextStyle(fontSize: 13)),
-        //     )).toList(),
-        //     onChanged: (s) {
-        //       setState(() { _school = s; _schoolClass = null; _section = null; _entries = []; });
-        //       if (s != null) _schoolCtrl.getAllClasses(s.id);
-        //     },
-        //   );
-        // }),
         const SizedBox(height: 12),
 
-        // Class + Section side by side
         Row(children: [
           Expanded(child: GetX<SchoolController>(builder: (sc) =>
               _styledDropdown<SchoolClass>(
@@ -449,12 +795,14 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
                 value: _schoolClass,
                 hint: 'class',
                 items: sc.classes.map((c) => DropdownMenuItem(
-                  value: c, child: Text(c.name, style: const TextStyle(fontSize: 13)),
+                  value: c,
+                  child: Text(c.name, style: const TextStyle(fontSize: 13)),
                 )).toList(),
                 onChanged: (c) {
                   setState(() { _schoolClass = c; _section = null; _entries = []; });
-                  if (c != null && _school != null)
+                  if (c != null && _school != null) {
                     _schoolCtrl.getAllSections(classId: c.id, schoolId: _school!.id);
+                  }
                 },
               ),
           )),
@@ -468,7 +816,8 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
                   const DropdownMenuItem<Section>(value: null,
                       child: Text('All', style: TextStyle(fontSize: 13))),
                   ...sc.sections.map((s) => DropdownMenuItem(
-                    value: s, child: Text(s.name, style: const TextStyle(fontSize: 13)),
+                    value: s,
+                    child: Text(s.name, style: const TextStyle(fontSize: 13)),
                   )),
                 ],
                 onChanged: (s) => setState(() => _section = s),
@@ -477,43 +826,76 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         ]),
         const SizedBox(height: 14),
 
-        // Exam type
         Text('Exam Type', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
         const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: kExamTypes.map((exam) {
-          final sel = _examType == exam['value'];
-          return GestureDetector(
-            onTap: () => setState(() => _examType = exam['value']),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: sel ? Colors.blue[700] : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: sel ? Colors.blue[700]! : Colors.grey.shade300, width: 0.5),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(exam['icon'] as IconData, size: 14,
-                    color: sel ? Colors.white : Colors.grey[600]),
-                const SizedBox(width: 6),
-                Text(exam['label'], style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600,
-                  color: sel ? Colors.white : Colors.grey[700],
-                )),
-              ]),
-            ),
-          );
-        }).toList()),
+        _configExams.isNotEmpty
+            ? Wrap(spacing: 8, runSpacing: 8,
+            children: _configExams.map((exam) {
+              final name = exam['examName']?.toString() ?? '';
+              final sel  = _examType == name;
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _examType = name;
+                  _maxMarks = (exam['maxMarks'] ?? 100) as int;
+                  _maxMarksCtrl.text = _maxMarks.toString();
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sel ? Colors.blue[700] : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: sel ? Colors.blue[700]! : Colors.grey.shade300,
+                        width: 0.5),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.assignment_rounded, size: 14,
+                        color: sel ? Colors.white : Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Text(name, style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600,
+                      color: sel ? Colors.white : Colors.grey[700],
+                    )),
+                  ]),
+                ),
+              );
+            }).toList())
+            : Wrap(spacing: 8, runSpacing: 8,
+            children: kExamTypes.map((exam) {
+              final sel = _examType == exam['value'];
+              return GestureDetector(
+                onTap: () => setState(() => _examType = exam['value']),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sel ? Colors.blue[700] : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: sel ? Colors.blue[700]! : Colors.grey.shade300,
+                        width: 0.5),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(exam['icon'] as IconData, size: 14,
+                        color: sel ? Colors.white : Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Text(exam['label'] as String, style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600,
+                      color: sel ? Colors.white : Colors.grey[700],
+                    )),
+                  ]),
+                ),
+              );
+            }).toList()),
         const SizedBox(height: 14),
 
-        // Term + Max Marks
         Row(children: [
           Expanded(child: _styledDropdown<String>(
             label: 'Term',
             value: _term,
             hint: 'Term',
             items: ['1','2','3'].map((t) => DropdownMenuItem(
-              value: t, child: Text('Term $t', style: const TextStyle(fontSize: 13)),
+              value: t,
+              child: Text('Term $t', style: const TextStyle(fontSize: 13)),
             )).toList(),
             onChanged: (t) { if (t != null) setState(() => _term = t); },
           )),
@@ -530,8 +912,7 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
                 decoration: InputDecoration(
                   hintText: '100',
                   hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
+                  filled: true, fillColor: Colors.grey.shade50,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -553,7 +934,6 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         ]),
         const SizedBox(height: 16),
 
-        // Load Students button
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           if (_entries.isNotEmpty)
             TextButton(
@@ -580,9 +960,11 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     );
   }
 
-  // ── Compact filter chips when collapsed ───────────────────────────────────
+  // ── Compact filter chips ───────────────────────────────────────────────────
   Widget _buildCompactFilterChips() {
-    final examLabel = kExamTypes.firstWhere((e) => e['value'] == _examType)['label'];
+    final examLabel = kExamTypes
+        .firstWhereOrNull((e) => e['value'] == _examType)?['label'] as String?
+        ?? _examType;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Wrap(spacing: 8, runSpacing: 6, children: [
@@ -717,17 +1099,21 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
     );
   }
 
-  // ── Student mark card (matches _ItemCard style) ───────────────────────────
+  // ── Student mark card ─────────────────────────────────────────────────────
   Widget _buildStudentCard(_MarkEntry entry) {
-    final total   = _total(entry);
-    final maxTot  = _maxMarks * _subjects.length;
-    final gInfo   = _grade(total != null ? (total / _subjects.length).round() : null);
+    final total      = _total(entry);
+    final maxTot     = _maxMarks * _subjects.length;
+    final gInfo      = _grade(total != null ? (total / _subjects.length).round() : null);
+    final sid        = entry.studentId;
+    final isSavingThis = _savingStudent[sid] ?? false;
+    final hasReport    = _studentReports.containsKey(sid);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: hasReport ? Border.all(color: const Color(0xFF86EFAC), width: 1.5) : null,
         boxShadow: [BoxShadow(
           color: Colors.black.withOpacity(0.05),
           blurRadius: 10, offset: const Offset(0, 2),
@@ -735,11 +1121,10 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── Student header row (like _ItemCard) ───────────────────────────
+        // Student header row
         Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
           child: Row(children: [
-            // Avatar
             CircleAvatar(
               radius: 20,
               backgroundColor: Colors.blue.shade100,
@@ -748,15 +1133,28 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
                       fontSize: 14, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(entry.studentName, style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+                  fontSize: 14, fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A2E))),
               Text('Roll No: ${entry.rollNumber}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             ])),
-            // Grade badge
-            if (total != null)
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              if (hasReport)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('Saved', style: TextStyle(
+                      fontSize: 11, color: Color(0xFF15803D),
+                      fontWeight: FontWeight.w600)),
+                ),
+              if (total != null) ...[
+                const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -770,388 +1168,162 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
                 ),
                 const SizedBox(height: 2),
                 Text('$total / $maxTot', style: TextStyle(
-                    fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.w600)),
-              ]),
+                    fontSize: 10, color: Colors.grey[500],
+                    fontWeight: FontWeight.w600)),
+              ],
+            ]),
           ]),
         ),
 
-        // ── Divider ──
-        Divider(height: 1, color: Colors.grey.shade100),
-
-        // ── Subject mark fields ───────────────────────────────────────────
+        // Absent toggle
         Padding(
-          padding: const EdgeInsets.all(12),
-          child: Wrap(
-            spacing: 8, runSpacing: 8,
-            children: _subjects.map((subject) {
-              final ctrl = entry.controllers[subject]!;
-              return SizedBox(
-                width: (MediaQuery.of(context).size.width - 72) / 2,
-                child: StatefulBuilder(
-                  builder: (_, inner) {
-                    final val  = int.tryParse(ctrl.text);
-                    final over = val != null && val > _maxMarks;
-                    final g    = _grade(val);
-                    return Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: over ? Colors.red.shade50
-                            : (val != null ? (g['bg'] as Color).withOpacity(0.5)
-                            : Colors.grey.shade50),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: over ? Colors.red.shade300
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          child: Row(children: [
+            Icon(Icons.event_busy_outlined, size: 15, color: Colors.grey[500]),
+            const SizedBox(width: 6),
+            Text('Mark as Absent', style: TextStyle(
+                fontSize: 13, color: Colors.grey[700],
+                fontWeight: FontWeight.w500)),
+            const Spacer(),
+            Switch.adaptive(
+              value: entry.isAbsent,
+              activeColor: Colors.red[600],
+              onChanged: (v) => setState(() => entry.isAbsent = v),
+            ),
+          ]),
+        ),
+
+        // Absent banner or mark fields
+        if (entry.isAbsent)
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(children: [
+              Icon(Icons.info_outline_rounded, size: 15, color: Colors.red[700]),
+              const SizedBox(width: 8),
+              Text('Student marked as absent for this exam.',
+                  style: TextStyle(fontSize: 12, color: Colors.red[700])),
+            ]),
+          )
+        else ...[
+          Divider(height: 1, color: Colors.grey.shade100),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 8, runSpacing: 8,
+              children: _subjects.map((subject) {
+                final ctrl = entry.controllers[subject]!;
+                return SizedBox(
+                  width: (MediaQuery.of(context).size.width - 72) / 2,
+                  child: StatefulBuilder(
+                    builder: (_, inner) {
+                      final val  = int.tryParse(ctrl.text);
+                      final over = val != null && val > _maxMarks;
+                      final g    = _grade(val);
+                      return Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: over
+                              ? Colors.red.shade50
                               : (val != null
-                              ? (g['color'] as Color).withOpacity(0.25)
-                              : Colors.grey.shade200),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(child: Text(subject, style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600],
-                          ), overflow: TextOverflow.ellipsis)),
-                          if (val != null && !over)
-                            Text(g['label'] as String, style: TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w800,
-                              color: g['color'] as Color,
-                            )),
-                          if (over)
-                            Icon(Icons.warning_rounded, size: 13, color: Colors.red[700]),
-                        ]),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: ctrl,
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          onChanged: (_) => inner(() {}),
-                          style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700,
-                            color: over ? Colors.red[700] : const Color(0xFF1A1A2E),
-                          ),
-                          decoration: InputDecoration(
-                            hintText: '—',
-                            hintStyle: TextStyle(color: Colors.grey[400],
-                                fontSize: 18, fontWeight: FontWeight.w700),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                            border: InputBorder.none,
-                            suffixText: '/$_maxMarks',
-                            suffixStyle: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                              ? (g['bg'] as Color).withOpacity(0.5)
+                              : Colors.grey.shade50),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: over
+                                ? Colors.red.shade300
+                                : (val != null
+                                ? (g['color'] as Color).withOpacity(0.25)
+                                : Colors.grey.shade200),
+                            width: 0.5,
                           ),
                         ),
-                      ]),
-                    );
-                  },
-                ),
-              );
-            }).toList(),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Expanded(child: Text(subject, style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w600,
+                                  color: Colors.grey[600],
+                                ), overflow: TextOverflow.ellipsis)),
+                                if (val != null && !over)
+                                  Text(g['label'] as String, style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.w800,
+                                    color: g['color'] as Color,
+                                  )),
+                                if (over)
+                                  Icon(Icons.warning_rounded, size: 13, color: Colors.red[700]),
+                              ]),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: ctrl,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                onChanged: (_) => inner(() {}),
+                                style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w700,
+                                  color: over ? Colors.red[700] : const Color(0xFF1A1A2E),
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: '—',
+                                  hintStyle: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                                  border: InputBorder.none,
+                                  suffixText: '/$_maxMarks',
+                                  suffixStyle: TextStyle(
+                                      fontSize: 11, color: Colors.grey[400]),
+                                ),
+                              ),
+                            ]),
+                      );
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+
+        // Per-student Save / Update button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isSavingThis ? null : () => _saveSingleStudent(entry),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[700],
+                disabledBackgroundColor: Colors.blue.shade100,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+              child: isSavingThis
+                  ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text(
+                hasReport ? 'Update Marks' : 'Save Marks',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14),
+              ),
+            ),
           ),
         ),
       ]),
     );
   }
-
-  // ── Summary Tab ───────────────────────────────────────────────────────────
-  // Widget _buildSummaryTab(List<_MarkEntry> entries) {
-  //   if (_entries.isEmpty) {
-  //     return Center(child: Padding(
-  //       padding: const EdgeInsets.all(48),
-  //       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-  //         Container(
-  //           padding: const EdgeInsets.all(20),
-  //           decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
-  //           child: Icon(Icons.bar_chart_rounded, size: 36, color: Colors.blue[700]),
-  //         ),
-  //         const SizedBox(height: 20),
-  //         const Text('No Data Yet', style: TextStyle(
-  //             fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
-  //         const SizedBox(height: 6),
-  //         Text('Load students and enter marks\nto see the summary.',
-  //             textAlign: TextAlign.center,
-  //             style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-  //       ]),
-  //     ));
-  //   }
-  //
-  //   // Stats
-  //   final subjectStats = <String, Map<String, dynamic>>{};
-  //   for (final s in _subjects) {
-  //     final vals = entries.map((e) => int.tryParse(e.controllers[s]?.text ?? ''))
-  //         .whereType<int>().toList();
-  //     subjectStats[s] = vals.isEmpty ? {'avg': 0.0, 'high': 0, 'low': 0, 'n': 0}
-  //         : {
-  //       'avg':  vals.reduce((a, b) => a + b) / vals.length,
-  //       'high': vals.reduce((a, b) => a > b ? a : b),
-  //       'low':  vals.reduce((a, b) => a < b ? a : b),
-  //       'n':    vals.length,
-  //     };
-  //   }
-  //
-  //   final gradeDist = <String, int>{'A+': 0,'A': 0,'B': 0,'C': 0,'D': 0,'F': 0};
-  //   for (final e in entries) {
-  //     final t = _total(e);
-  //     if (t != null) {
-  //       final g = _grade((t / _subjects.length).round())['label'] as String;
-  //       gradeDist[g] = (gradeDist[g] ?? 0) + 1;
-  //     }
-  //   }
-  //
-  //   final entered   = entries.where((e) => _total(e) != null).length;
-  //   final passCount = entries.where((e) {
-  //     final t = _total(e);
-  //     return t != null && (t / (_maxMarks * _subjects.length) * 100) >= 35;
-  //   }).length;
-  //
-  //   return ListView(
-  //     padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-  //     children: [
-  //       // Overview row
-  //       Row(children: [
-  //         Expanded(child: _statBox('Students', '${entries.length}',
-  //             Icons.people_rounded, Colors.blue[700]!, Colors.blue.shade50)),
-  //         const SizedBox(width: 10),
-  //         Expanded(child: _statBox('Entered', '$entered',
-  //             Icons.edit_rounded, const Color(0xFFD97706), const Color(0xFFFEF3C7))),
-  //         const SizedBox(width: 10),
-  //         Expanded(child: _statBox('Passed', '$passCount',
-  //             Icons.check_circle_rounded, const Color(0xFF059669), const Color(0xFFD1FAE5))),
-  //       ]),
-  //       const SizedBox(height: 16),
-  //
-  //       // Grade distribution
-  //       _summaryCard('Grade Distribution', Icons.pie_chart_rounded,
-  //         child: Column(children: gradeDist.entries.map((entry) {
-  //           final count = entry.value;
-  //           final pct   = entries.isEmpty ? 0.0 : count / entries.length;
-  //           final color = {'A+': const Color(0xFF059669),'A': const Color(0xFF059669),
-  //             'B': Colors.blue[700]!,'C': const Color(0xFFD97706),
-  //             'D': const Color(0xFFD97706),'F': Colors.red[700]!,
-  //           }[entry.key]!;
-  //           return Padding(
-  //             padding: const EdgeInsets.only(bottom: 10),
-  //             child: Row(children: [
-  //               Container(
-  //                 width: 28, height: 28,
-  //                 decoration: BoxDecoration(
-  //                   color: color.withOpacity(0.12),
-  //                   borderRadius: BorderRadius.circular(6),
-  //                 ),
-  //                 child: Center(child: Text(entry.key, style: TextStyle(
-  //                     fontSize: 11, fontWeight: FontWeight.w800, color: color))),
-  //               ),
-  //               const SizedBox(width: 12),
-  //               Expanded(child: ClipRRect(
-  //                 borderRadius: BorderRadius.circular(4),
-  //                 child: LinearProgressIndicator(
-  //                   value: pct, backgroundColor: Colors.grey.shade100,
-  //                   color: color, minHeight: 10,
-  //                 ),
-  //               )),
-  //               const SizedBox(width: 10),
-  //               SizedBox(width: 24, child: Text('$count',
-  //                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
-  //                   textAlign: TextAlign.right)),
-  //             ]),
-  //           );
-  //         }).toList()),
-  //       ),
-  //
-  //       // Subject analysis
-  //       _summaryCard('Subject Analysis', Icons.analytics_rounded,
-  //         child: Column(children: _subjects.map((s) {
-  //           final stat = subjectStats[s]!;
-  //           final avg  = stat['avg'] as double;
-  //           final pct  = _maxMarks == 0 ? 0.0 : avg / _maxMarks;
-  //           final g    = _grade(avg.round());
-  //           return Container(
-  //             margin: const EdgeInsets.only(bottom: 10),
-  //             padding: const EdgeInsets.all(12),
-  //             decoration: BoxDecoration(
-  //               color: Colors.grey.shade50,
-  //               borderRadius: BorderRadius.circular(10),
-  //               border: Border.all(color: Colors.grey.shade200, width: 0.5),
-  //             ),
-  //             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-  //               Row(children: [
-  //                 Expanded(child: Text(s, style: const TextStyle(
-  //                     fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)))),
-  //                 Container(
-  //                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-  //                   decoration: BoxDecoration(
-  //                     color: g['bg'] as Color,
-  //                     borderRadius: BorderRadius.circular(6),
-  //                   ),
-  //                   child: Text('Avg ${avg.toStringAsFixed(1)}',
-  //                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-  //                           color: g['color'] as Color)),
-  //                 ),
-  //               ]),
-  //               const SizedBox(height: 8),
-  //               ClipRRect(
-  //                 borderRadius: BorderRadius.circular(4),
-  //                 child: LinearProgressIndicator(
-  //                   value: pct.clamp(0.0, 1.0),
-  //                   backgroundColor: Colors.grey.shade200,
-  //                   color: g['color'] as Color,
-  //                   minHeight: 8,
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 6),
-  //               Row(children: [
-  //                 _miniStat('High', '${stat['high']}', const Color(0xFF059669)),
-  //                 const SizedBox(width: 16),
-  //                 _miniStat('Low', '${stat['low']}', Colors.red[700]!),
-  //                 const SizedBox(width: 16),
-  //                 _miniStat('Count', '${stat['n']}', Colors.blue[700]!),
-  //               ]),
-  //             ]),
-  //           );
-  //         }).toList()),
-  //       ),
-  //
-  //       // Rankings
-  //       _summaryCard('Student Rankings', Icons.emoji_events_rounded,
-  //         child: Column(children: () {
-  //           final ranked = entries.where((e) => _total(e) != null).toList()
-  //             ..sort((a, b) => (_total(b) ?? 0).compareTo(_total(a) ?? 0));
-  //           return ranked.asMap().entries.map((entry) {
-  //             final rank = entry.key + 1;
-  //             final e    = entry.value;
-  //             final tot  = _total(e)!;
-  //             final pct  = (tot / (_maxMarks * _subjects.length) * 100);
-  //             final g    = _grade((tot / _subjects.length).round());
-  //             return Container(
-  //               margin: const EdgeInsets.only(bottom: 8),
-  //               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-  //               decoration: BoxDecoration(
-  //                 color: rank <= 3
-  //                     ? (g['bg'] as Color).withOpacity(0.4)
-  //                     : Colors.grey.shade50,
-  //                 borderRadius: BorderRadius.circular(10),
-  //                 border: Border.all(
-  //                   color: rank <= 3
-  //                       ? (g['color'] as Color).withOpacity(0.25)
-  //                       : Colors.grey.shade200,
-  //                   width: 0.5,
-  //                 ),
-  //               ),
-  //               child: Row(children: [
-  //                 SizedBox(width: 28, child: Text(
-  //                   rank <= 3 ? ['🥇','🥈','🥉'][rank - 1] : '$rank',
-  //                   style: TextStyle(
-  //                       fontSize: rank <= 3 ? 18 : 13,
-  //                       fontWeight: FontWeight.w700, color: Colors.grey[500]),
-  //                   textAlign: TextAlign.center,
-  //                 )),
-  //                 const SizedBox(width: 10),
-  //                 Expanded(child: Text(e.studentName, style: const TextStyle(
-  //                     fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)))),
-  //                 Text('$tot / ${_maxMarks * _subjects.length}',
-  //                     style: TextStyle(fontSize: 12, color: Colors.grey[600],
-  //                         fontWeight: FontWeight.w500)),
-  //                 const SizedBox(width: 8),
-  //                 Container(
-  //                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-  //                   decoration: BoxDecoration(
-  //                       color: g['bg'] as Color, borderRadius: BorderRadius.circular(6)),
-  //                   child: Text('${pct.toStringAsFixed(0)}%',
-  //                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-  //                           color: g['color'] as Color)),
-  //                 ),
-  //               ]),
-  //             );
-  //           }).toList();
-  //         }()),
-  //       ),
-  //     ],
-  //   );
-  // }
 
   // ── Shared small helpers ──────────────────────────────────────────────────
-
-  Widget _statBox(String label, String value, IconData icon, Color fg, Color bg) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bg, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: fg.withOpacity(0.15)),
-      ),
-      child: Column(children: [
-        Icon(icon, color: fg, size: 22),
-        const SizedBox(height: 6),
-        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: fg)),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600],
-            fontWeight: FontWeight.w500)),
-      ]),
-    );
-  }
-
-  Widget _summaryCard(String title, IconData icon, {required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05),
-            blurRadius: 10, offset: const Offset(0, 2))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-          child: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                  color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, color: Colors.blue[700], size: 16),
-            ),
-            const SizedBox(width: 10),
-            Text(title, style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
-          ]),
-        ),
-        Divider(height: 1, color: Colors.grey.shade100),
-        Padding(padding: const EdgeInsets.all(14), child: child),
-      ]),
-    );
-  }
-
-  Widget _miniStat(String label, String value, Color color) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text('$label: ', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-      Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-    ],
-  );
-
-  Widget _readonlyRow(IconData icon, String label, String tag) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(tag, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
-      const SizedBox(height: 4),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300, width: 0.5),
-        ),
-        child: Row(children: [
-          Icon(icon, size: 16, color: Colors.blue[700]),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-                color: Colors.blue.shade50, borderRadius: BorderRadius.circular(20)),
-            child: Text(tag, style: TextStyle(fontSize: 11, color: Colors.blue[700],
-                fontWeight: FontWeight.w600)),
-          ),
-        ]),
-      ),
-    ]);
-  }
 
   Widget _styledInput(TextEditingController ctrl, String label, String hint) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1165,11 +1337,14 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
           filled: true, fillColor: Colors.grey.shade50,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: Colors.grey.shade300, width: 0.5)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: Colors.grey.shade300, width: 0.5)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: Colors.blue.shade400, width: 1)),
         ),
         style: const TextStyle(fontSize: 13),
@@ -1196,11 +1371,14 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
           filled: true, fillColor: Colors.grey.shade50,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: Colors.grey.shade300, width: 0.5)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: Colors.grey.shade300, width: 0.5)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: Colors.blue.shade400, width: 1)),
         ),
         dropdownColor: Colors.white,

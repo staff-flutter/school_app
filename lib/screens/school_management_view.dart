@@ -29,6 +29,7 @@ import 'package:school_app/screens/user_detail_view.dart';
 import 'package:school_app/screens/teacher_assignment_view.dart';
 
 import '../controllers/marks_controller.dart';
+import 'create_student_profile_page.dart';
 
 // ─── Design System ────────────────────────────────────────────────────────────
 class _DS {
@@ -559,6 +560,9 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               Expanded(
                 child: ResponsiveWrapper(
                   child: TabBarView(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
                     children: tabs.map((tab) =>
                         (tab['builder'] as Widget Function())()).toList(),
                   ),
@@ -1178,7 +1182,6 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       backgroundColor: Colors.transparent,
       body: Column(children: [
         // ── Filters ────────────────────────────────────────────────
-        // Replace the Filters Padding block with this:
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Obx(() {
@@ -1270,12 +1273,8 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.close_rounded, size: 13, color: _DS.danger),
-                      const SizedBox(width: 4),
-                      Text('Clear',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _DS.danger)),
+
+
                     ]),
                   ),
                 ),
@@ -2304,12 +2303,12 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     if (controller.selectedSchool.value == null) {
       Get.snackbar('Error', 'Please select a school first'); return;
     }
-    Get.to(() => StudentFormPage(
+    Get.to(() => CreateStudentProfilePage(
         schoolId: controller.selectedSchool.value!.id, isEdit: false));
   }
 
   void _showEditStudentDialog(Student student) {
-    Get.to(() => StudentFormPage(
+    Get.to(() => CreateStudentProfilePage(
         student: student,
         schoolId: student.schoolId ?? controller.selectedSchool.value!.id,
         isEdit: true));

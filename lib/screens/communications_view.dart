@@ -1148,7 +1148,7 @@ class _AnnouncementsList extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
                         decoration: BoxDecoration(
-                          color: _typeAccent(announcement['type']).withOpacity(0.08),
+                          color: _typeAccent(announcement['type']).withOpacity(0.25),
                           borderRadius:
                           const BorderRadius.vertical(top: Radius.circular(16)),
                         ),
@@ -1156,7 +1156,7 @@ class _AnnouncementsList extends StatelessWidget {
                           Container(
                             width: 32, height: 32,
                             decoration: BoxDecoration(
-                              color: _typeAccent(announcement['type']).withOpacity(0.15),
+                              color: _typeAccent(announcement['type']).withOpacity(0.19),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(_typeIcon(announcement['type']),

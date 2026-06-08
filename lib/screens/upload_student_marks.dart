@@ -1,2424 +1,1359 @@
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:school_app/controllers/school_controller.dart';
+import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/controllers/auth_controller.dart';
+import 'package:school_app/controllers/school_controller.dart';
+import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/models/school_models.dart';
-import 'package:http/http.dart' as http;
+import 'package:school_app/services/api_service.dart';
 
-import '../constants/api_constants.dart';
+// ── Design tokens (light-blue professional theme) ─────────────────────────────
+const _kPrimary    = Color(0xFF2563EB);
+const _kLightBlue  = Color(0xFFEFF6FF);
+const _kBlueBorder = Color(0xFFBFDBFE);
+const _kBg         = Color(0xFFF4F4F6);
+const _kCard       = Colors.white;
+const _kText       = Color(0xFF1C1C1E);
+const _kMuted      = Color(0xFF6B7280);
+const _kSuccess    = Color(0xFF059669);
+const _kError      = Color(0xFFEF4444);
+const _kDark       = Color(0xFF1E293B);
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const List<String> kDefaultSubjects = [
-  'Tamil', 'English', 'Mathematics', 'Science', 'Social Science',
-];
-
-// ─── Mark Entry Model ─────────────────────────────────────────────────────────
-
-class _MarkEntry {
-  final String studentId;
-  final String studentName;
-  final String rollNumber;
-  final Map<String, TextEditingController> controllers;
-  bool isAbsent;
-
-  _MarkEntry({
-    required this.studentId,
-    required this.studentName,
-    required this.rollNumber,
-    required List<String> subjects,
-    Map<String, String>? prefillMarks,
-    this.isAbsent = false,
-  }) : controllers = {for (final s in subjects) s: TextEditingController()} {
-    if (prefillMarks != null) {
-      for (final entry in prefillMarks.entries) {
-        controllers[entry.key]?.text = entry.value;
-      }
-    }
-  }
-
-  void dispose() {
-    for (final c in controllers.values) c.dispose();
-  }
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────────────
 class StudentMarksUploadPage extends StatefulWidget {
   const StudentMarksUploadPage({super.key});
-
   @override
   State<StudentMarksUploadPage> createState() => _StudentMarksUploadPageState();
 }
 
 class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
     with TickerProviderStateMixin {
-  List<Map<String, dynamic>> _subjectTypes = [];
-  bool _subjectTypesLoading = false;
-
-  List<Map<String, dynamic>> _examTypes = [];
-  bool _examTypesLoading = false;
-
+  // ── Services ─────────────────────────────────────────────────────────────
+  final _auth       = Get.find<AuthController>();
   final _schoolCtrl = Get.find<SchoolController>();
-  final _authCtrl = Get.find<AuthController>();
+  final _api        = Get.find<ApiService>();
 
-  late TabController _tabCtrl;
+  late final TabController _tabCtrl;
 
-  // ── Filter state ──
-  School? _school;
-  SchoolClass? _schoolClass;
-  Section? _section;
-  String _examType = '';
-  String _term = '1';
-  int _maxMarks = 100;
-  final _maxMarksCtrl = TextEditingController(text: '100');
+  // ── Filter state ──────────────────────────────────────────────────────────
+  SchoolClass? _class;
+  Section?     _section;
+  String       _academicYear = '2025-2026';
+  bool         _showFilters  = true;
 
-  // ── Subjects ──
-  List<String> _subjects = List.from(kDefaultSubjects);
+  // ── Config state ──────────────────────────────────────────────────────────
+  String?                   _configId;
+  List<Map<String,dynamic>> _cfgSubjects = [];
+  List<Map<String,dynamic>> _cfgExams    = [];
+  bool _configLoading = false;
+  bool _configSaving  = false;
 
-  // ── Students ──
-  List<_MarkEntry> _entries = [];
-  bool _isLoading = false;
-  bool _isSaving = false;
-  bool _showFilters = true;
+  // Inline-add controllers
+  final _subNameCtrl  = TextEditingController();
+  final _subCodeCtrl  = TextEditingController();
+  final _examNameCtrl = TextEditingController();
+  final _examMaxCtrl  = TextEditingController(text: '100');
+  final _examPassCtrl = TextEditingController(text: '35');
 
-  // ── Remarks ──
-  final _remarksCtrl = TextEditingController();
+  // ── Students state ────────────────────────────────────────────────────────
+  List<Map<String,dynamic>> _students       = [];
+  bool                      _studentsLoading = false;
 
-  // ── Search ──
-  final _searchCtrl = TextEditingController();
-  String _query = '';
+  // ── Reports state ─────────────────────────────────────────────────────────
+  Map<String, Map<String,dynamic>> _reports = {};
 
-  // ── Save progress tracking ──
-  int _saveProgress = 0;
-  int _saveTotal = 0;
+  // ── Marks data ────────────────────────────────────────────────────────────
+  Map<String, List<List<TextEditingController>>> _cells   = {};
+  Map<String, bool>                              _absent  = {};
+  Map<String, bool>                              _saving  = {};
+  Map<String, bool>                              _expanded = {};
+  final Map<String, TextEditingController>       _remarks  = {};
 
+  // ── Role helpers ──────────────────────────────────────────────────────────
+  bool get _canConfigure {
+    final role = _auth.user.value?.role?.toLowerCase() ?? '';
+    return ['administrator','principal','viceprincipal'].contains(role);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
-    _searchCtrl.addListener(
-            () => setState(() => _query = _searchCtrl.text.trim().toLowerCase()));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = Get.find<AuthController>();
-      if (!auth.canUploadMarks) {
-        Get.back();
-        Get.snackbar(
-          'Access Denied',
-          'You do not have permission to access this page.',
-          backgroundColor: Colors.red[700],
-          colorText: Colors.white,
-        );
-      }
-      _schoolCtrl.getAllSchools();
-      _autoSelectSchool();
-    });
+    _tabCtrl = TabController(length: _canConfigure ? 2 : 1, vsync: this);
+    final school = _schoolCtrl.selectedSchool.value;
+    if (school?.currentAcademicYear != null) _academicYear = school!.currentAcademicYear!;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSchoolLoaded());
   }
 
-  void _autoSelectSchool() {
-    final id = _authCtrl.user.value?.schoolId;
-    if (id == null) return;
-    final s = _schoolCtrl.schools.firstWhereOrNull((s) => s.id == id);
-    if (s != null) {
-      setState(() => _school = s);
-      _schoolCtrl.getAllClasses(s.id);
-      _loadExamTypes();
-    }
+  Future<void> _ensureSchoolLoaded() async {
+    if (_schoolCtrl.selectedSchool.value != null && _schoolCtrl.classes.isNotEmpty) return;
+    try {
+      final user = _auth.user.value;
+      if (user?.schoolId == null) return;
+      if (_schoolCtrl.schools.isEmpty) await _schoolCtrl.getAllSchools();
+      if (_schoolCtrl.selectedSchool.value == null) {
+        final school = _schoolCtrl.schools.firstWhereOrNull((s) => s.id == user!.schoolId);
+        if (school != null) _schoolCtrl.selectedSchool.value = school;
+      }
+      final sid = _schoolCtrl.selectedSchool.value?.id;
+      if (sid != null && _schoolCtrl.classes.isEmpty) {
+        await _schoolCtrl.getAllClasses(sid);
+        await _schoolCtrl.getAllSections(schoolId: sid);
+      }
+      final schoolAY = _schoolCtrl.selectedSchool.value?.currentAcademicYear;
+      if (schoolAY != null && mounted) setState(() => _academicYear = schoolAY);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
-    _searchCtrl.dispose();
-    _maxMarksCtrl.dispose();
-    _remarksCtrl.dispose();
-    for (final e in _entries) e.dispose();
+    _subNameCtrl.dispose(); _subCodeCtrl.dispose();
+    _examNameCtrl.dispose(); _examMaxCtrl.dispose(); _examPassCtrl.dispose();
+    _disposeCells();
+    for (final c in _remarks.values) c.dispose();
     super.dispose();
   }
 
-  // ── Grade ─────────────────────────────────────────────────────────────────
-  Map<String, dynamic> _grade(int? marks) {
-    if (marks == null)
-      return {
-        'label': '—',
-        'color': Colors.grey[400]!,
-        'bg': Colors.grey.shade100
-      };
-    final p = marks / _maxMarks * 100;
-    if (p >= 90)
-      return {
-        'label': 'A+',
-        'color': const Color(0xFF059669),
-        'bg': const Color(0xFFD1FAE5)
-      };
-    if (p >= 75)
-      return {
-        'label': 'A',
-        'color': const Color(0xFF059669),
-        'bg': const Color(0xFFD1FAE5)
-      };
-    if (p >= 60)
-      return {
-        'label': 'B',
-        'color': Colors.blue[700]!,
-        'bg': Colors.blue.shade50
-      };
-    if (p >= 50)
-      return {
-        'label': 'C',
-        'color': const Color(0xFFD97706),
-        'bg': const Color(0xFFFEF3C7)
-      };
-    if (p >= 35)
-      return {
-        'label': 'D',
-        'color': const Color(0xFFD97706),
-        'bg': const Color(0xFFFEF3C7)
-      };
-    return {
-      'label': 'F',
-      'color': Colors.red[700]!,
-      'bg': Colors.red.shade50
-    };
+  void _disposeCells() {
+    for (final rows in _cells.values) for (final row in rows) for (final c in row) c.dispose();
+    _cells.clear();
   }
 
-  int? _total(_MarkEntry e) {
-    int sum = 0;
-    bool any = false;
-    for (final s in _subjects) {
-      final v = int.tryParse(e.controllers[s]?.text ?? '');
-      if (v != null) {
-        sum += v;
-        any = true;
-      }
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  String? get _schoolId => _schoolCtrl.selectedSchool.value?.id;
+
+  /// Returns true only if [id] looks like a 24-char hex MongoDB ObjectId.
+  bool _isValidObjectId(String? id) {
+    if (id == null || id.isEmpty) return false;
+    return RegExp(r'^[a-f\d]{24}$', caseSensitive: false).hasMatch(id);
+  }
+
+  /// Extract the MongoDB _id from a config response map.
+  /// Tries '_id', 'id', 'configId' in order and validates it looks like an ObjectId.
+  String? _extractConfigId(Map<String,dynamic> cfg) {
+    for (final key in ['_id', 'id', 'configId']) {
+      final val = cfg[key]?.toString();
+      if (_isValidObjectId(val)) return val;
     }
-    return any ? sum : null;
+    // Log what we actually got so we can debug
+    debugPrint('[CONFIG ID SEARCH] Could not find valid ObjectId in cfg keys: ${cfg.keys.toList()}');
+    debugPrint('[CONFIG ID SEARCH] cfg values: ${cfg.entries.map((e) => "${e.key}=${e.value}").join(", ")}');
+    return null;
   }
 
-  // ── Load subjects ─────────────────────────────────────────────────────────
-  Future<void> _loadSubjects() async {
-    if (_school == null) return;
-    setState(() => _subjectTypesLoading = true);
+  /// Extract roll number from raw API student map.
+  String _extractRollNumber(Map<String,dynamic> s) {
+    final nonMandatory = s['nonMandatory'];
+    if (nonMandatory is Map) {
+      final roll = nonMandatory['rollNumber']?.toString()
+          ?? nonMandatory['roll']?.toString();
+      if (roll != null && roll.isNotEmpty) return roll;
+    }
+    return s['rollNumber']?.toString()
+        ?? s['roll']?.toString()
+        ?? '—';
+  }
+
+  // ── Load config ───────────────────────────────────────────────────────────
+  Future<void> _loadConfig() async {
+    if (_class == null || _schoolId == null) return;
+    setState(() => _configLoading = true);
     try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/api/marks/getbyclass').replace(
-            queryParameters: {
-              'schoolId': _school!.id,
-              'classId': _schoolClass?.id ?? '',
-            }),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> list = data is List ? data : data['data'] ?? [];
+      Map<String,dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
+      if (cfg == null) {
+        debugPrint('[CONFIG] First attempt (with academicYear) returned no data, trying without...');
+        cfg = await _fetchConfig(withAcademicYear: false);
+      }
+
+      if (cfg != null) {
+        final extractedId = _extractConfigId(cfg);
+        debugPrint('[CONFIG] Raw cfg: ${cfg.keys.toList()}');
+        debugPrint('[CONFIG] Extracted configId=$extractedId');
         setState(() {
-          _subjectTypes = list
-              .map((e) => {
-            'label': e['subjectName']?.toString() ?? 'Unknown',
-            'value': e['_id']?.toString() ?? '',
-            'maxMarks': e['maxMarks']?.toString() ?? '100',
-          })
-              .toList();
-          _subjects =
-              _subjectTypes.map((s) => s['label'] as String).toList();
+          _configId    = extractedId;
+          _cfgSubjects = List<Map<String,dynamic>>.from(cfg!['subjects'] ?? []);
+          _cfgExams    = List<Map<String,dynamic>>.from(cfg['exams']    ?? []);
         });
+        debugPrint('[CONFIG] Loaded: id=$_configId exams=${_cfgExams.length} subjects=${_cfgSubjects.length}');
+        if (!_isValidObjectId(_configId)) {
+          debugPrint('[CONFIG] WARNING: configId "$_configId" is not a valid ObjectId! Marks save will fail.');
+        }
+      } else {
+        debugPrint('[CONFIG] No config found for class=${_class!.id} school=$_schoolId');
+        setState(() { _configId = null; _cfgSubjects = []; _cfgExams = []; });
       }
     } catch (e) {
-      debugPrint('LoadSubjects Error: $e');
+      debugPrint('[CONFIG error] $e');
+      setState(() { _configId = null; _cfgSubjects = []; _cfgExams = []; });
     } finally {
-      setState(() => _subjectTypesLoading = false);
+      setState(() => _configLoading = false);
     }
   }
 
-  Future<void> _createSubject(String subjectName, int maxMarks) async {
-    if (_school == null) return;
+  /// Fetches the config and returns the data map, or null if not found.
+  Future<Map<String,dynamic>?> _fetchConfig({required bool withAcademicYear}) async {
     try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/api/subjects/create'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'subjectName': subjectName,
-          'schoolId': _school!.id,
-          'classId': _schoolClass?.id ?? '',
-          'maxMarks': maxMarks,
-        }),
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        _snack('Success', '"$subjectName" added successfully');
-        _loadSubjects();
-      } else {
-        _snack('Error', 'Failed to add subject', error: true);
+      final params = <String, dynamic>{
+        'schoolId': _schoolId!,
+        'classId': _class!.id,
+        if (withAcademicYear) 'academicYear': _academicYear,
+      };
+      debugPrint('[CONFIG FETCH] params=$params');
+      final resp = await _api.get(ApiConstants.getMarkReportConfigByClass, queryParameters: params);
+      debugPrint('[CONFIG FETCH] ok=${resp.data['ok']} hasData=${resp.data['data'] != null}');
+      if (resp.data['ok'] == true && resp.data['data'] != null) {
+        return resp.data['data'] as Map<String,dynamic>;
       }
     } catch (e) {
-      _snack('Error', 'Something went wrong', error: true);
+      debugPrint('[CONFIG FETCH error withAcademicYear=$withAcademicYear] $e');
     }
+    return null;
   }
 
-  Future<void> _updateSubject(
-      String subjectId, String subjectName, int maxMarks) async {
-    try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.put(
-        Uri.parse(
-            '${ApiConstants.baseUrl}/api/subjects/update/$subjectId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'subjectName': subjectName, 'maxMarks': maxMarks}),
-      );
-      if (response.statusCode == 200) {
-        _snack('Updated', '"$subjectName" updated successfully');
-        _loadSubjects();
-      } else {
-        _snack('Error', 'Failed to update subject', error: true);
-      }
-    } catch (e) {
-      debugPrint('UpdateSubject Error: $e');
+  Future<void> _saveConfig() async {
+    if (_class == null || _schoolId == null) return;
+    if (_cfgSubjects.isEmpty || _cfgExams.isEmpty) {
+      _snack('Validation', 'Add at least one subject and one exam', error: true); return;
     }
-  }
-
-  Future<void> _deleteSubject(
-      String subjectId, String subjectName) async {
+    setState(() => _configSaving = true);
     try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.delete(
-        Uri.parse(
-            '${ApiConstants.baseUrl}/api/subjects/delete/$subjectId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        _snack('Deleted', '"$subjectName" removed successfully');
-        _loadSubjects();
-      } else {
-        _snack('Error', 'Failed to delete subject', error: true);
-      }
-    } catch (e) {
-      debugPrint('DeleteSubject Error: $e');
-    }
-  }
-
-  // ── Exam types ────────────────────────────────────────────────────────────
-  Future<void> _loadExamTypes() async {
-    if (_school == null) return;
-    setState(() => _examTypesLoading = true);
-    try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/api/examtypes/get-all')
-            .replace(queryParameters: {'schoolId': _school!.id}),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> list =
-        data is List ? data : data['data'] ?? [];
-        setState(() {
-          _examTypes = list
-              .map((e) => {
-            'label': e['examName']?.toString() ?? 'Unknown',
-            'value': e['_id']?.toString() ?? '',
-            'icon': Icons.assignment_rounded,
-          })
-              .toList();
-          if (_examTypes.isNotEmpty && _examType.isEmpty) {
-            _examType = _examTypes.first['value'];
-          }
+      if (_configId == null) {
+        final resp = await _api.post(ApiConstants.createMarkReportConfig, data: {
+          'schoolId': _schoolId!,
+          'classId': _class!.id,
+          'academicYear': _academicYear,
+          'subjects': _cfgSubjects,
+          'exams': _cfgExams,
         });
+        if (resp.data['ok'] == true) {
+          final newId = _extractConfigId(
+              (resp.data['data'] as Map<String,dynamic>?) ?? {});
+          setState(() => _configId = newId);
+          debugPrint('[CONFIG SAVE] Created with id=$_configId');
+          _snack('Saved', 'Configuration created');
+        } else {
+          _snack('Error', resp.data['message'] ?? 'Failed', error: true);
+        }
+      } else {
+        final resp = await _api.put(
+          '${ApiConstants.updateMarkReportConfig}/$_configId',
+          data: {'subjects': _cfgSubjects, 'exams': _cfgExams},
+        );
+        if (resp.data['ok'] == true) {
+          _snack('Saved', 'Configuration updated');
+        } else {
+          _snack('Error', resp.data['message'] ?? 'Failed', error: true);
+        }
       }
+    } on DioException catch (e) {
+      final msg = (e.response?.data is Map && e.response?.data['message'] != null)
+          ? e.response!.data['message'].toString()
+          : 'HTTP ${e.response?.statusCode}: ${e.message}';
+      _snack('Error', msg, error: true);
     } catch (e) {
-      debugPrint('LoadExamTypes Error: $e');
+      debugPrint('[CONFIG SAVE ERROR] $e');
+      _snack('Error', e.toString(), error: true);
     } finally {
-      setState(() => _examTypesLoading = false);
-    }
-  }
-
-  Future<void> _createExamType(String examName) async {
-    if (_school == null) return;
-    try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/api/markreport/v1/create'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'examName': examName,
-          'schoolId': _school!.id,
-          'term': _term,
-        }),
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        _snack('Success', 'Exam type "$examName" added successfully');
-        _loadExamTypes();
-      } else {
-        _snack('Error', 'Failed to add exam type', error: true);
-      }
-    } catch (e) {
-      _snack('Error', 'Something went wrong', error: true);
-    }
-  }
-
-  Future<void> _deleteExamType(
-      String examId, String examName) async {
-    try {
-      final token = _authCtrl.storage.read('token');
-      final response = await http.delete(
-        Uri.parse(
-            '${ApiConstants.baseUrl}/api/examtypes/delete/$examId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        _snack('Deleted', '"$examName" removed successfully');
-        _loadExamTypes();
-      } else {
-        _snack('Error', 'Failed to delete exam type', error: true);
-      }
-    } catch (e) {
-      debugPrint('DeleteExamType Error: $e');
+      setState(() => _configSaving = false);
     }
   }
 
   // ── Load students ─────────────────────────────────────────────────────────
   Future<void> _loadStudents() async {
-    if (_school == null || _schoolClass == null) return;
+    if (_class == null || _schoolId == null) return;
     setState(() {
-      _isLoading = true;
-      _entries = [];
+      _studentsLoading = true;
+      _students = [];
+      _disposeCells();
+      _absent = {};
+      _saving = {};
+      _expanded = {};
+      _reports = {};
     });
     try {
-      final token = _authCtrl.storage.read('token');
-      final uri = Uri.parse(
-          '${ApiConstants.baseUrl}${ApiConstants.getMarksByClass}')
-          .replace(queryParameters: {
-        'schoolId': _school!.id,
-        'classId': _schoolClass!.id,
-        if (_section != null) 'sectionId': _section!.id,
-        'examType': _examType,
-        'term': _term,
-        'academicYear': '2025-2026',
-      });
-
-      final response = await http.get(uri, headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      });
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> list =
-        data is List ? data : data['data'] ?? [];
-        final subjects = _subjects.isNotEmpty
-            ? _subjects
-            : List<String>.from(kDefaultSubjects);
-
-        setState(() {
-          _entries = list.map((item) {
-            final List<dynamic> subjectMarks = item['subjects'] ?? [];
-            final prefill = <String, String>{
-              for (final s in subjectMarks)
-                if (s['subject'] != null)
-                  s['subject'].toString():
-                  (s['marksObtained'] ?? '').toString(),
-            };
-            return _MarkEntry(
-              studentId: item['studentId']?['_id']?.toString() ??
-                  item['studentId']?.toString() ??
-                  '',
-              studentName:
-              item['studentId']?['userName']?.toString() ?? 'Unknown',
-              rollNumber:
-              item['studentId']?['rollNumber']?.toString() ?? '—',
-              subjects: subjects,
-              prefillMarks: prefill,
-              isAbsent: item['isAbsent'] ?? false,
-            );
-          }).toList();
-          _isLoading = false;
-          _showFilters = false;
-        });
-      } else if (response.statusCode == 404) {
-        await _loadStudentsOnly();
-      } else {
-        debugPrint(
-            'LoadStudents Error: ${response.statusCode} ${response.body}');
-        setState(() => _isLoading = false);
-        _snack('Error', 'Failed to load students', error: true);
-      }
-    } catch (e) {
-      debugPrint('LoadStudents Exception: $e');
-      if (mounted) setState(() => _isLoading = false);
-      _snack('Error', 'Something went wrong', error: true);
-    }
-  }
-
-  Future<void> _loadStudentsOnly() async {
-    try {
-      final token = _authCtrl.storage.read('token');
-      final uri =
-      Uri.parse('${ApiConstants.baseUrl}/api/students/get-all')
-          .replace(queryParameters: {
-        'schoolId': _school!.id,
-        'classId': _schoolClass!.id,
+      await _loadConfig();
+      final sResp = await _api.get(ApiConstants.getAllStudents, queryParameters: {
+        'schoolId': _schoolId!,
+        'classId': _class!.id,
         if (_section != null) 'sectionId': _section!.id,
       });
-
-      final response = await http.get(uri, headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      });
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> list =
-        data is List ? data : data['data'] ?? [];
-        final subjects = _subjects.isNotEmpty
-            ? _subjects
-            : List<String>.from(kDefaultSubjects);
-
+      if (sResp.data['ok'] == true || sResp.data['data'] != null) {
         setState(() {
-          _entries = list
-              .map((item) => _MarkEntry(
-            studentId: item['_id']?.toString() ?? '',
-            studentName:
-            item['userName']?.toString() ?? 'Unknown',
-            rollNumber:
-            item['rollNumber']?.toString() ?? '—',
-            subjects: subjects,
-          ))
-              .toList();
-          _isLoading = false;
-          _showFilters = false;
+          _students = List<Map<String,dynamic>>.from(sResp.data['data'] ?? sResp.data ?? []);
         });
-      } else {
-        setState(() => _isLoading = false);
-        _snack('Error', 'Failed to load students', error: true);
       }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // ── Save marks → POST /api/markreport/create (one call per student) ──────
-  // ─────────────────────────────────────────────────────────────────────────
-  Future<void> _saveMarks() async {
-    // ── Validation ──
-    for (final e in _entries) {
-      if (e.isAbsent) continue; // skip absent students
-      for (final s in _subjects) {
-        final subjectMaxMarks = int.tryParse(
-            _subjectTypes
-                .firstWhereOrNull((st) => st['label'] == s)
-            ?['maxMarks'] ??
-                '$_maxMarks') ??
-            _maxMarks;
-        final v = int.tryParse(e.controllers[s]?.text ?? '');
-        if (v != null && v > subjectMaxMarks) {
-          _snack('Validation Error',
-              '${e.studentName} — $s exceeds max marks ($subjectMaxMarks)',
-              error: true);
-          return;
-        }
-      }
-    }
-
-    setState(() {
-      _isSaving = true;
-      _saveProgress = 0;
-      _saveTotal = _entries.length;
-    });
-
-    final token = _authCtrl.storage.read('token');
-    int successCount = 0;
-    int failCount = 0;
-
-    for (final entry in _entries) {
-      try {
-        // Build subjects array for this student
-        final List<Map<String, dynamic>> subjects = _subjects.map((s) {
-          final subjectData =
-          _subjectTypes.firstWhereOrNull((st) => st['label'] == s);
-          final maxM =
-              int.tryParse(subjectData?['maxMarks'] ?? '$_maxMarks') ??
-                  _maxMarks;
-          final scored =
-              int.tryParse(entry.controllers[s]?.text ?? '') ?? 0;
-          return {
-            'subject': s,
-            if (subjectData?['value'] != null &&
-                (subjectData!['value'] as String).isNotEmpty)
-              'subjectId': subjectData['value'],
-            'marksObtained': scored,
-            'maxMarks': maxM,
-            'minPassingMarks': (maxM * 0.35).round(), // 35% passing
+      final rResp = await _api.get(ApiConstants.getAllMarkReportsV1, queryParameters: {
+        'schoolId': _schoolId!,
+        'classId': _class!.id,
+        if (_section != null) 'sectionId': _section!.id,
+        'academicYear': _academicYear,
+      });
+      if (rResp.data['ok'] == true) {
+        final list = List<Map<String,dynamic>>.from(rResp.data['data'] ?? []);
+        setState(() {
+          _reports = {
+            for (final r in list)
+              (r['studentId'] is Map ? r['studentId']['_id'] : r['studentId'])?.toString() ?? '': r
           };
-        }).toList();
-
-        // ── POST /api/markreport/create ──
-        final response = await http.post(
-          Uri.parse('${ApiConstants.baseUrl}/api/markreport/create'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode({
-            'schoolId': _school!.id,
-            'classId': _schoolClass!.id,
-            if (_section != null) 'sectionId': _section!.id,
-            'studentId': entry.studentId,
-            'academicYear': '2025-2026',
-            'examType': _examType,
-            'term': _term,
-            'subjects': subjects,
-            'remarks': _remarksCtrl.text.trim(),
-            'isAbsent': entry.isAbsent,
-          }),
-        );
-
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          successCount++;
-        } else {
-          failCount++;
-          debugPrint(
-              'markreport/create failed for ${entry.studentName}: '
-                  '${response.statusCode} ${response.body}');
-        }
-      } catch (e) {
-        failCount++;
-        debugPrint(
-            'markreport/create exception for ${entry.studentName}: $e');
+        });
       }
+      _initCells();
+    } on DioException catch (e) {
+      debugPrint('[LOAD STUDENTS DIO ERROR] ${e.response?.statusCode}: ${e.response?.data}');
+      _snack('Error', 'Failed to load students: HTTP ${e.response?.statusCode}', error: true);
+    } catch (e) {
+      debugPrint('[LOAD STUDENTS ERROR] $e');
+      _snack('Error', 'Failed to load students', error: true);
+    } finally {
+      setState(() { _studentsLoading = false; _showFilters = false; });
+    }
+  }
 
-      // Update progress after each student
-      if (mounted) setState(() => _saveProgress++);
+  void _initCells() {
+    _disposeCells();
+    for (final student in _students) {
+      final sid = student['_id']?.toString() ?? '';
+      final report = _reports[sid];
+      final Map<String, Map<String,dynamic>> existing = {};
+      if (report != null) {
+        for (final er in List<Map<String,dynamic>>.from(report['examRecords'] ?? [])) {
+          final en = er['examName']?.toString() ?? '';
+          existing[en] = {
+            for (final s in List<Map<String,dynamic>>.from(er['subjects'] ?? []))
+              (s['subject'] ?? s['subjectName'])?.toString() ?? '': s['marksObtained']
+          };
+        }
+      }
+      _cells[sid] = List.generate(_cfgExams.length, (ei) {
+        final en = _cfgExams[ei]['examName']?.toString() ?? '';
+        return List.generate(_cfgSubjects.length, (si) {
+          final sn  = _cfgSubjects[si]['subjectName']?.toString() ?? '';
+          final val = existing[en]?[sn];
+          final txt = (val != null && val != 0) ? val.toString() : '';
+          return TextEditingController(text: txt);
+        });
+      });
+      _absent[sid]   = report?['isAbsent'] ?? false;
+      _saving[sid]   = false;
+      _expanded[sid] = false;
+      _remarks[sid] ??= TextEditingController(text: report?['remarks']?.toString() ?? '');
+    }
+    setState(() {});
+  }
+
+  // ── Save student marks ────────────────────────────────────────────────────
+  Future<void> _saveStudent(String sid) async {
+    if (!_isValidObjectId(_configId)) {
+      _snack(
+        'No Config',
+        _configId == null
+            ? 'Please save the class configuration first'
+            : 'Invalid configuration ID "$_configId". Please re-save the configuration.',
+        error: true,
+      );
+      return;
+    }
+    if (_schoolId == null) return;
+
+    final cells = _cells[sid];
+    if (cells == null) {
+      _snack('Error', 'Student data not loaded. Please reload students.', error: true);
+      return;
     }
 
-    if (mounted) setState(() => _isSaving = false);
+    setState(() => _saving[sid] = true);
+    try {
+      final examRecords = <Map<String,dynamic>>[
+        for (int ei = 0; ei < _cfgExams.length; ei++)
+          {
+            'examName': _cfgExams[ei]['examName'],
+            'subjects': [
+              for (int si = 0; si < _cfgSubjects.length; si++)
+                {
+                  'subject'        : _cfgSubjects[si]['subjectName'],
+                  'marksObtained'  : int.tryParse(cells[ei][si].text.trim()) ?? 0,
+                  'maxMarks'       : _cfgExams[ei]['maxMarks'] ?? 100,
+                  'minPassingMarks': _cfgExams[ei]['passingMarks'] ?? 35,
+                }
+            ],
+          }
+      ];
 
-    if (failCount == 0) {
-      _snack('Success',
-          'Marks saved for $successCount student${successCount == 1 ? '' : 's'}');
-    } else {
-      _snack(
-          'Partial',
-          '$successCount saved, $failCount failed — check logs',
-          error: true);
+      final topLevelSubjects = _cfgSubjects.map((s) => {
+        'subject'    : s['subjectName'],
+        'subjectCode': s['subjectCode'] ?? '',
+      }).toList();
+
+      debugPrint('[MARKS SAVE] sid=$sid exams=${examRecords.length} subjects=${topLevelSubjects.length} configId=$_configId');
+
+      final existing = _reports[sid];
+      if (existing != null) {
+        // ── UPDATE ──────────────────────────────────────────────────────────
+        final rid = existing['_id']?.toString() ?? '';
+        debugPrint('[MARKS UPDATE] PUT ${ApiConstants.updateMarkReportV1}/$rid');
+        final payload = {
+          'schoolId'          : _schoolId!,
+          'classId'           : _class!.id,
+          if (_section != null) 'sectionId': _section!.id,
+          'studentId'         : sid,
+          'academicYear'      : _academicYear,
+          'markReportConfigId': _configId!,
+          'subjects'          : topLevelSubjects,
+          'examRecords'       : examRecords,
+          'remarks'           : _remarks[sid]?.text.trim() ?? '',
+          'isAbsent'          : _absent[sid] ?? false,
+        };
+        debugPrint('[MARKS UPDATE] payload keys=${payload.keys.toList()} configId=${payload['markReportConfigId']}');
+        final resp = await _api.put('${ApiConstants.updateMarkReportV1}/$rid', data: payload);
+        debugPrint('[MARKS UPDATE] response ok=${resp.data['ok']} msg=${resp.data['message']}');
+        if (resp.data['ok'] == true) {
+          if (resp.data['data'] != null) setState(() => _reports[sid] = resp.data['data']);
+          _snack('Updated', 'Marks updated successfully');
+        } else {
+          _snack('Error', resp.data['message']?.toString() ?? 'Failed to update', error: true);
+        }
+      } else {
+        // ── CREATE ──────────────────────────────────────────────────────────
+        debugPrint('[MARKS CREATE] POST ${ApiConstants.createMarkReportV1}');
+        final payload = {
+          'schoolId'          : _schoolId!,
+          'classId'           : _class!.id,
+          if (_section != null) 'sectionId': _section!.id,
+          'studentId'         : sid,
+          'academicYear'      : _academicYear,
+          'markReportConfigId': _configId!,
+          'subjects'          : topLevelSubjects,
+          'examRecords'       : examRecords,
+          'remarks'           : _remarks[sid]?.text.trim() ?? '',
+          'isAbsent'          : _absent[sid] ?? false,
+        };
+        debugPrint('[MARKS CREATE] payload keys=${payload.keys.toList()} configId=${payload['markReportConfigId']}');
+        final resp = await _api.post(ApiConstants.createMarkReportV1, data: payload);
+        debugPrint('[MARKS CREATE] response ok=${resp.data['ok']} msg=${resp.data['message']}');
+        if (resp.data['ok'] == true) {
+          if (resp.data['data'] != null) setState(() => _reports[sid] = resp.data['data']);
+          _snack('Saved', 'Marks saved successfully');
+        } else {
+          _snack('Error', resp.data['message']?.toString() ?? 'Failed to save', error: true);
+        }
+      }
+    } on DioException catch (e) {
+      debugPrint('[MARKS DIO ERROR] ${e.response?.statusCode}: ${e.response?.data}');
+      final data = e.response?.data;
+      final msg  = (data is Map && data['message'] != null)
+          ? data['message'].toString()
+          : 'HTTP ${e.response?.statusCode ?? 'error'}: ${e.message ?? 'Network error'}';
+      _snack('Error', msg, error: true);
+    } catch (e, st) {
+      debugPrint('[MARKS ERROR] $e\n$st');
+      _snack('Error', e.toString(), error: true);
+    } finally {
+      setState(() => _saving[sid] = false);
     }
   }
 
   void _snack(String title, String msg, {bool error = false}) {
-    Get.snackbar(
-      title,
-      msg,
-      backgroundColor:
-      error ? Colors.red[700] : const Color(0xFF059669),
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 3),
-    );
+    Get.snackbar(title, msg,
+        backgroundColor: error ? _kError : _kSuccess,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4));
   }
 
-  void _addSubjectDialog({Map<String, dynamic>? existing}) {
-    final nameCtrl =
-    TextEditingController(text: existing?['label'] ?? '');
-    final maxMarksCtrl =
-    TextEditingController(text: existing?['maxMarks'] ?? '100');
-    final isEdit = existing != null;
-
-    Get.dialog(AlertDialog(
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(children: [
-        Icon(isEdit ? Icons.edit_rounded : Icons.book_rounded,
-            color: const Color(0xFF3B82F6), size: 20),
-        const SizedBox(width: 8),
-        Text(isEdit ? 'Edit Subject' : 'Add Subject',
-            style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w600)),
-      ]),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        _styledInput(
-            nameCtrl, 'Subject Name', 'e.g. Physics, Chemistry...'),
-        const SizedBox(height: 12),
-        _styledInput(maxMarksCtrl, 'Max Marks (Out of)', 'e.g. 100'),
-      ]),
-      actions: [
-        TextButton(
-            onPressed: () => Get.back(), child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: () {
-            final name = nameCtrl.text.trim();
-            final maxMarks =
-                int.tryParse(maxMarksCtrl.text.trim()) ?? 100;
-            if (name.isEmpty) return;
-            Get.back();
-            if (isEdit) {
-              _updateSubject(existing!['value'], name, maxMarks);
-            } else {
-              _createSubject(name, maxMarks);
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue[700],
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
-            elevation: 0,
-          ),
-          child: Text(isEdit ? 'Update' : 'Add'),
-        ),
-      ],
-    ));
-  }
-
-  void _addExamTypeDialog() {
-    final nameCtrl = TextEditingController();
-    Get.dialog(AlertDialog(
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(children: [
-        Icon(Icons.assignment_add,
-            color: Color(0xFF3B82F6), size: 20),
-        SizedBox(width: 8),
-        Text('Add Exam Type',
-            style: TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w600)),
-      ]),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        _styledInput(nameCtrl, 'Exam Name',
-            'e.g. Mid Term, Quarterly, Final...'),
-      ]),
-      actions: [
-        TextButton(
-            onPressed: () => Get.back(), child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: () {
-            final name = nameCtrl.text.trim();
-            if (name.isEmpty) return;
-            Get.back();
-            _createExamType(name);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue[700],
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
-            elevation: 0,
-          ),
-          child: const Text('Add'),
-        ),
-      ],
-    ));
-  }
-
-  void _removeSubject(String s) {
-    setState(() {
-      _subjects.remove(s);
-      for (final e in _entries) {
-        e.controllers[s]?.dispose();
-        e.controllers.remove(s);
-      }
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final filtered = _entries
-        .where((e) =>
-    _query.isEmpty ||
-        e.studentName.toLowerCase().contains(_query) ||
-        e.rollNumber.contains(_query))
-        .toList();
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: _buildAppBar(),
-      body: Column(children: [
-        _buildTabBar(),
-        Expanded(
-            child: TabBarView(
-              controller: _tabCtrl,
-              children: [
-                _buildEnterMarksTab(filtered),
-                _buildSummaryTab(filtered),
-              ],
-            )),
-      ]),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      title: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(Icons.grade_rounded,
-              color: Colors.blue[700], size: 20),
-        ),
-        const SizedBox(width: 12),
-        const Text('Marks Upload',
-            style: TextStyle(
-              color: Color(0xFF1A1A2E),
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            )),
-      ]),
-      actions: [
-        if (_entries.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _isSaving
-                ? Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.blue[700],
-                    value: _saveTotal > 0
-                        ? _saveProgress / _saveTotal
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text('$_saveProgress/$_saveTotal',
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey[600])),
-              ]),
-            )
-                : ElevatedButton.icon(
-              onPressed: _saveMarks,
-              icon: const Icon(Icons.save_rounded, size: 16),
-              label: const Text('Save',
-                  style: TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[700],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-        border: Border(
-            bottom:
-            BorderSide(color: Color(0xFFE0E0E0), width: 1)),
-      ),
-      child: TabBar(
+      backgroundColor: _kBg,
+      appBar: _appBar(),
+      body: TabBarView(
         controller: _tabCtrl,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        indicator: UnderlineTabIndicator(
-          borderSide:
-          BorderSide(width: 3.0, color: Colors.blue[700]!),
-          insets: const EdgeInsets.symmetric(horizontal: 16.0),
-        ),
-        indicatorSize: TabBarIndicatorSize.label,
-        labelColor: Colors.blue[700],
-        unselectedLabelColor: Colors.grey[500],
-        labelStyle: const TextStyle(
-            fontWeight: FontWeight.bold, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500, fontSize: 13),
-        overlayColor:
-        WidgetStateProperty.all(Colors.transparent),
-        tabs: const [
-          Tab(
-              child: Row(children: [
-                Icon(Icons.upload_rounded, size: 18),
-                SizedBox(width: 8),
-                Text('Enter'),
-              ])),
-          Tab(
-              child: Row(children: [
-                Icon(Icons.bar_chart_rounded, size: 18),
-                SizedBox(width: 8),
-                Text('Summary'),
-              ])),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _uploadTab(),
+          if (_canConfigure) _configTab(),
         ],
       ),
     );
   }
 
-  Widget _buildEnterMarksTab(List<_MarkEntry> filtered) {
-    return ListView(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Filters & Settings',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A2E))),
-              GestureDetector(
-                onTap: () =>
-                    setState(() => _showFilters = !_showFilters),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+  PreferredSizeWidget _appBar() => AppBar(
+    backgroundColor: _kCard,
+    elevation: 0,
+    surfaceTintColor: Colors.transparent,
+    automaticallyImplyLeading: false,
+    title: const Text('Marks Upload',
+        style: TextStyle(color: _kText, fontWeight: FontWeight.w700, fontSize: 18)),
+    bottom: PreferredSize(
+      preferredSize: const Size.fromHeight(48),
+      child: Container(
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB)))),
+        child: TabBar(
+          controller: _tabCtrl,
+          indicatorColor: _kPrimary,
+          indicatorWeight: 3,
+          labelColor: _kPrimary,
+          unselectedLabelColor: _kMuted,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          tabs: [
+            const Tab(icon: Icon(Icons.upload_rounded, size: 16), text: 'Enter Marks'),
+            if (_canConfigure) const Tab(icon: Icon(Icons.settings_outlined, size: 16), text: 'Configure'),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  // ══════════════════════════════════════════════════════════════════
+  //  TAB 1 — ENTER MARKS
+  // ══════════════════════════════════════════════════════════════════
+  Widget _uploadTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: Column(children: [
+        if (_showFilters || _students.isEmpty) _filterCard(),
+        if (!_showFilters && _students.isNotEmpty) ...[_filterSummary(), const SizedBox(height: 12)],
+        if (_studentsLoading)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator(color: _kPrimary)))
+        else if (!_showFilters && _students.isEmpty)
+          _emptyState()
+        else if (_students.isNotEmpty) ...[
+            if (!_isValidObjectId(_configId) && !_configLoading) _configBanner(),
+            const SizedBox(height: 4),
+            ..._students.map(_studentCard),
+          ],
+      ]),
+    );
+  }
+
+  Widget _configBanner() => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFFBEB),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFFCD34D)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 18),
+      const SizedBox(width: 8),
+      Expanded(child: Text(
+        _canConfigure
+            ? 'No valid configuration found for this class. Tap "Configure" tab to set up subjects & exams.'
+            : 'No configuration found for this class. Please ask your administrator to set it up.',
+        style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+      )),
+      if (_canConfigure) ...[
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => _tabCtrl.animateTo(1),
+          child: const Text('Set up', style: TextStyle(fontSize: 12, color: _kPrimary, fontWeight: FontWeight.w700)),
+        ),
+      ],
+    ]),
+  );
+
+  Widget _filterCard() => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: _kCard,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _sectionHeader(Icons.filter_list_rounded, 'Filters & Settings'),
+      const SizedBox(height: 16),
+      Row(children: [
+        Expanded(child: _dropdown('Class', _class?.name ?? 'Select', Icons.school_outlined, _classPicker)),
+        const SizedBox(width: 12),
+        Expanded(child: _dropdown('Section', _section?.name ?? 'All', Icons.group_outlined, _sectionPicker)),
+      ]),
+      const SizedBox(height: 12),
+      _dropdown('Academic Year', _academicYear, Icons.calendar_today_outlined, _yearPicker),
+      const SizedBox(height: 16),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _class == null ? null : _loadStudents,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _kPrimary,
+            disabledBackgroundColor: _kBlueBorder,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+          icon: const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+          label: const Text('Load Students',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+        ),
+      ),
+    ]),
+  );
+
+  Widget _filterSummary() => GestureDetector(
+    onTap: () => setState(() => _showFilters = true),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _kLightBlue,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBlueBorder),
+      ),
+      child: Row(children: [
+        const Icon(Icons.filter_list_rounded, color: _kPrimary, size: 16),
+        const SizedBox(width: 8),
+        Expanded(child: Text(
+          '${_class?.name ?? ''} · ${_section?.name ?? 'All sections'} · $_academicYear',
+          style: const TextStyle(fontSize: 13, color: _kText, fontWeight: FontWeight.w500),
+        )),
+        const Text('Change', style: TextStyle(fontSize: 12, color: _kPrimary, fontWeight: FontWeight.w600)),
+      ]),
+    ),
+  );
+
+  Widget _emptyState() => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(children: [
+        Container(width: 80, height: 80,
+            decoration: BoxDecoration(color: _kLightBlue, borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.upload_file_rounded, color: _kPrimary, size: 40)),
+        const SizedBox(height: 16),
+        const Text('No Students Loaded',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: _kText)),
+        const SizedBox(height: 6),
+        const Text('Select filters above and tap\n"Load Students" to begin',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: _kMuted)),
+      ]),
+    ),
+  );
+
+  Widget _studentCard(Map<String,dynamic> student) {
+    final sid  = student['_id']?.toString() ?? '';
+    final name = student['name']?.toString()
+        ?? student['studentName']?.toString()
+        ?? student['fullName']?.toString()
+        ?? student['userName']?.toString()
+        ?? 'Unknown';
+    final roll = _extractRollNumber(student);
+    final isExp    = _expanded[sid] ?? false;
+    final isSaving = _saving[sid]   ?? false;
+    final hasReport = _reports.containsKey(sid);
+    final isAbsent  = _absent[sid] ?? false;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(14),
+        border: hasReport ? Border.all(color: const Color(0xFF86EFAC), width: 1.5) : null,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))],
+      ),
+      child: Column(children: [
+        // Header row
+        GestureDetector(
+          onTap: () {
+            if (_cfgSubjects.isEmpty || _cfgExams.isEmpty) {
+              _snack('No Config', 'Set up class configuration first', error: true); return;
+            }
+            setState(() => _expanded[sid] = !isExp);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              Container(width: 40, height: 40,
+                decoration: BoxDecoration(color: _kLightBlue, borderRadius: BorderRadius.circular(10)),
+                child: Center(child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: const TextStyle(color: _kPrimary, fontWeight: FontWeight.w800, fontSize: 16),
+                )),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: _kText)),
+                Text('Roll No: $roll', style: const TextStyle(fontSize: 12, color: _kMuted)),
+              ])),
+              if (hasReport)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                            _showFilters
-                                ? Icons.expand_less
-                                : Icons.tune_rounded,
-                            size: 15,
-                            color: Colors.blue[700]),
-                        const SizedBox(width: 4),
-                        Text(
-                            _showFilters
-                                ? 'Collapse'
-                                : 'Edit Filters',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.w600)),
-                      ]),
+                  child: const Text('Saved', style: TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600)),
                 ),
-              ),
-            ],
+              const SizedBox(width: 8),
+              Icon(isExp ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  color: _kMuted, size: 22),
+            ]),
           ),
         ),
-        if (_showFilters) _buildFiltersForm(),
-        if (!_showFilters && _schoolClass != null)
-          _buildCompactFilterChips(),
-        if (_school != null && _schoolClass != null)
-          _buildSubjectBar(),
-        if (_entries.isNotEmpty) _buildSearchBar(),
-        if (_isLoading)
-          const Padding(
-            padding: EdgeInsets.only(top: 60),
-            child: Center(
-                child: CircularProgressIndicator(
-                    color: Color(0xFF3B82F6))),
-          )
-        else if (_entries.isEmpty)
-          _buildEmptyState()
-        else ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                '${filtered.length} student${filtered.length == 1 ? '' : 's'}',
-                style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500),
-              ),
-            ),
-            // ── Remarks field shown above student cards ──
-            _buildRemarksField(),
-            ...filtered.map((e) => _buildStudentCard(e)),
-            const SizedBox(height: 80),
-          ],
-      ],
-    );
-  }
 
-  // ── Remarks input ─────────────────────────────────────────────────────────
-  Widget _buildRemarksField() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border:
-        Border.all(color: Colors.grey.shade200, width: 0.5),
-      ),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Remarks (applied to all students)',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600])),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _remarksCtrl,
-              maxLines: 2,
-              style: const TextStyle(fontSize: 13),
-              decoration: InputDecoration(
-                hintText:
-                'e.g. Excellent performance in logical reasoning.',
-                hintStyle: TextStyle(
-                    color: Colors.grey[400], fontSize: 13),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                        color: Colors.grey.shade300, width: 0.5)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                        color: Colors.grey.shade300, width: 0.5)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                        color: Colors.blue.shade400, width: 1)),
-              ),
-            ),
-          ]),
-    );
-  }
-
-  Widget _buildFiltersForm() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child:
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(
-              child: GetX<SchoolController>(
-                builder: (sc) => _styledDropdown<SchoolClass>(
-                  label: 'Class',
-                  value: _schoolClass,
-                  hint: 'class',
-                  items: sc.classes
-                      .map((c) => DropdownMenuItem(
-                      value: c,
-                      child: Text(c.name,
-                          style: const TextStyle(fontSize: 13))))
-                      .toList(),
-                  onChanged: (c) {
-                    setState(() {
-                      _schoolClass = c;
-                      _section = null;
-                      _entries = [];
-                      _subjectTypes = [];
-                      _subjects = [];
-                    });
-                    if (c != null && _school != null)
-                      _schoolCtrl.getAllSections(
-                          classId: c.id, schoolId: _school!.id);
-                    _loadSubjects();
-                  },
-                ),
-              )),
-          const SizedBox(width: 10),
-          Expanded(
-              child: GetX<SchoolController>(
-                builder: (sc) => _styledDropdown<Section>(
-                  label: 'Section',
-                  value: _section,
-                  hint: 'All sections',
-                  items: [
-                    const DropdownMenuItem<Section>(
-                        value: null,
-                        child: Text('All',
-                            style: TextStyle(fontSize: 13))),
-                    ...sc.sections.map((s) => DropdownMenuItem(
-                        value: s,
-                        child: Text(s.name,
-                            style: const TextStyle(fontSize: 13)))),
-                  ],
-                  onChanged: (s) => setState(() => _section = s),
-                ),
-              )),
-        ]),
-        const SizedBox(height: 14),
-
-        // Exam type
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Exam Type',
-                style: TextStyle(
-                    fontSize: 12, color: Colors.grey[700])),
-            GestureDetector(
-              onTap: _school == null ? null : _addExamTypeDialog,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _school == null
-                      ? Colors.grey.shade100
-                      : Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _school == null
-                        ? Colors.grey.shade200
-                        : Colors.blue.shade100,
-                  ),
-                ),
-                child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded,
-                          size: 14,
-                          color: _school == null
-                              ? Colors.grey
-                              : Colors.blue[700]),
-                      const SizedBox(width: 4),
-                      Text('Add',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _school == null
-                                  ? Colors.grey
-                                  : Colors.blue[700])),
-                    ]),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_examTypesLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(children: [
-              SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF3B82F6))),
-              SizedBox(width: 10),
-              Text('Loading...',
-                  style:
-                  TextStyle(fontSize: 12, color: Colors.grey)),
-            ]),
-          )
-        else if (_school == null)
-          Text('Select a school first to manage exam types.',
-              style: TextStyle(
-                  fontSize: 12, color: Colors.grey[500]))
-        else if (_examTypes.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: Colors.orange.shade200, width: 0.5),
-              ),
-              child: Row(children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 16, color: Colors.orange[700]),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                      'No exam types yet. Tap "Add" to create one.',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange[800])),
-                ),
+        // Expanded content
+        if (isExp) ...[
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Absent toggle
+              Row(children: [
+                const Icon(Icons.event_busy_outlined, size: 15, color: _kMuted),
+                const SizedBox(width: 6),
+                const Text('Mark as Absent', style: TextStyle(fontSize: 13, color: _kText, fontWeight: FontWeight.w500)),
+                const Spacer(),
+                Switch.adaptive(value: isAbsent,
+                    activeColor: _kError,
+                    onChanged: (v) => setState(() => _absent[sid] = v)),
               ]),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _examTypes.map((exam) {
-                final sel = _examType == exam['value'];
-                return GestureDetector(
-                  onTap: () =>
-                      setState(() => _examType = exam['value']),
-                  onLongPress: () {
-                    Get.dialog(AlertDialog(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      title: const Text('Delete Exam Type?',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600)),
-                      content: Text(
-                          'Remove "${exam['label']}" from this school?',
-                          style: const TextStyle(fontSize: 13)),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Get.back(),
-                            child: const Text('Cancel')),
-                        ElevatedButton(
-                          onPressed: () {
-                            Get.back();
-                            _deleteExamType(
-                                exam['value'], exam['label']);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red[700],
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                BorderRadius.circular(10)),
-                            elevation: 0,
-                          ),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ));
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color:
-                      sel ? Colors.blue[700] : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: sel
-                              ? Colors.blue[700]!
-                              : Colors.grey.shade300,
-                          width: 0.5),
-                    ),
-                    child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.assignment_rounded,
-                              size: 14,
-                              color: sel
-                                  ? Colors.white
-                                  : Colors.grey[600]),
-                          const SizedBox(width: 6),
-                          Text(exam['label'],
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: sel
-                                      ? Colors.white
-                                      : Colors.grey[700])),
-                          const SizedBox(width: 6),
-                          Icon(Icons.close_rounded,
-                              size: 12,
-                              color: sel
-                                  ? Colors.white70
-                                  : Colors.grey[400]),
-                        ]),
-                  ),
-                );
-              }).toList(),
-            ),
-        const SizedBox(height: 14),
-        Row(children: [
-          Expanded(
-              child: _styledDropdown<String>(
-                label: 'Term',
-                value: _term,
-                hint: 'Term',
-                items: ['1', '2', '3']
-                    .map((t) => DropdownMenuItem(
-                    value: t,
-                    child: Text('Term $t',
-                        style: const TextStyle(fontSize: 13))))
-                    .toList(),
-                onChanged: (t) {
-                  if (t != null) setState(() => _term = t);
-                },
-              )),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Max Marks',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[700])),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _maxMarksCtrl,
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                    _maxMarks = int.tryParse(v) ?? 100,
-                    decoration: InputDecoration(
-                      hintText: '100',
-                      hintStyle: TextStyle(
-                          color: Colors.grey[400], fontSize: 13),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                              color: Colors.grey.shade300,
-                              width: 0.5)),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                              color: Colors.grey.shade300,
-                              width: 0.5)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                              color: Colors.blue.shade400,
-                              width: 1)),
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ],
-              )),
-        ]),
-        const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          if (_entries.isNotEmpty)
-            TextButton(
-              onPressed: () => setState(
-                      () {
-                    _entries = [];
-                    _showFilters = true;
-                  }),
-              child: const Text('Clear'),
-            ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: (_school != null && _schoolClass != null)
-                ? _loadStudents
-                : null,
-            icon:
-            const Icon(Icons.download_rounded, size: 16),
-            label: const Text('Load Students',
-                style: TextStyle(fontSize: 13)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[700],
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: Colors.blue.shade100,
-              disabledForegroundColor: Colors.blue.shade300,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 18, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              elevation: 0,
-            ),
-          ),
-        ]),
-      ]),
-    );
-  }
 
-  Widget _buildCompactFilterChips() {
-    final examLabel =
-        _examTypes.firstWhereOrNull(
-                (e) => e['value'] == _examType)?['label'] ??
-            _examType;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Wrap(spacing: 8, runSpacing: 6, children: [
-        _chip(Icons.class_rounded, _schoolClass!.name),
-        if (_section != null)
-          _chip(Icons.group_rounded, _section!.name),
-        _chip(Icons.assignment_rounded, examLabel),
-        _chip(Icons.calendar_today_rounded, 'Term $_term'),
-        _chip(Icons.score_rounded, 'Max: $_maxMarks'),
-      ]),
-    );
-  }
-
-  Widget _chip(IconData icon, String label) {
-    return Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: Colors.grey.shade300, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 4,
-              offset: const Offset(0, 1))
-        ],
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: Colors.blue[700]),
-        const SizedBox(width: 5),
-        Text(label,
-            style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[800],
-                fontWeight: FontWeight.w500)),
-      ]),
-    );
-  }
-
-  Widget _buildSubjectBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: Colors.grey.shade200, width: 0.5),
-      ),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Subjects',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700])),
-                GestureDetector(
-                  onTap: _school == null
-                      ? null
-                      : () => _addSubjectDialog(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _school == null
-                          ? Colors.grey.shade100
-                          : Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _school == null
-                            ? Colors.grey.shade200
-                            : Colors.blue.shade100,
-                      ),
-                    ),
-                    child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add_rounded,
-                              size: 14,
-                              color: _school == null
-                                  ? Colors.grey
-                                  : Colors.blue[700]),
-                          const SizedBox(width: 4),
-                          Text('Add Subject',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _school == null
-                                      ? Colors.grey
-                                      : Colors.blue[700])),
-                        ]),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (_subjectTypesLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Row(children: [
-                  SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF3B82F6))),
-                  SizedBox(width: 10),
-                  Text('Loading subjects...',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey)),
-                ]),
-              )
-            else if (_subjectTypes.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: Colors.orange.shade200,
-                      width: 0.5),
-                ),
-                child: Row(children: [
-                  Icon(Icons.info_outline_rounded,
-                      size: 16, color: Colors.orange[700]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(
-                        _schoolClass == null
-                            ? 'Select a class first to manage subjects.'
-                            : 'No subjects yet. Tap "Add Subject" to create one.',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange[800]),
-                      )),
-                ]),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _subjectTypes.map((subject) {
-                  return GestureDetector(
-                    onTap: () =>
-                        _addSubjectDialog(existing: subject),
-                    onLongPress: () {
-                      Get.dialog(AlertDialog(
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(16)),
-                        title: const Text('Delete Subject?',
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600)),
-                        content: Text(
-                            'Remove "${subject['label']}" from this class?',
-                            style:
-                            const TextStyle(fontSize: 13)),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Get.back(),
-                              child: const Text('Cancel')),
-                          ElevatedButton(
-                            onPressed: () {
-                              Get.back();
-                              _deleteSubject(subject['value'],
-                                  subject['label']);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red[700],
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(
-                                      10)),
-                              elevation: 0,
-                            ),
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ));
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: Colors.grey.shade300,
-                            width: 0.5),
-                      ),
-                      child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.book_rounded,
-                                      size: 13,
-                                      color: Colors.blue[700]),
-                                  const SizedBox(width: 6),
-                                  Text(subject['label'],
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight:
-                                          FontWeight.w600,
-                                          color:
-                                          Colors.grey[800])),
-                                  const SizedBox(width: 6),
-                                  Icon(Icons.edit_rounded,
-                                      size: 11,
-                                      color: Colors.grey[400]),
-                                ]),
-                            const SizedBox(height: 3),
-                            Text(
-                                'Out of ${subject['maxMarks']}',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey[500])),
-                          ]),
-                    ),
-                  );
-                }).toList(),
-              ),
-          ]),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: Colors.grey.shade300, width: 0.5),
-      ),
-      child: TextField(
-        controller: _searchCtrl,
-        style: const TextStyle(fontSize: 13),
-        decoration: InputDecoration(
-          hintText: 'Search by name or roll number...',
-          hintStyle: TextStyle(
-              color: Colors.grey[400], fontSize: 13),
-          prefixIcon: Icon(Icons.search_rounded,
-              size: 18, color: Colors.grey[500]),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 10),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(48),
-        child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    shape: BoxShape.circle),
-                child: Icon(Icons.upload_file_rounded,
-                    size: 36, color: Colors.blue[700]),
-              ),
-              const SizedBox(height: 20),
-              const Text('No Students Loaded',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A2E))),
-              const SizedBox(height: 6),
-              Text(
-                'Select filters above and tap\n"Load Students" to begin',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 13, color: Colors.grey[500]),
-              ),
-            ]),
-      ),
-    );
-  }
-
-  // ── Student mark card ─────────────────────────────────────────────────────
-  Widget _buildStudentCard(_MarkEntry entry) {
-    final total = _total(entry);
-    final maxTot = _maxMarks * _subjects.length;
-    final gInfo = _grade(
-        total != null ? (total / _subjects.length).round() : null);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Student header ─────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Row(children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: entry.isAbsent
-                      ? Colors.grey.shade200
-                      : Colors.blue.shade100,
-                  child: Text(
-                      entry.studentName[0].toUpperCase(),
-                      style: TextStyle(
-                          color: entry.isAbsent
-                              ? Colors.grey
-                              : Colors.blue[700],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(entry.studentName,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1A1A2E))),
-                          Text('Roll No: ${entry.rollNumber}',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[500])),
-                        ])),
-
-                // ── Absent toggle ──
-                StatefulBuilder(builder: (_, inner) {
-                  return GestureDetector(
-                    onTap: () {
-                      inner(() => entry.isAbsent = !entry.isAbsent);
-                      setState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: entry.isAbsent
-                            ? Colors.red.shade50
-                            : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: entry.isAbsent
-                                ? Colors.red.shade300
-                                : Colors.grey.shade300,
-                            width: 0.5),
-                      ),
-                      child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                                entry.isAbsent
-                                    ? Icons.cancel_rounded
-                                    : Icons.check_circle_outline_rounded,
-                                size: 13,
-                                color: entry.isAbsent
-                                    ? Colors.red[700]
-                                    : Colors.grey[500]),
-                            const SizedBox(width: 4),
-                            Text(
-                                entry.isAbsent ? 'Absent' : 'Present',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: entry.isAbsent
-                                        ? Colors.red[700]
-                                        : Colors.grey[600])),
-                          ]),
-                    ),
-                  );
-                }),
-
-                const SizedBox(width: 8),
-
-                // Grade badge (hidden when absent)
-                if (!entry.isAbsent && total != null)
-                  Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: gInfo['bg'] as Color,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(gInfo['label'] as String,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: gInfo['color'] as Color)),
-                        ),
-                        const SizedBox(height: 2),
-                        Text('$total / $maxTot',
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[500],
-                                fontWeight: FontWeight.w600)),
-                      ]),
-              ]),
-            ),
-
-            // ── Mark fields (hidden when absent) ──────────────────────────────
-            if (!entry.isAbsent) ...[
-              Divider(height: 1, color: Colors.grey.shade100),
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _subjects.map((subject) {
-                    final ctrl = entry.controllers[subject]!;
-                    return SizedBox(
-                      width:
-                      (MediaQuery.of(context).size.width - 72) /
-                          2,
-                      child: StatefulBuilder(
-                        builder: (_, inner) {
-                          final val = int.tryParse(ctrl.text);
-                          final subjectMax = int.tryParse(_subjectTypes
-                              .firstWhereOrNull((st) =>
-                          st['label'] == subject)
-                          ?['maxMarks'] ??
-                              '$_maxMarks') ??
-                              _maxMarks;
-                          final over =
-                              val != null && val > subjectMax;
-                          final g = _grade(val);
-                          return Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: over
-                                  ? Colors.red.shade50
-                                  : (val != null
-                                  ? (g['bg'] as Color)
-                                  .withOpacity(0.5)
-                                  : Colors.grey.shade50),
-                              borderRadius:
-                              BorderRadius.circular(10),
-                              border: Border.all(
-                                color: over
-                                    ? Colors.red.shade300
-                                    : (val != null
-                                    ? (g['color'] as Color)
-                                    .withOpacity(0.25)
-                                    : Colors.grey.shade200),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    Expanded(
-                                        child: Text(subject,
-                                            style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight:
-                                                FontWeight.w600,
-                                                color:
-                                                Colors.grey[600]),
-                                            overflow: TextOverflow
-                                                .ellipsis)),
-                                    if (val != null && !over)
-                                      Text(g['label'] as String,
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight:
-                                              FontWeight.w800,
-                                              color: g['color']
-                                              as Color)),
-                                    if (over)
-                                      Icon(
-                                          Icons.warning_rounded,
-                                          size: 13,
-                                          color: Colors.red[700]),
-                                  ]),
-                                  const SizedBox(height: 6),
-                                  TextField(
-                                    controller: ctrl,
-                                    keyboardType:
-                                    TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    onChanged: (_) => inner(() {}),
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: over
-                                          ? Colors.red[700]
-                                          : const Color(0xFF1A1A2E),
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: '—',
-                                      hintStyle: TextStyle(
-                                          color: Colors.grey[400],
-                                          fontSize: 18,
-                                          fontWeight:
-                                          FontWeight.w700),
-                                      isDense: true,
-                                      contentPadding:
-                                      const EdgeInsets.symmetric(
-                                          vertical: 4),
-                                      border: InputBorder.none,
-                                      suffixText: '/$subjectMax',
-                                      suffixStyle: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey[400]),
-                                    ),
-                                  ),
-                                ]),
-                          );
-                        },
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ] else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
+              if (!isAbsent) ...[
+                const SizedBox(height: 10),
+                _marksMatrix(sid),
+                const SizedBox(height: 12),
+                _remarksField(sid),
+              ] else ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.shade200),
                   ),
                   child: Row(children: [
-                    Icon(Icons.info_outline_rounded,
-                        size: 14, color: Colors.red[400]),
+                    Icon(Icons.info_outline_rounded, size: 15, color: Colors.red[700]),
                     const SizedBox(width: 8),
-                    Text('Marked as absent — no marks recorded.',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.red[700])),
+                    Text('Student marked as absent for this exam.',
+                        style: TextStyle(fontSize: 12, color: Colors.red[700])),
                   ]),
                 ),
+              ],
+
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isSaving ? null : () => _saveStudent(sid),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  child: isSaving
+                      ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(hasReport ? 'Update Marks' : 'Save Marks',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                ),
               ),
-          ]),
-    );
-  }
-
-  // ── Summary Tab ───────────────────────────────────────────────────────────
-  Widget _buildSummaryTab(List<_MarkEntry> entries) {
-    if (_entries.isEmpty) {
-      return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(48),
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        shape: BoxShape.circle),
-                    child: Icon(Icons.bar_chart_rounded,
-                        size: 36, color: Colors.blue[700]),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('No Data Yet',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A2E))),
-                  const SizedBox(height: 6),
-                  Text(
-                      'Load students and enter marks\nto see the summary.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 13, color: Colors.grey[500])),
-                ]),
-          ));
-    }
-
-    final presentEntries =
-    entries.where((e) => !e.isAbsent).toList();
-    final subjectStats =
-    <String, Map<String, dynamic>>{};
-    for (final s in _subjects) {
-      final vals = presentEntries
-          .map((e) => int.tryParse(e.controllers[s]?.text ?? ''))
-          .whereType<int>()
-          .toList();
-      subjectStats[s] = vals.isEmpty
-          ? {'avg': 0.0, 'high': 0, 'low': 0, 'n': 0}
-          : {
-        'avg': vals.reduce((a, b) => a + b) / vals.length,
-        'high': vals.reduce((a, b) => a > b ? a : b),
-        'low': vals.reduce((a, b) => a < b ? a : b),
-        'n': vals.length,
-      };
-    }
-
-    final gradeDist = <String, int>{
-      'A+': 0,
-      'A': 0,
-      'B': 0,
-      'C': 0,
-      'D': 0,
-      'F': 0
-    };
-    for (final e in presentEntries) {
-      final t = _total(e);
-      if (t != null) {
-        final g = _grade((t / _subjects.length).round())[
-        'label'] as String;
-        gradeDist[g] = (gradeDist[g] ?? 0) + 1;
-      }
-    }
-
-    final entered =
-        presentEntries.where((e) => _total(e) != null).length;
-    final passCount = presentEntries.where((e) {
-      final t = _total(e);
-      return t != null &&
-          (t / (_maxMarks * _subjects.length) * 100) >= 35;
-    }).length;
-    final absentCount =
-        entries.where((e) => e.isAbsent).length;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      children: [
-        Row(children: [
-          Expanded(
-              child: _statBox(
-                  'Total',
-                  '${entries.length}',
-                  Icons.people_rounded,
-                  Colors.blue[700]!,
-                  Colors.blue.shade50)),
-          const SizedBox(width: 8),
-          Expanded(
-              child: _statBox(
-                  'Absent',
-                  '$absentCount',
-                  Icons.cancel_rounded,
-                  Colors.red[700]!,
-                  Colors.red.shade50)),
-          const SizedBox(width: 8),
-          Expanded(
-              child: _statBox(
-                  'Passed',
-                  '$passCount',
-                  Icons.check_circle_rounded,
-                  const Color(0xFF059669),
-                  const Color(0xFFD1FAE5))),
-        ]),
-        const SizedBox(height: 16),
-        _summaryCard('Grade Distribution',
-            Icons.pie_chart_rounded,
-            child: Column(
-                children: gradeDist.entries.map((entry) {
-                  final count = entry.value;
-                  final pct = presentEntries.isEmpty
-                      ? 0.0
-                      : count / presentEntries.length;
-                  final color = {
-                    'A+': const Color(0xFF059669),
-                    'A': const Color(0xFF059669),
-                    'B': Colors.blue[700]!,
-                    'C': const Color(0xFFD97706),
-                    'D': const Color(0xFFD97706),
-                    'F': Colors.red[700]!,
-                  }[entry.key]!;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Center(
-                            child: Text(entry.key,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: color))),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: pct,
-                              backgroundColor: Colors.grey.shade100,
-                              color: color,
-                              minHeight: 10,
-                            ),
-                          )),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                          width: 24,
-                          child: Text('$count',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: color),
-                              textAlign: TextAlign.right)),
-                    ]),
-                  );
-                }).toList())),
-        _summaryCard(
-            'Subject Analysis', Icons.analytics_rounded,
-            child: Column(
-                children: _subjects.map((s) {
-                  final stat = subjectStats[s]!;
-                  final avg = stat['avg'] as double;
-                  final pct =
-                  _maxMarks == 0 ? 0.0 : avg / _maxMarks;
-                  final g = _grade(avg.round());
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: Colors.grey.shade200, width: 0.5),
-                    ),
-                    child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Expanded(
-                                child: Text(s,
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                        Color(0xFF1A1A2E)))),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: g['bg'] as Color,
-                                borderRadius:
-                                BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                  'Avg ${avg.toStringAsFixed(1)}',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color:
-                                      g['color'] as Color)),
-                            ),
-                          ]),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: pct.clamp(0.0, 1.0),
-                              backgroundColor:
-                              Colors.grey.shade200,
-                              color: g['color'] as Color,
-                              minHeight: 8,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(children: [
-                            _miniStat('High', '${stat['high']}',
-                                const Color(0xFF059669)),
-                            const SizedBox(width: 16),
-                            _miniStat('Low', '${stat['low']}',
-                                Colors.red[700]!),
-                            const SizedBox(width: 16),
-                            _miniStat('Count', '${stat['n']}',
-                                Colors.blue[700]!),
-                          ]),
-                        ]),
-                  );
-                }).toList())),
-        _summaryCard(
-            'Student Rankings', Icons.emoji_events_rounded,
-            child: Column(children: () {
-              final ranked = presentEntries
-                  .where((e) => _total(e) != null)
-                  .toList()
-                ..sort((a, b) =>
-                    (_total(b) ?? 0).compareTo(_total(a) ?? 0));
-              return ranked.asMap().entries.map((entry) {
-                final rank = entry.key + 1;
-                final e = entry.value;
-                final tot = _total(e)!;
-                final pct = (tot /
-                    (_maxMarks * _subjects.length) *
-                    100);
-                final g = _grade(
-                    (tot / _subjects.length).round());
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: rank <= 3
-                        ? (g['bg'] as Color).withOpacity(0.4)
-                        : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: rank <= 3
-                            ? (g['color'] as Color)
-                            .withOpacity(0.25)
-                            : Colors.grey.shade200,
-                        width: 0.5),
-                  ),
-                  child: Row(children: [
-                    SizedBox(
-                        width: 28,
-                        child: Text(
-                            rank <= 3
-                                ? ['🥇', '🥈', '🥉'][rank - 1]
-                                : '$rank',
-                            style: TextStyle(
-                                fontSize:
-                                rank <= 3 ? 18 : 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.grey[500]),
-                            textAlign: TextAlign.center)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: Text(e.studentName,
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A2E)))),
-                    Text(
-                        '$tot / ${_maxMarks * _subjects.length}',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: g['bg'] as Color,
-                          borderRadius:
-                          BorderRadius.circular(6)),
-                      child: Text(
-                          '${pct.toStringAsFixed(0)}%',
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: g['color'] as Color)),
-                    ),
-                  ]),
-                );
-              }).toList();
-            }())),
-      ],
-    );
-  }
-
-  // ── Shared helpers ────────────────────────────────────────────────────────
-  Widget _statBox(String label, String value, IconData icon,
-      Color fg, Color bg) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: fg.withOpacity(0.15)),
-      ),
-      child: Column(children: [
-        Icon(icon, color: fg, size: 22),
-        const SizedBox(height: 6),
-        Text(value,
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: fg)),
-        Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500)),
+            ]),
+          ),
+        ],
       ]),
     );
   }
 
-  Widget _summaryCard(String title, IconData icon,
-      {required Widget child}) {
+  Widget _marksMatrix(String sid) {
+    final cells = _cells[sid];
+    if (cells == null || _cfgExams.isEmpty || _cfgSubjects.isEmpty) {
+      return const Text('No configuration available.', style: TextStyle(color: _kMuted, fontSize: 12));
+    }
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2))
-        ],
+        border: Border.all(color: _kBlueBorder),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-              child: Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8)),
-                  child: Icon(icon,
-                      color: Colors.blue[700], size: 16),
-                ),
-                const SizedBox(width: 10),
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A2E))),
-              ]),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Header
+          Container(
+            decoration: const BoxDecoration(
+              color: _kLightBlue,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
             ),
-            Divider(height: 1, color: Colors.grey.shade100),
-            Padding(
-                padding: const EdgeInsets.all(14), child: child),
-          ]),
+            child: Row(children: [
+              const SizedBox(width: 110,
+                  child: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Text('Subject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kMuted)))),
+              ..._cfgExams.map((e) => Container(
+                width: 90,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Text(e['examName']?.toString() ?? '',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _kPrimary),
+                    maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+              )),
+            ]),
+          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          // Data rows
+          ...List.generate(_cfgSubjects.length, (si) {
+            final sn = _cfgSubjects[si]['subjectName']?.toString() ?? '';
+            final isLast = si == _cfgSubjects.length - 1;
+            return Column(children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                SizedBox(width: 110,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Text(sn,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                ...List.generate(_cfgExams.length, (ei) {
+                  final max = (_cfgExams[ei]['maxMarks'] ?? 100).toString();
+                  return Container(
+                    width: 90,
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                    child: TextField(
+                      controller: cells[ei][si],
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText),
+                      decoration: InputDecoration(
+                        hintText: '/$max',
+                        hintStyle: TextStyle(fontSize: 10, color: _kMuted.withOpacity(0.55)),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFF),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: _kPrimary, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ]),
+              if (!isLast) const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            ]);
+          }),
+        ]),
+      ),
     );
   }
 
-  Widget _miniStat(String label, String value, Color color) =>
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$label: ',
-              style: TextStyle(
-                  fontSize: 11, color: Colors.grey[500])),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: color)),
-        ],
-      );
+  Widget _remarksField(String sid) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('Remarks (optional)',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kMuted)),
+      const SizedBox(height: 6),
+      TextField(
+        controller: _remarks[sid],
+        maxLines: 2,
+        style: const TextStyle(fontSize: 13, color: _kText),
+        decoration: InputDecoration(
+          hintText: 'e.g. Student performed well...',
+          hintStyle: TextStyle(color: _kMuted.withOpacity(0.7), fontSize: 12),
+          filled: true, fillColor: _kLightBlue,
+          contentPadding: const EdgeInsets.all(12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kPrimary, width: 1.5)),
+        ),
+      ),
+    ],
+  );
 
-  Widget _styledInput(
-      TextEditingController ctrl, String label, String hint) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style:
-              TextStyle(fontSize: 12, color: Colors.grey[700])),
-          const SizedBox(height: 4),
-          TextField(
-            controller: ctrl,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle:
-              TextStyle(color: Colors.grey[400], fontSize: 13),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: Colors.grey.shade300, width: 0.5)),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: Colors.grey.shade300, width: 0.5)),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: Colors.blue.shade400, width: 1)),
+  // ══════════════════════════════════════════════════════════════════
+  //  TAB 2 — CONFIGURE
+  // ══════════════════════════════════════════════════════════════════
+  Widget _configTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: Column(children: [
+        if (_class == null) _selectClassFirst(),
+        if (_class != null) ...[
+          _configInfoCard(),
+          const SizedBox(height: 12),
+          _configLoading
+              ? const Center(child: Padding(padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: _kPrimary)))
+              : Column(children: [
+            _panel(
+              title: 'SUBJECTS (ROWS)',
+              icon: Icons.table_rows_outlined,
+              onAdd: _addSubjectSheet,
+              children: [
+                ..._cfgSubjects.asMap().entries.map((e) => _subjectRow(e.key, e.value)),
+                if (_cfgSubjects.isEmpty) _emptyHint('No subjects yet. Tap + Add to create one.'),
+              ],
             ),
-            style: const TextStyle(fontSize: 13),
-          ),
-        ]);
+            const SizedBox(height: 12),
+            _panel(
+              title: 'EXAMS (COLUMNS)',
+              icon: Icons.view_column_outlined,
+              onAdd: _addExamSheet,
+              children: [
+                ..._cfgExams.asMap().entries.map((e) => _examRow(e.key, e.value)),
+                if (_cfgExams.isEmpty) _emptyHint('No exams yet. Tap + Add to create one.'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _matrixPreview(),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_configSaving || _class == null) ? null : _saveConfig,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kDark,
+                  disabledBackgroundColor: _kMuted,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                icon: _configSaving
+                    ? const SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.save_rounded, color: Colors.white, size: 18),
+                label: Text(
+                  _configId == null ? 'Create Configuration' : 'Update Configuration',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+            ),
+          ]),
+        ],
+      ]),
+    );
   }
 
-  Widget _styledDropdown<T>({
-    required String label,
-    required T? value,
-    required String hint,
-    required List<DropdownMenuItem<T>> items,
-    required void Function(T?) onChanged,
-  }) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style:
-              TextStyle(fontSize: 12, color: Colors.grey[700])),
-          const SizedBox(height: 4),
-          DropdownButtonFormField<T>(
-            value: value,
-            isExpanded: true,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle:
-              TextStyle(color: Colors.grey[400], fontSize: 13),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: Colors.grey.shade300, width: 0.5)),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: Colors.grey.shade300, width: 0.5)),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: Colors.blue.shade400, width: 1)),
+  Widget _selectClassFirst() => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: _kLightBlue,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: _kBlueBorder),
+    ),
+    child: Column(children: [
+      const Icon(Icons.school_outlined, color: _kPrimary, size: 36),
+      const SizedBox(height: 10),
+      const Text('Select a Class First', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: _kText)),
+      const SizedBox(height: 6),
+      const Text('Go to "Enter Marks" tab and select a class to configure.',
+          textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: _kMuted)),
+      const SizedBox(height: 14),
+      TextButton(
+        onPressed: () => _tabCtrl.animateTo(0),
+        style: TextButton.styleFrom(
+          backgroundColor: _kPrimary,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: const Text('Go to Enter Marks', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      ),
+    ]),
+  );
+
+  Widget _configInfoCard() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: _kCard,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: _kBlueBorder),
+    ),
+    child: Row(children: [
+      Container(width: 36, height: 36,
+          decoration: BoxDecoration(color: _kLightBlue, borderRadius: BorderRadius.circular(8)),
+          child: const Icon(Icons.table_chart_outlined, color: _kPrimary, size: 18)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${_class?.name ?? ''} · $_academicYear',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _kText)),
+        const Text('Configure subjects and exams to generate the report matrix.',
+            style: TextStyle(fontSize: 11, color: _kMuted)),
+      ])),
+      if (_isValidObjectId(_configId))
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: _kLightBlue, borderRadius: BorderRadius.circular(20), border: Border.all(color: _kBlueBorder)),
+          child: const Text('Configured', style: TextStyle(fontSize: 10, color: _kPrimary, fontWeight: FontWeight.w600)),
+        ),
+    ]),
+  );
+
+  Widget _panel({
+    required String title,
+    required IconData icon,
+    required VoidCallback onAdd,
+    required List<Widget> children,
+  }) => Container(
+    decoration: BoxDecoration(
+      color: _kCard,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0,2))],
+    ),
+    child: Column(children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(children: [
+          Icon(icon, color: _kPrimary, size: 18),
+          const SizedBox(width: 8),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _kText, letterSpacing: 0.4)),
+          const Spacer(),
+          GestureDetector(
+            onTap: onAdd,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _kLightBlue,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _kBlueBorder),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.add_rounded, color: _kPrimary, size: 14),
+                SizedBox(width: 4),
+                Text('Add', style: TextStyle(fontSize: 12, color: _kPrimary, fontWeight: FontWeight.w600)),
+              ]),
             ),
-            dropdownColor: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            icon: Icon(Icons.keyboard_arrow_down,
-                color: Colors.blue[700]),
-            style: const TextStyle(
-                fontSize: 13, color: Color(0xFF1A1A2E)),
-            items: items,
-            onChanged: onChanged,
           ),
-        ]);
+        ]),
+      ),
+      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+      Padding(padding: const EdgeInsets.all(12), child: Column(children: children)),
+    ]),
+  );
+
+  Widget _subjectRow(int i, Map<String,dynamic> s) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: _kLightBlue,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: _kBlueBorder),
+    ),
+    child: Row(children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(s['subjectName']?.toString() ?? '',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _kText)),
+        if ((s['subjectCode']?.toString() ?? '').isNotEmpty)
+          Text(s['subjectCode']?.toString() ?? '',
+              style: const TextStyle(fontSize: 11, color: _kMuted)),
+      ])),
+      _orderBadge('${i + 1}'),
+      const SizedBox(width: 8),
+      GestureDetector(
+          onTap: () => setState(() => _cfgSubjects.removeAt(i)),
+          child: const Icon(Icons.delete_outline_rounded, color: _kError, size: 18)),
+    ]),
+  );
+
+  Widget _examRow(int i, Map<String,dynamic> e) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: _kLightBlue,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: _kBlueBorder),
+    ),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(e['examName']?.toString() ?? '',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _kText)),
+        const SizedBox(height: 4),
+        Wrap(spacing: 6, children: [
+          _chip('Max: ${e['maxMarks'] ?? 100}'),
+          _chip('Pass: ${e['passingMarks'] ?? 35}'),
+        ]),
+      ])),
+      _orderBadge('${i + 1}'),
+      const SizedBox(width: 8),
+      GestureDetector(
+          onTap: () => setState(() => _cfgExams.removeAt(i)),
+          child: const Icon(Icons.delete_outline_rounded, color: _kError, size: 18)),
+    ]),
+  );
+
+  Widget _orderBadge(String n) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+    child: Text(n, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kMuted)),
+  );
+
+  Widget _chip(String t) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+    child: Text(t, style: const TextStyle(fontSize: 11, color: _kMuted)),
+  );
+
+  Widget _emptyHint(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: Center(child: Text(text, style: const TextStyle(fontSize: 12, color: _kMuted))),
+  );
+
+  Widget _matrixPreview() => Container(
+    decoration: BoxDecoration(
+      color: _kCard,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0,2))],
+    ),
+    child: Column(children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(children: [
+          const Icon(Icons.grid_on_rounded, color: _kPrimary, size: 18),
+          const SizedBox(width: 8),
+          const Text('Live Matrix Preview',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _kText)),
+        ]),
+      ),
+      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+      if (_cfgSubjects.isEmpty || _cfgExams.isEmpty)
+        _emptyHint('Add subjects and exams above to see the preview.')
+      else
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.all(12),
+          child: Table(
+            defaultColumnWidth: const IntrinsicColumnWidth(),
+            border: TableBorder.all(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(4)),
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(color: _kLightBlue),
+                children: [
+                  _tCell('SUBJECTS', isHeader: true),
+                  ..._cfgExams.map((e) {
+                    final n    = e['examName']?.toString() ?? '';
+                    final max  = e['maxMarks'] ?? 100;
+                    final pass = e['passingMarks'] ?? 35;
+                    return _tCell('$n\nMax: $max | Pass: $pass', isHeader: true);
+                  }),
+                ],
+              ),
+              ..._cfgSubjects.map((s) => TableRow(children: [
+                _tCell(s['subjectName']?.toString() ?? '', isSub: true),
+                ..._cfgExams.map((_) => _tCell('Empty', isEmpty: true)),
+              ])),
+            ],
+          ),
+        ),
+    ]),
+  );
+
+  Widget _tCell(String t, {bool isHeader = false, bool isSub = false, bool isEmpty = false}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Text(t,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isEmpty ? 11 : (isHeader ? 10 : 12),
+              fontWeight: isHeader || isSub ? FontWeight.w700 : FontWeight.w400,
+              color: isEmpty ? _kMuted : (isHeader ? _kPrimary : _kText),
+            )),
+      );
+
+  // ── Shared helpers ────────────────────────────────────────────────────────
+  Widget _sectionHeader(IconData icon, String label) => Row(children: [
+    Container(width: 30, height: 30,
+        decoration: BoxDecoration(color: _kLightBlue, borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, color: _kPrimary, size: 16)),
+    const SizedBox(width: 10),
+    Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: _kText)),
+  ]);
+
+  Widget _dropdown(String label, String value, IconData icon, VoidCallback onTap) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kMuted)),
+        const SizedBox(height: 5),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: _kLightBlue,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _kBlueBorder),
+            ),
+            child: Row(children: [
+              Icon(icon, color: _kPrimary, size: 15),
+              const SizedBox(width: 8),
+              Expanded(child: Text(value,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _kText),
+                  overflow: TextOverflow.ellipsis)),
+              const Icon(Icons.keyboard_arrow_down_rounded, color: _kMuted, size: 18),
+            ]),
+          ),
+        ),
+      ]);
+
+  // ── Bottom Sheets ─────────────────────────────────────────────────────────
+  void _addSubjectSheet() {
+    _subNameCtrl.clear(); _subCodeCtrl.clear();
+    _sheet('Add Subject', [
+      _sheetField('Subject Name *', _subNameCtrl, hint: 'e.g. Mathematics'),
+      const SizedBox(height: 12),
+      _sheetField('Subject Code', _subCodeCtrl, hint: 'e.g. MTH-101'),
+    ], onSave: () {
+      if (_subNameCtrl.text.trim().isEmpty) { _snack('Error', 'Name required', error: true); return; }
+      setState(() => _cfgSubjects.add({
+        'subjectName': _subNameCtrl.text.trim(),
+        'subjectCode': _subCodeCtrl.text.trim(),
+        'order': _cfgSubjects.length + 1,
+      }));
+      Get.back();
+    });
+  }
+
+  void _addExamSheet() {
+    _examNameCtrl.clear(); _examMaxCtrl.text = '100'; _examPassCtrl.text = '35';
+    _sheet('Add Exam', [
+      _sheetField('Exam Name *', _examNameCtrl, hint: 'e.g. I Mid Term'),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _sheetField('Max Marks', _examMaxCtrl, hint: '100', numeric: true)),
+        const SizedBox(width: 12),
+        Expanded(child: _sheetField('Pass Marks', _examPassCtrl, hint: '35', numeric: true)),
+      ]),
+    ], onSave: () {
+      if (_examNameCtrl.text.trim().isEmpty) { _snack('Error', 'Name required', error: true); return; }
+      setState(() => _cfgExams.add({
+        'examName'    : _examNameCtrl.text.trim(),
+        'maxMarks'    : int.tryParse(_examMaxCtrl.text) ?? 100,
+        'passingMarks': int.tryParse(_examPassCtrl.text) ?? 35,
+        'order'       : _cfgExams.length + 1,
+      }));
+      Get.back();
+    });
+  }
+
+  void _sheet(String title, List<Widget> children, {required VoidCallback onSave}) {
+    Get.bottomSheet(
+      Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(Get.context!).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: _kText)),
+              const Spacer(),
+              GestureDetector(onTap: () => Get.back(), child: const Icon(Icons.close_rounded, color: _kMuted)),
+            ]),
+            const SizedBox(height: 16),
+            ...children,
+            const SizedBox(height: 20),
+            SizedBox(width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onSave,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+              ),
+            ),
+          ]),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  Widget _sheetField(String label, TextEditingController ctrl, {String? hint, bool numeric = false}) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kMuted)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: ctrl,
+          keyboardType: numeric ? TextInputType.number : TextInputType.text,
+          style: const TextStyle(fontSize: 14, color: _kText),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: _kMuted.withOpacity(0.7)),
+            filled: true, fillColor: _kLightBlue,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kPrimary, width: 1.5)),
+          ),
+        ),
+      ]);
+
+  // ── Pickers ───────────────────────────────────────────────────────────────
+  void _classPicker() {
+    final list = _schoolCtrl.classes;
+    if (list.isEmpty) { _snack('No Classes', 'No classes available', error: true); return; }
+    _picker('Select Class', list.map((c) => c.name).toList(), (i) {
+      final school = _schoolCtrl.selectedSchool.value;
+      setState(() { _class = list[i]; _section = null; _students = []; _showFilters = true; });
+      if (school != null) _schoolCtrl.getAllSections(classId: list[i].id, schoolId: school.id);
+      Get.back();
+    });
+  }
+
+  void _sectionPicker() {
+    if (_class == null) { _snack('Select Class', 'Select a class first', error: true); return; }
+    final list = _schoolCtrl.sections.where((s) => s.classId == _class!.id).toList();
+    _picker('Select Section', ['All Sections', ...list.map((s) => s.name)], (i) {
+      setState(() => _section = i == 0 ? null : list[i - 1]);
+      Get.back();
+    });
+  }
+
+  void _yearPicker() {
+    const years = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
+    _picker('Academic Year', years, (i) { setState(() => _academicYear = years[i]); Get.back(); });
+  }
+
+  void _picker(String title, List<String> items, void Function(int) onSelect) {
+    Get.bottomSheet(Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 8),
+        Container(width: 40, height: 4,
+            decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2))),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: _kText)),
+        ),
+        const Divider(height: 1),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: items.length,
+            itemBuilder: (_, i) => ListTile(
+              title: Text(items[i], style: const TextStyle(fontSize: 14, color: _kText)),
+              trailing: const Icon(Icons.chevron_right_rounded, color: _kMuted, size: 18),
+              onTap: () => onSelect(i),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ]),
+    ));
   }
 }
 
 // ─── Extension ────────────────────────────────────────────────────────────────
 extension _Ext<T> on Iterable<T> {
   T? firstWhereOrNull(bool Function(T) test) {
-    for (final e in this) {
-      if (test(e)) return e;
-    }
+    for (final e in this) { if (test(e)) return e; }
     return null;
   }
 }

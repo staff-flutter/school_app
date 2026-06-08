@@ -100,18 +100,18 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(8,8,8,2),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   'Deleted Items Archive',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A2A3A),),
                 ),
               ),
               IconButton(
                 onPressed: _loadData,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh,size: 18,),
               ),
             ],
           ),
@@ -163,18 +163,17 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(8,8,8,2),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   'System Audit Logs',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A2A3A)),),
               ),
               IconButton(
                 onPressed: _loadData,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh,size: 18,),
               ),
             ],
           ),
@@ -276,10 +275,11 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
         ),
         title: Text(
           itemTitle,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600,fontSize: 13),
         ),
-        subtitle: Text(itemSubtitle),
+        subtitle: Text(itemSubtitle,style: const TextStyle(fontSize: 11),),
         trailing: PopupMenuButton<String>(
+          iconSize: 15,
           onSelected: (value) {
             if (value == 'delete') {
               _confirmPermanentDelete(item);
@@ -312,9 +312,12 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _showItemDetails(item),
-                        icon: const Icon(Icons.visibility, size: 16),
-                        label: const Text('Details'),
+                        icon: const Icon(Icons.visibility, size: 15),
+                        label: const Text('Details',style: TextStyle(fontSize: 13),),
                         style: ElevatedButton.styleFrom(
+                          minimumSize: Size.zero, // Removes the default minimum size limits
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6), // Tightens internal space
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
                         ),
@@ -325,9 +328,12 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _confirmPermanentDelete(item),
-                          icon: const Icon(Icons.delete_forever, size: 16),
-                          label: const Text('Delete'),
+                          icon: const Icon(Icons.delete_forever, size: 15),
+                          label: const Text('Delete',style: TextStyle(fontSize: 13),),
                           style: ElevatedButton.styleFrom(
+                            minimumSize: Size.zero, // Removes the default minimum size limits
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6), // Tightens internal space
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             backgroundColor: Colors.red,
                             foregroundColor: Colors.white,
                           ),
@@ -395,12 +401,12 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
                   children: [
                     Text(
                       '$action in ${module.toUpperCase()}',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       cleanDescription,
-                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                      style: TextStyle(color: Colors.grey[700], fontSize: 11),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -412,17 +418,17 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
                         Flexible(
                           child: Text(
                             '$userName ($role)',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 11),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                        Icon(Icons.access_time, size: 13, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             timestamp,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 11),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -431,7 +437,7 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey[400]),
+              Icon(Icons.chevron_right, color: Colors.grey[700],size: 20,),
             ],
           ),
         ),
@@ -653,10 +659,10 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
         children: [
           Text(
             '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.w500),
+            style: const TextStyle(fontWeight: FontWeight.w500,fontSize: 11),
           ),
           Expanded(
-            child: Text(value),
+            child: Text(value,style: TextStyle(fontSize: 13),),
           ),
         ],
       ),

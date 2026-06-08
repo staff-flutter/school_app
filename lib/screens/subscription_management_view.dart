@@ -263,7 +263,7 @@ class _CurrentPlanCard extends StatelessWidget {
                   'Current Subscription',
                   style: TextStyle(
                     color: _kTextDefault,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -302,7 +302,7 @@ class _CurrentPlanBody extends StatelessWidget {
           // Plan badge
           Container(
             padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: _kSelectedClr.withOpacity(0.10),
               borderRadius: BorderRadius.circular(20),
@@ -513,7 +513,7 @@ class _PlanCards extends StatelessWidget {
                             : () => _updateToPlan(plan, schoolId),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 7),
+                              horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: isCurrent
                                 ? _kSelectedClr.withOpacity(0.10)
@@ -543,7 +543,7 @@ class _PlanCards extends StatelessWidget {
               ),
               // Modules
               Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -644,7 +644,7 @@ class _CustomPlanCard extends StatelessWidget {
                   'CUSTOM PLAN',
                   style: TextStyle(
                     color: _kTextDefault,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
                   ),
@@ -654,7 +654,7 @@ class _CustomPlanCard extends StatelessWidget {
           ),
           // Module toggles
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: Column(
               children: modules.map((module) {
                 return Obx(() => Container(
@@ -670,31 +670,40 @@ class _CustomPlanCard extends StatelessWidget {
                           : const Color(0xFFEEEEEE),
                     ),
                   ),
-                  child: CheckboxListTile(
-                    dense: true,
-                    title: Text(
-                      _formatModuleName(module),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: customModules[module] == true
-                            ? _kSelectedClr
-                            : _kTextDefault,
-                      ),
-                    ),
-                    value: customModules[module] ?? false,
-                    activeColor: _kSelectedClr,
-                    checkColor: Colors.white,
-                    onChanged: (v) =>
-                    customModules[module] = v ?? false,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    side: BorderSide(
+                  child: ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(
+                    _formatModuleName(module),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                       color: customModules[module] == true
                           ? _kSelectedClr
-                          : _kIconDefault,
+                          : _kTextDefault,
                     ),
                   ),
+                  trailing: Transform.scale(
+                    scale: 0.8, // <--- Adjust this value (e.g., 0.8 = 80% of original size)
+                    child: Checkbox(
+                      value: customModules[module] ?? false,
+                      activeColor: _kSelectedClr,
+                      checkColor: Colors.white,
+                      onChanged: (v) => customModules[module] = v ?? false,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4)), // Slightly smaller radius looks better scaled down
+                      side: BorderSide(
+                        color: customModules[module] == true
+                            ? _kSelectedClr
+                            : _kIconDefault,
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    // Allows clicking the whole row to toggle, just like CheckboxListTile did
+                    customModules[module] = !(customModules[module] ?? false);
+                  },
+                ),
                 ));
               }).toList(),
             ),
@@ -716,7 +725,7 @@ class _CustomPlanCard extends StatelessWidget {
                     'Apply Custom Plan',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
