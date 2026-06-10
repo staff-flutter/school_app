@@ -1,17 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart' hide Response, FormData, MultipartFile;
+import 'package:get/get.dart' hide Response;
 import 'package:image_picker/image_picker.dart';
 import 'package:school_app/constants/api_constants.dart';
+import 'package:school_app/controllers/student_controller.dart' hide Student;
 
 import '../controllers/auth_controller.dart';
 import '../controllers/school_controller.dart';
+import '../core/theme/app_theme.dart';
 import '../models/school_models.dart';
 import '../models/student_model.dart';
 import '../services/api_service.dart';
+import 'package:dio/dio.dart' as dio;
+import 'package:file_picker/file_picker.dart';
 
 // =============================================================================
 // DESIGN TOKENS — matches sidebar palette
@@ -155,8 +158,13 @@ class CreateStudentProfilePage extends StatefulWidget {
 
 class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     with TickerProviderStateMixin {
+  final controller = Get.find<StudentController>();
   final _auth   = Get.find<AuthController>();
   final _school = Get.find<SchoolController>();
+  final billFiles = <PlatformFile>[].obs;
+  final workPhotoFiles = <PlatformFile>[].obs;
+
+
 
   String? get _resolvedSchoolId {
     if (widget.schoolId != null && widget.schoolId!.isNotEmpty) {
@@ -462,7 +470,36 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           curve: Curves.easeInOutCubic);
     }
   }
+  void _handleResponse(dynamic data, {bool isEdit = false}) {
+    if (data is Map && data['ok'] == true) {
+      final studentId = data['data']?['_id']?.toString()      // ← adjust to your API response shape
+          ?? data['student']?['id']?.toString();
 
+      // Upload files if any were selected
+      if (studentId != null && workPhotoFiles.isNotEmpty) {
+        controller.uploadStudentFiles(
+          studentId: studentId,
+          selectedFiles: workPhotoFiles,
+        );
+      }
+
+      final action = isEdit ? 'Updated' : 'Created';
+      Get.snackbar(
+        '✅ Student $action',
+        'Profile for ${_nameCtrl.text.trim()} has been $action successfully!',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF2E7D32),
+        colorText: Colors.white,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+      );
+      Future.delayed(const Duration(seconds: 3), () => Get.back(result: true));
+    } else {
+      _showError((data is Map ? data['message']?.toString() : null)
+          ?? 'Failed to ${isEdit ? 'update' : 'create'} student.');
+    }
+  }
   Future<void> _pickImage() async {
     final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -593,7 +630,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         final studentId = widget.student!.id;
 
         if (_pickedImage != null) {
-          final formData = FormData.fromMap({
+          final formData = dio.FormData.fromMap({
             'schoolId': schoolId,
             if (payload.srId != null) 'srId': payload.srId,
             'studentName': payload.studentName,
@@ -604,7 +641,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             'isActive': payload.isActive.toString(),
             'mandatory':    mandatoryJson,
             'nonMandatory': nonMandatoryJson,
-            'studentImage': await MultipartFile.fromFile(
+            'studentImage': await dio.MultipartFile.fromFile(
               _pickedImage!.path,
               filename: 'student_image.${_pickedImage!.path.split('.').last}',
             ),
@@ -612,7 +649,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           final res = await apiService.dio.put(
             '${ApiConstants.updateStudent}/$studentId',
             data: formData,
-            options: Options(headers: {'x-school-id': schoolId}),
+            options: dio.Options(headers: {'x-school-id': schoolId}),
           );
           if (!mounted) return;
           _handleResponse(res.data, isEdit: true);
@@ -631,7 +668,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               'mandatory':    mandatoryJson,
               'nonMandatory': nonMandatoryJson,
             },
-            options: Options(headers: {
+            options: dio.Options(headers: {
               'x-school-id':  schoolId,
               'Content-Type': 'application/json',
             }),
@@ -641,7 +678,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         }
       } else {
         if (_pickedImage != null) {
-          final formData = FormData.fromMap({
+          final formData = dio.FormData.fromMap({
             'schoolId': schoolId,
             if (payload.srId != null) 'srId': payload.srId,
             'studentName': payload.studentName,
@@ -652,7 +689,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             'isActive': payload.isActive.toString(),
             'mandatory':    mandatoryJson,
             'nonMandatory': nonMandatoryJson,
-            'studentImage': await MultipartFile.fromFile(
+            'studentImage': await dio.MultipartFile.fromFile(
               _pickedImage!.path,
               filename: 'student_image.${_pickedImage!.path.split('.').last}',
             ),
@@ -660,7 +697,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           final res = await apiService.dio.post(
             ApiConstants.createStudent,
             data: formData,
-            options: Options(headers: {'x-school-id': schoolId}),
+            options: dio.Options(headers: {'x-school-id': schoolId}),
           );
           if (!mounted) return;
           _handleResponse(res.data);
@@ -679,7 +716,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               'mandatory':    mandatoryJson,
               'nonMandatory': nonMandatoryJson,
             },
-            options: Options(headers: {
+            options: dio.Options(headers: {
               'x-school-id':  schoolId,
               'Content-Type': 'application/json',
             }),
@@ -688,7 +725,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           _handleResponse(res.data);
         }
       }
-    } on DioException catch (e) {
+    } on dio.DioException catch (e) {
       if (!mounted) return;
       _showError(e.response?.data?['message']?.toString()
           ?? e.message ?? 'Request failed');
@@ -700,30 +737,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     }
   }
 
-  void _handleResponse(dynamic data, {bool isEdit = false}) {
-    if (data is Map && data['ok'] == true) {
-      final action = isEdit ? 'Updated' : 'Created';
-      Get.snackbar(
-        '✅ Student $action',
-        'Profile for ${_nameCtrl.text.trim()} has been $action successfully!',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFF2E7D32),
-        colorText: Colors.white,
-        borderRadius: 12,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 4),
-        animationDuration: const Duration(milliseconds: 400),
-        isDismissible: false,
-        forwardAnimationCurve: Curves.easeOutBack,
-      );
-      Future.delayed(const Duration(seconds: 3), () {
-        Get.back(result: true);
-      });
-    } else {
-      _showError((data is Map ? data['message']?.toString() : null)
-          ?? 'Failed to ${isEdit ? 'update' : 'create'} student.');
-    }
-  }
+
 
   void _showError(String message) {
     Get.snackbar('Error', message,
@@ -1031,7 +1045,12 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                   style: TextStyle(fontSize: 12, color: _AppColors.textSecondary)),
             ]),
           ),
-
+          const SizedBox(height:10),
+          _buildFileUploadSection(  'Photo of Work/Item',
+          'Upload photo of actual work done or item purchased (Optional)',
+          workPhotoFiles,
+          false,
+          false,),
           const SizedBox(height: 16),
           _secHeader(Icons.person_outline_rounded, 'Basic Information'),
           const SizedBox(height: 12),
@@ -1490,6 +1509,170 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       ),
     );
   }
+
+  Widget _buildFileUploadSection(
+      String title,
+      String subtitle,
+      RxList<PlatformFile> files,
+      bool isMandatory,
+      bool isBillFile,
+      ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize:  11,
+            color: AppTheme.primaryText,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 10,
+            color: AppTheme.mutedText,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Obx(() => Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: files.isEmpty && isMandatory
+                  ? AppTheme.errorRed
+                  : Colors.grey.shade200,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _pickFile(isBillFile),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: files.isEmpty
+                    ? Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF2563EB).withOpacity(0.1),
+                            const Color(0xFF2563EB).withOpacity(0.05),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.cloud_upload,
+                        size: 32,
+                        color: const Color(0xFF2563EB),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Tap to upload file${isMandatory ? " *" : ""}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.mutedText,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'JPG, PNG, PDF (Multiple files allowed)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.mutedText,
+                      ),
+                    ),
+                  ],
+                )
+                    : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${files.length} file(s) selected',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF2563EB),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            onPressed: () => files.clear(),
+                            icon: Icon(Icons.close, color: AppTheme.mutedText),
+                            iconSize: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...files.map((file) => Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.insert_drive_file, size: 16, color: const Color(0xFF2563EB)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              file.name,
+                              style: const TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        )),
+      ],
+    );
+  }
+
+  void _pickFile(bool isBillFile) async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      allowMultiple: true,
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      if (isBillFile) {
+        billFiles.value = result.files;
+        Get.snackbar('Success', '${result.files.length} bill file(s) selected');
+      } else {
+        workPhotoFiles.value = result.files;
+        Get.snackbar('Success', '${result.files.length} work photo(s) selected');
+      }
+    }
+  }
 }
 
 class _FormCard extends StatelessWidget {
@@ -1757,7 +1940,6 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
 
               final sections = widget.schoolController.sections;
               if (_classId == null) {
-                 Text('select class to continue');
                 return const SizedBox.shrink();
               }
 

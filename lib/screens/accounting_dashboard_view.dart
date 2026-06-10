@@ -8,14 +8,14 @@ import 'dart:math' as math;
 
 import '../controllers/school_controller.dart';
 
-class AccountingDashboardView extends StatefulWidget {
-  const AccountingDashboardView({super.key});
+class AccountingDashboardView2 extends StatefulWidget {
+  const AccountingDashboardView2({super.key});
 
   @override
-  State<AccountingDashboardView> createState() => _AccountingDashboardViewState();
+  State<AccountingDashboardView2> createState() => _AccountingDashboardViewState();
 }
 
-class _AccountingDashboardViewState extends State<AccountingDashboardView> with TickerProviderStateMixin {
+class _AccountingDashboardViewState extends State<AccountingDashboardView2> with TickerProviderStateMixin {
   SchoolController? get _school {
     if (Get.isRegistered<SchoolController>()) {
       return Get.find<SchoolController>();

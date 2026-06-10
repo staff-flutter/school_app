@@ -9,6 +9,8 @@ import 'package:school_app/screens/parent_attendance_view.dart';
 
 import 'package:school_app/screens/profile_view.dart';
 
+import '../screens/accounting_dashboard_with_api_integration.dart';
+
 class AppRoutes {
   static const String login = '/login';
   static const String dashboard = '/accounting-dashboard';
@@ -23,7 +25,7 @@ class AppRoutes {
 
   static List<GetPage> routes = [
     GetPage(name: login, page: () => LoginView()),
-    GetPage(name: dashboard, page: () => AccountingDashboardView()),
+    GetPage(name: dashboard, page: () => AccountingDashboardView1()),
     GetPage(name: clubs, page: () => const ClubsActivitiesView()),
     GetPage(name: students, page: () =>StudentManagementView()),
     GetPage(name: attendance, page: () => AttendanceView()),

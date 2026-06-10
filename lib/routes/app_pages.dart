@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/controllers/student_controller.dart';
 import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
+import '../screens/accounting_dashboard_with_api_integration.dart';
+import '../screens/admin_attendance.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
 import '../screens/create_student_profile_page.dart';
 import '../screens/enhanced_profile_view.dart';
@@ -111,7 +114,7 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.DASHBOARD,
-      page: () => RoleAwareWrapper(child: AccountingDashboardView()),
+      page: () => RoleAwareWrapper(child: AccountingDashboardView1()),
       binding: DashboardBinding(),
     ),
     GetPage(
@@ -123,7 +126,7 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.ACCOUNTING_DASHBOARD,
-      page: () => RoleAwareWrapper(child: AccountingDashboardView()),
+      page: () => RoleAwareWrapper(child: AccountingDashboardView1()),
       binding: AccountingBinding(),
     ),
     GetPage(
@@ -280,7 +283,7 @@ GetPage(
     ),
     GetPage(
       name: '${AppRoutes.TEACHER_ATTENDANCE}',
-      page: () => RoleAwareWrapper(child: const TeacherAttendanceView()),
+      page: () => RoleAwareWrapper(child: const AdminAttendanceView()),
       binding: BindingsBuilder(() {
         // Always create a fresh instance for specific student view to avoid state persistence
         if (Get.isRegistered<ParentAttendanceController>()) {
@@ -311,6 +314,7 @@ GetPage(
       page: () => RoleAwareWrapper(child: const CreateStudentProfilePage()),
       binding: BindingsBuilder(() {
         Get.lazyPut(()=>AuthController());
+        Get.lazyPut(() => StudentController());
       }),
     ),
     GetPage(

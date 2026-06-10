@@ -1,4 +1,8 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:dio/dio.dart' as dio;
+import '../constants/api_constants.dart';
 
 class StudentController extends GetxController {
   final isLoading = false.obs;
@@ -6,13 +10,71 @@ class StudentController extends GetxController {
   final selectedClass = ''.obs;
   final selectedSection = ''.obs;
   final searchQuery = ''.obs;
+  final isUploading = false.obs;
 
   @override
   void onInit() {
     super.onInit();
     loadStudents();
   }
+  Future<bool> uploadStudentFiles({
+    required String studentId,
+    required List<PlatformFile> selectedFiles,
+  }) async {
+    if (selectedFiles.isEmpty) {
+      Get.snackbar('Warning', 'No files selected to upload',
+          backgroundColor: Colors.orange, colorText: Colors.white);
+      return false;
+    }
 
+    try {
+      isUploading.value = true;
+
+      final formData = dio.FormData();
+
+      for (var file in selectedFiles) {
+        if (file.bytes != null) {
+          formData.files.add(MapEntry(
+            'files',
+            dio.MultipartFile.fromBytes(file.bytes!, filename: file.name),
+          ));
+        } else if (file.path != null) {
+          formData.files.add(MapEntry(
+            'files',
+            await dio.MultipartFile.fromFile(file.path!, filename: file.name),
+          ));
+        }
+      }
+
+      final _dio = dio.Dio();
+      final url = '${ApiConstants.baseUrl}/api/student/v1/upload-files/$studentId';
+
+      final response = await _dio.post(
+        url,
+        data: formData,
+        options: dio.Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Get.snackbar('Success', 'Files uploaded successfully!',
+            backgroundColor: Colors.green, colorText: Colors.white);
+        return true;
+      } else {
+        Get.snackbar('Error', 'Upload failed. Status: ${response.statusCode}',
+            backgroundColor: Colors.red, colorText: Colors.white);
+        return false;
+      }
+    } catch (e) {
+      debugPrint('File upload error: $e');
+      Get.snackbar('Error', 'Upload failed: $e',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return false;
+    } finally {
+      isUploading.value = false;
+    }
+  }
   void loadStudents() {
     // Dummy data
     students.value = [
