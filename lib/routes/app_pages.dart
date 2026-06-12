@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_controller.dart';
 import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
@@ -127,8 +128,13 @@ GetPage(
     GetPage(
       name: AppRoutes.ACCOUNTING_DASHBOARD,
       page: () => RoleAwareWrapper(child: AccountingDashboardView1()),
-      binding: AccountingBinding(),
-    ),
+      //binding: AccountingBinding(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AccountingBinding());
+        if (!Get.isRegistered<SchoolController>()) {
+          Get.lazyPut(() => SchoolController());
+        }
+      }),    ),
     GetPage(
       name: AppRoutes.FEE_COLLECTION,
       page: () => RoleAwareWrapper(child: FeeCollectionTabbedView()),
@@ -313,8 +319,8 @@ GetPage(
       name: AppRoutes.STUDENT_PROFILE_CREATION,
       page: () => RoleAwareWrapper(child: const CreateStudentProfilePage()),
       binding: BindingsBuilder(() {
-        Get.lazyPut(()=>AuthController());
-        Get.lazyPut(() => StudentController());
+        Get.lazyPut<AuthController>(() => AuthController(), fenix: true);
+        Get.lazyPut<StudentController>(() => StudentController(), fenix: true);
       }),
     ),
     GetPage(

@@ -158,7 +158,7 @@ class CreateStudentProfilePage extends StatefulWidget {
 
 class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     with TickerProviderStateMixin {
-  final controller = Get.find<StudentController>();
+  StudentController get controller => Get.find<StudentController>();
   final _auth   = Get.find<AuthController>();
   final _school = Get.find<SchoolController>();
   final billFiles = <PlatformFile>[].obs;
@@ -167,14 +167,23 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
 
   String? get _resolvedSchoolId {
-    if (widget.schoolId != null && widget.schoolId!.isNotEmpty) {
-      return widget.schoolId;
-    }
+    // ✅ First check constructor param, then Get.arguments
+    final argSchoolId = Get.arguments?['schoolId'] as String?;
+    final id = widget.schoolId ?? argSchoolId;
+    if (id != null && id.isNotEmpty) return id;
     final role = _auth.user.value?.role?.toLowerCase() ?? '';
     if (role == 'correspondent') return _school.selectedSchool.value?.id;
     return _auth.user.value?.schoolId;
   }
 
+  Student? get _resolvedStudent {
+    // ✅ First check constructor param, then Get.arguments
+    return widget.student ?? Get.arguments?['student'] as Student?;
+  }
+
+  bool get _resolvedIsEdit {
+    return widget.isEdit || (Get.arguments?['isEdit'] as bool? ?? false);
+  }
   bool get _isCorrespondent =>
       (_auth.user.value?.role?.toLowerCase() ?? '') == 'correspondent';
 
@@ -274,16 +283,17 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       final sid = _resolvedSchoolId;
       if (sid != null) {
         _school.getAllClasses(sid).then((_) {
-          if (widget.isEdit && widget.student?.classId != null) {
+          // ✅ Use _resolvedStudent instead of widget.student
+          if (_resolvedIsEdit && _resolvedStudent?.classId != null) {
             _school.getAllSections(
-              classId: widget.student!.classId,
+              classId: _resolvedStudent!.classId,
               schoolId: sid,
             ).then((_) => _applyEditPreFill());
           }
         });
       }
 
-      if (widget.isEdit && widget.student != null) {
+      if (_resolvedIsEdit && _resolvedStudent != null) {
         _applyEditPreFill();
         if (_pickedClassId == null) {
           _showClassSectionPicker();
@@ -295,7 +305,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   }
 
   void _applyEditPreFill() {
-    final s = widget.student;
+   // final s = widget.student;
+    final s = _resolvedStudent;
     if (s == null) return;
 
     _nameCtrl.text  = s.name ?? '';
@@ -626,8 +637,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               ? <String, dynamic>{}
               : _stripNulls(payload.nonMandatory.toJson()));
 
-      if (widget.isEdit) {
-        final studentId = widget.student!.id;
+      if (_resolvedIsEdit ) {
+        final studentId = _resolvedStudent!.id;
 
         if (_pickedImage != null) {
           final formData = dio.FormData.fromMap({
@@ -795,7 +806,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-              widget.isEdit ? 'Edit Student Profile' : 'Create Student Profile',
+              _resolvedIsEdit  ? 'Edit Student Profile' : 'Create Student Profile',
               style: const TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -929,7 +940,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             Expanded(
               child: _NavButton(
                 label: isLast
-                    ? (widget.isEdit ? 'Update Student' : 'Create Student')
+                    ? (_resolvedIsEdit  ? 'Update Student' : 'Create Student')
                     : 'Next Step',
                 icon: isLast
                     ? Icons.check_circle_outline_rounded

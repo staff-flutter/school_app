@@ -475,11 +475,10 @@ class _ClassSectionSheet extends StatefulWidget {
   @override
   State<_ClassSectionSheet> createState() => _ClassSectionSheetState();
 }
+
 class _ClassSectionSheetState extends State<_ClassSectionSheet> {
   SchoolClass? _selectedClass;
   Section? _selectedSection;
-  String _classSearch = '';
-  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -488,28 +487,16 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
     _selectedSection = widget.initialSection;
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  List<SchoolClass> get _filteredClasses {
-    final sorted = List<SchoolClass>.from(widget.classes)
+  List<SchoolClass> get _sortedClasses {
+    return List<SchoolClass>.from(widget.classes)
       ..sort((a, b) => widget.compareClassNames(a.name, b.name));
-    if (_classSearch.isEmpty) return sorted;
-    return sorted
-        .where((c) => c.name.toLowerCase().contains(_classSearch.toLowerCase()))
-        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = _Responsive.isTablet(context);
     final sections = widget.sections;
 
     return Container(
-      // Solves keyboard overlay by dynamically sizing the sheet around system overlay bounds
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       decoration: const BoxDecoration(
         color: _DS.surface,
@@ -521,70 +508,53 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Drag handle ───────────────────────────────────────────────────
+            // Drag handle
             const SizedBox(height: 12),
             Center(
               child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _DS.border,
-                  borderRadius: BorderRadius.circular(100),
-                ),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: _DS.border, borderRadius: BorderRadius.circular(100)),
               ),
             ),
             const SizedBox(height: 16),
 
-            // ── Header ────────────────────────────────────────────────────────
+            // Header
             Padding(
               padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _DS.primarySoft,
-                      borderRadius: BorderRadius.circular(_DS.radiusSm),
-                    ),
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(color: _DS.primarySoft, borderRadius: BorderRadius.circular(_DS.radiusSm)),
                     child: const Icon(Icons.class_rounded, color: _DS.primary, size: 18),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Select Class & Section',
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Select Class & Section',
                           style: TextStyle(
                             fontSize: _Responsive.fontSize(context, mobile: 16, tablet: 17),
-                            fontWeight: FontWeight.w800,
-                            color: _DS.textPrimary,
-                          ),
+                            fontWeight: FontWeight.w800, color: _DS.textPrimary,
+                          )),
+                      Text(
+                        _selectedClass != null
+                            ? (_selectedSection != null
+                            ? '${_selectedClass!.name} · ${_selectedSection!.name}'
+                            : _selectedClass!.name)
+                            : 'No selection',
+                        style: TextStyle(
+                          fontSize: _Responsive.fontSize(context, mobile: 12, tablet: 13),
+                          color: _selectedClass != null ? _DS.primary : _DS.textMuted,
+                          fontWeight: FontWeight.w500,
                         ),
-                        Text(
-                          _selectedClass != null
-                              ? (_selectedSection != null
-                              ? '${_selectedClass!.name} · ${_selectedSection!.name}'
-                              : _selectedClass!.name)
-                              : 'No selection',
-                          style: TextStyle(
-                            fontSize: _Responsive.fontSize(context, mobile: 12, tablet: 13),
-                            color: _selectedClass != null ? _DS.primary : _DS.textMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ]),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: _DS.surfaceAlt,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
+                      decoration: BoxDecoration(color: _DS.surfaceAlt, borderRadius: BorderRadius.circular(100)),
                       child: const Icon(Icons.close_rounded, size: 16, color: _DS.textMuted),
                     ),
                     padding: EdgeInsets.zero,
@@ -593,90 +563,34 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // ── Scrollable Body Area ──────────────────────────────────────────
+            // Scrollable body
             Flexible(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Search box ────────────────────────────────────────────────────
+                    // CLASS label
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: _DS.surfaceAlt,
-                          borderRadius: BorderRadius.circular(_DS.radiusSm),
-                          border: Border.all(color: _DS.border),
-                        ),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          onChanged: (v) => setState(() => _classSearch = v),
-                          style: TextStyle(
-                              fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14),
-                              color: _DS.textPrimary),
-                          decoration: InputDecoration(
-                            hintText: 'Search class...',
-                            hintStyle: TextStyle(
-                                color: _DS.textMuted,
-                                fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14)),
-                            prefixIcon: const Icon(Icons.search_rounded, color: _DS.primary, size: 18),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
+                      child: const Text('CLASS',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                              color: _DS.textMuted, letterSpacing: 1.2)),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
 
-                    // ── Class list label ──────────────────────────────────────────────
+                    // Class chips
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'CLASS',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: _DS.textMuted,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Class List Box ────────────────────────────────────────────────
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: isTablet ? 320 : 220,
-                      ),
                       child: widget.classes.isEmpty
-                          ? Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.school_outlined, color: _DS.textMuted, size: 36),
-                            const SizedBox(height: 8),
-                            Text('No classes available',
-                                style: TextStyle(
-                                    color: _DS.textMuted,
-                                    fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14))),
-                          ],
-                        ),
-                      )
-                          : ListView.separated(
-                        padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
-                        shrinkWrap: true,
-                        itemCount: _filteredClasses.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 6),
-                        itemBuilder: (context, i) {
-                          final cls = _filteredClasses[i];
+                          ? Text('No classes available',
+                          style: TextStyle(fontSize: 13, color: _DS.textMuted))
+                          : Wrap(
+                        spacing: 8, runSpacing: 8,
+                        children: _sortedClasses.map((cls) {
                           final isSelected = _selectedClass?.id == cls.id;
                           return GestureDetector(
                             onTap: () async {
@@ -688,145 +602,104 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
                             },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                               decoration: BoxDecoration(
-                                color: isSelected ? _DS.primarySoft : _DS.surfaceAlt,
+                                color: isSelected ? _DS.primary : _DS.surfaceAlt,
                                 borderRadius: BorderRadius.circular(_DS.radiusSm),
                                 border: Border.all(
                                   color: isSelected ? _DS.primary : _DS.border,
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? _DS.primary : _DS.surface,
-                                      borderRadius: BorderRadius.circular(_DS.spacingSm),
-                                      border: Border.all(color: isSelected ? _DS.primary : _DS.border),
-                                    ),
-                                    child: Icon(
-                                      widget.getClassIcon(cls.name),
-                                      size: 16,
-                                      color: isSelected ? Colors.white : _DS.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      cls.name,
-                                      style: TextStyle(
-                                        fontSize: _Responsive.fontSize(context, mobile: 14, tablet: 15),
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                        color: isSelected ? _DS.primaryDark : _DS.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isSelected)
-                                    const Icon(Icons.check_circle_rounded, color: _DS.primary, size: 18),
-                                ],
-                              ),
+                              child: Text(cls.name,
+                                  style: TextStyle(
+                                    fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14),
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected ? Colors.white : _DS.textPrimary,
+                                  )),
                             ),
                           );
-                        },
+                        }).toList(),
                       ),
                     ),
 
-                    // ── Section list (shown only when class selected + access) ────────
+                    // Section chips (only when class selected)
                     if (widget.hasSectionAccess && _selectedClass != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Divider(height: 1, color: _DS.border),
                       const SizedBox(height: 16),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'SECTION',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: _DS.textMuted,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
+                        child: const Text('SECTION',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                                color: _DS.textMuted, letterSpacing: 1.2)),
                       ),
-                      const SizedBox(height: 8),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 160),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
                         child: sections.isEmpty
-                            ? Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: _Responsive.padding(context), vertical: 12),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.info_outline_rounded, color: _DS.textMuted, size: 16),
-                              const SizedBox(width: 8),
-                              Text('No sections — class-level timetable will be shown',
-                                  style: TextStyle(
-                                      color: _DS.textMuted,
-                                      fontSize: _Responsive.fontSize(context, mobile: 12, tablet: 13))),
-                            ],
-                          ),
-                        )
-                            : ListView.separated(
-                          padding: EdgeInsets.symmetric(horizontal: _Responsive.padding(context)),
-                          shrinkWrap: true,
-                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                          itemCount: sections.length + 1,
-                          separatorBuilder: (_, __) => const SizedBox(height: 6),
-                          itemBuilder: (context, i) {
-                            final isAll = i == 0;
-                            final section = isAll ? null : sections[i - 1];
-                            final label = isAll ? 'All Sections' : section!.name;
-                            final isSelected = isAll
-                                ? _selectedSection == null
-                                : _selectedSection?.id == section?.id;
-                            return GestureDetector(
-                              onTap: () => setState(() => _selectedSection = section),
+                            ? Row(children: [
+                          const Icon(Icons.info_outline_rounded, color: _DS.textMuted, size: 15),
+                          const SizedBox(width: 8),
+                          Text('No sections — class-level timetable',
+                              style: TextStyle(
+                                  fontSize: _Responsive.fontSize(context, mobile: 12, tablet: 13),
+                                  color: _DS.textMuted)),
+                        ])
+                            : Wrap(
+                          spacing: 10, runSpacing: 10,
+                          children: [
+                            // "All" chip
+                            GestureDetector(
+                              onTap: () => setState(() => _selectedSection = null),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                width: 56, height: 56,
                                 decoration: BoxDecoration(
-                                  color: isSelected ? _DS.primarySoft : _DS.surfaceAlt,
+                                  color: _selectedSection == null ? _DS.primary : _DS.surfaceAlt,
                                   borderRadius: BorderRadius.circular(_DS.radiusSm),
                                   border: Border.all(
-                                    color: isSelected ? _DS.primary : _DS.border,
-                                    width: isSelected ? 1.5 : 1,
+                                    color: _selectedSection == null ? _DS.primary : _DS.border,
+                                    width: _selectedSection == null ? 1.5 : 1,
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isAll ? Icons.layers_rounded : Icons.group_rounded,
-                                      size: 16,
-                                      color: isSelected ? _DS.primary : _DS.textMuted,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        label,
-                                        style: TextStyle(
-                                          fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14),
-                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                          color: isSelected ? _DS.primaryDark : _DS.textPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                    if (isSelected)
-                                      const Icon(Icons.check_circle_rounded, color: _DS.primary, size: 16),
-                                  ],
-                                ),
+                                alignment: Alignment.center,
+                                child: Text('All',
+                                    style: TextStyle(
+                                      fontSize: 12, fontWeight: FontWeight.w700,
+                                      color: _selectedSection == null ? Colors.white : _DS.textPrimary,
+                                    )),
                               ),
-                            );
-                          },
+                            ),
+                            ...sections.map((sec) {
+                              final isSelected = _selectedSection?.id == sec.id;
+                              return GestureDetector(
+                                onTap: () => setState(() => _selectedSection = sec),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: 56, height: 56,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? _DS.primary : _DS.surfaceAlt,
+                                    borderRadius: BorderRadius.circular(_DS.radiusSm),
+                                    border: Border.all(
+                                      color: isSelected ? _DS.primary : _DS.border,
+                                      width: isSelected ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(sec.name,
+                                      style: TextStyle(
+                                        fontSize: 17, fontWeight: FontWeight.w700,
+                                        color: isSelected ? Colors.white : _DS.textPrimary,
+                                      )),
+                                ),
+                              );
+                            }),
+                          ],
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -834,35 +707,30 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
 
             Divider(height: 1, color: _DS.border),
 
-            // ── Apply Action Footer (Removed faulty Expanded component) ──────────
+            // Footer
             Padding(
               padding: EdgeInsets.fromLTRB(
-                _Responsive.padding(context),
-                16,
+                _Responsive.padding(context), 16,
                 _Responsive.padding(context),
                 MediaQuery.of(context).padding.bottom + 16,
               ),
               child: Row(
                 children: [
-                  // Clear button
                   if (_selectedClass != null)
                     Padding(
                       padding: const EdgeInsets.only(right: 10),
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _selectedClass = null;
-                            _selectedSection = null;
-                          });
-                        },
+                        onPressed: () => setState(() {
+                          _selectedClass = null;
+                          _selectedSection = null;
+                        }),
                         icon: const Icon(Icons.clear_rounded, size: 16),
                         label: const Text('Clear'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _DS.textSecondary,
                           side: const BorderSide(color: _DS.border),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(_DS.radius)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radius)),
                         ),
                       ),
                     ),
@@ -873,9 +741,13 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
                           : () => Navigator.of(context).pop((_selectedClass, _selectedSection)),
                       icon: const Icon(Icons.check_rounded, size: 18),
                       label: Text(
-                        _selectedClass == null ? 'Select a class first' : 'Apply Selection',
+                        _selectedClass == null
+                            ? 'Select a class first'
+                            : _selectedSection != null
+                            ? 'Apply · ${_selectedClass!.name}, ${_selectedSection!.name}'
+                            : 'Apply · ${_selectedClass!.name}',
                         style: TextStyle(
-                          fontSize: _Responsive.fontSize(context, mobile: 14, tablet: 15),
+                          fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -885,8 +757,7 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
                         disabledBackgroundColor: _DS.surfaceAlt,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(_DS.radius)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radius)),
                       ),
                     ),
                   ),
@@ -1835,33 +1706,31 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                   Padding(
                     padding: EdgeInsets.only(top: _DS.spacingMd),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Expanded(
-                          child: _primaryBtn(
-                              context: context,
-                              label: 'Add Day',
-                              icon: Icons.add_rounded,
-                              onPressed: _showAddDayDialog,
-                              fullWidth: true,
-                              height: 48),
+                        ElevatedButton.icon(
+                          onPressed: _showAddDayDialog,
+                          icon: const Icon(Icons.add_rounded, size: 15),
+                          label: const Text('Add Day', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _DS.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusSm)),
+                          ),
                         ),
-                        if (ApiPermissions.hasApiAccess(
-                            currentUserRole, 'DELETE /api/timetable/delete/:id')) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _showDeleteTimetableDialog,
-                              icon: Icon(Icons.delete_rounded, size: isTablet ? 18 : 16),
-                              label: Text('Delete',
-                                  style: TextStyle(fontSize: 11)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _DS.danger,
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(vertical: _DS.spacingMd),
-                                minimumSize: const Size(0, 48),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(_DS.radius)),
-                              ),
+                        if (ApiPermissions.hasApiAccess(currentUserRole, 'DELETE /api/timetable/delete/:id')) ...[
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: _showDeleteTimetableDialog,
+                            icon: const Icon(Icons.delete_rounded, size: 15),
+                            label: const Text('Delete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _DS.danger,
+                              side: const BorderSide(color: _DS.danger),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusSm)),
                             ),
                           ),
                         ],
@@ -2334,7 +2203,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
     if (schoolController.selectedSchool.value != null) schoolController.loadTeachers();
     String existingSubject = '';
     String? existingTeacherId;
-
+    String? existingStartTime;
+    String? existingEndTime;
     if (timetableController.timetables.isNotEmpty) {
       final timetable = timetableController.timetables.first;
       final weeklySchedule = timetable['weeklySchedule'] as List? ?? [];
@@ -2344,12 +2214,15 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         final periodData = periods.firstWhereOrNull((p) => p['periodNumber'] == period);
         if (periodData != null) {
           existingSubject = periodData['subjectName'] ?? '';
+          existingStartTime=periodData['startTime']??'';
+          existingEndTime=periodData['endTime']??'';
           final teacherData = periodData['teacherId'];
           if (teacherData is Map) existingTeacherId = teacherData['_id'];
         }
       }
     }
-
+    final startTimeController = TextEditingController(text: existingStartTime);
+    final endTimeController = TextEditingController(text: existingEndTime);
     final subjectController = TextEditingController(text: existingSubject);
     final searchCtrl = TextEditingController();
     String? localTeacherId = existingTeacherId;
@@ -2382,6 +2255,61 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                   children: [
                     _field(subjectController, 'Subject Name', context),
                     const SizedBox(height: 12),
+
+// ✅ Time range row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: startTimeController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: 'Start Time',
+                              prefixIcon: const Icon(Icons.access_time, color: _DS.primary, size: 18),
+                              filled: true,
+                              fillColor: _DS.surfaceAlt,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(_DS.radiusSm)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.now(),
+                              );
+                              if (picked != null) {
+                                startTimeController.text =
+                                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: endTimeController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: 'End Time',
+                              prefixIcon: const Icon(Icons.access_time_filled, color: _DS.primary, size: 18),
+                              filled: true,
+                              fillColor: _DS.surfaceAlt,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(_DS.radiusSm)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.now(),
+                              );
+                              if (picked != null) {
+                                endTimeController.text =
+                                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                     _field(searchCtrl, 'Search Teacher', context),
                     const SizedBox(height: 8),
 
@@ -2487,6 +2415,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                       'periodNumber': period,
                       'subjectName': subjectController.text.trim(),
                       'teacherId': localTeacherId,
+                       'startTime': startTimeController.text,
+                       'endTime': endTimeController.text,
                     },
                   );
                   if (success) {

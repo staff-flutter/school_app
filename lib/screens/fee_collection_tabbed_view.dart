@@ -80,34 +80,51 @@ class FeeCollectionTabbedView extends StatefulWidget {
 
 class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
   final AuthController _authController = Get.find();
+  final SchoolController schoolController = Get.find();
   Worker? _schoolWatcher;
   late FeeCollectionSchoolController feeSchoolController;
+
   @override
   void initState() {
     super.initState();
 
-    // Register shared controller
+    // Register shared controller first
     feeSchoolController = Get.put(FeeCollectionSchoolController());
 
-    try {
-      final schoolController = Get.find<SchoolController>();
-      final userRole = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userRole = _authController.user.value?.role?.toLowerCase() ?? '';
 
-      // Trigger immediately
-      final current = schoolController.selectedSchool.value;
-      if (current != null && userRole == 'correspondent') {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          feeSchoolController.setSchool(current);
-        });
-      }
+      try {
+        final schoolCtrl = Get.find<SchoolController>();
 
-      // Watch future changes
-      _schoolWatcher = ever(schoolController.selectedSchool, (school) {
-        if (school != null && userRole == 'correspondent') {
-          feeSchoolController.setSchool(school);
+        // For correspondent: sync sidebar school selection into feeSchoolController
+        if (userRole == 'correspondent') {
+          final current = schoolCtrl.selectedSchool.value;
+          if (current != null) {
+            feeSchoolController.setSchool(current);
+          }
+          _schoolWatcher = ever(schoolCtrl.selectedSchool, (school) {
+            if (school != null) feeSchoolController.setSchool(school);
+          });
+        } else {
+          // Non-correspondent: auto-set school from AuthController
+          final schoolId = _authController.user.value?.schoolId;
+          if (schoolId != null && schoolId.isNotEmpty) {
+            final existing = schoolCtrl.schools
+                .firstWhereOrNull((s) => s.id == schoolId);
+            if (existing != null) {
+              feeSchoolController.setSchool(existing);
+            } else {
+              schoolCtrl.getAllSchools().then((_) {
+                final found = schoolCtrl.schools
+                    .firstWhereOrNull((s) => s.id == schoolId);
+                if (found != null) feeSchoolController.setSchool(found);
+              });
+            }
+          }
         }
-      });
-    } catch (_) {}
+      } catch (_) {}
+    });
   }
 
   @override
@@ -129,13 +146,8 @@ class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
         body: SafeArea(
           child: Column(
             children: [
-              // Modern Header
               _buildModernHeader(context, isTablet),
-
-              // Modern Tab Bar
               _buildModernTabBar(context),
-
-              // Tab Content
               Expanded(
                 child: TabBarView(
                   children: [
@@ -174,8 +186,7 @@ class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
                     fontWeight: FontWeight.w700,
                     color: _DS.textPrimary)),
             Text('Collect fees and manage records',
-                style: TextStyle(
-                    fontSize: 11, color: _DS.textMuted)),
+                style: TextStyle(fontSize: 11, color: _DS.textMuted)),
           ],
         ),
       ]),
@@ -232,7 +243,8 @@ class _FeeCollectionTabbedViewState extends State<FeeCollectionTabbedView> {
         ),
       ),
     );
-  }}
+  }
+}
 
 class _FeeCollectionTab extends StatefulWidget {
 
@@ -273,49 +285,84 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   final isStudentSelectorCollapsed = false.obs;
   final selectedStudentType = 'old'.obs;
 
+  final selectedFilterClass = Rxn<SchoolClass>();
+  final selectedFilterSection = Rxn<Section>();
+
   Worker? _schoolWatcher;
 
   FeeCollectionSchoolController get _feeSchoolCtrl =>
       Get.find<FeeCollectionSchoolController>();
 
+  String get _currentSchoolId =>
+      _feeSchoolCtrl.selectedSchool.value?.id ??
+          _authController.user.value?.schoolId ?? '';
+
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       schoolController.getAllSchools();
-
-      // Load students immediately if school already selected
       final current = _feeSchoolCtrl.selectedSchool.value;
       if (current != null) {
-        _loadStudentsForSchool(current.id);
+        _onSchoolReady(current.id);
       } else {
-        // For non-correspondent: auto-load from user's schoolId
         final userRole = _authController.user.value?.role?.toLowerCase() ?? '';
         if (userRole != 'correspondent') {
           final userSchoolId = _authController.user.value?.schoolId;
-          if (userSchoolId != null) {
-            _loadStudentsForSchool(userSchoolId);
-          }
+          if (userSchoolId != null) _onSchoolReady(userSchoolId);
         }
       }
-
-      // 👇 Watch for sidebar school changes and reload students
       _schoolWatcher = ever(_feeSchoolCtrl.selectedSchool, (school) {
-        if (school != null) {
-          // Reset state when school changes
-          controller.selectedStudent.value = null;
-          showPaymentDetails.value = false;
-          showReceipts.value = false;
-          isStudentSelectorCollapsed.value = false;
-          filteredStudents.clear();
-          _studentSearchController.clear();
-
-          _loadStudentsForSchool(school.id);
-        }
+        if (school != null) _resetAndLoad(school.id);
       });
     });
   }
+
+  void _onSchoolReady(String schoolId) {
+    // Load classes for filter chips
+    schoolController.getAllClasses(schoolId);
+    // Load all students initially (no filter)
+    _loadStudents(schoolId: schoolId);
+  }
+
+  void _resetAndLoad(String schoolId) {
+    controller.selectedStudent.value = null;
+    showPaymentDetails.value = false;
+    showReceipts.value = false;
+    isStudentSelectorCollapsed.value = false;
+    filteredStudents.clear();
+    _studentSearchController.clear();
+    selectedFilterClass.value = null;
+    selectedFilterSection.value = null;
+    schoolController.sections.clear();
+    _onSchoolReady(schoolId);
+  }
+
+  Future<void> _loadStudents({
+    required String schoolId,
+    String? classId,
+    String? sectionId,
+  }) async {
+    try {
+      controller.isLoading.value = true;
+      String url = '${ApiConstants.getAllStudents}?schoolId=$schoolId';
+      if (classId != null && classId.isNotEmpty) url += '&classId=$classId';
+      if (sectionId != null && sectionId.isNotEmpty) url += '&sectionId=$sectionId';
+
+      final response = await Get.find<ApiService>().get(url);
+      if (response.data['ok'] == true) {
+        final list = (response.data['data'] as List)
+            .cast<Map<String, dynamic>>();
+        controller.students.value = list;
+        filteredStudents.value = list;
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load students');
+    } finally {
+      controller.isLoading.value = false;
+    }
+  }
+
 
   @override
   void dispose() {
@@ -337,14 +384,9 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     final isTablet = screenSize.width > 600;
     final isLandscape = screenSize.width > screenSize.height;
 
+
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.blue.shade50, Colors.blue.shade50],
-        ),
-      ),
+      color: _DS.bg,
       child: Padding(
         padding: EdgeInsets.all(isTablet ? 20 : 16),
         child: Form(
@@ -352,24 +394,15 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // School Selection
-              //  _buildSchoolSelector(context, isTablet),
-
-               // const SizedBox(height: 16),
-
-                // Collapsible Student Selection
+                _buildClassSectionFilterRow(),
+                const SizedBox(height: 12),
                 _buildCollapsibleStudentSelector(context, isTablet, isLandscape),
-
                 const SizedBox(height: 16),
-
-                // Student Receipts
-                Obx(() => showReceipts.value && controller.selectedStudent.value != null
+                Obx(() => showReceipts.value &&
+                    controller.selectedStudent.value != null
                     ? _buildStudentReceipts(context, isTablet)
                     : const SizedBox()),
-
                 const SizedBox(height: 16),
-
-                // Payment Details
                 Obx(() => showPaymentDetails.value
                     ? _buildPaymentDetails(context, isTablet, isLandscape)
                     : const SizedBox()),
@@ -379,6 +412,457 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         ),
       ),
     );
+  }
+  // ── NEW: Class / Section filter chips ────────────────────────
+  Widget _buildClassSectionFilterRow() {
+    return Obx(() {
+      final hasClass = selectedFilterClass.value != null;
+      final hasSection = selectedFilterSection.value != null;
+      return Row(children: [
+        // Class chip
+        GestureDetector(
+          onTap: _showClassFilterSheet,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: hasClass ? _DS.accentSoft : _DS.surface,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: hasClass ? _DS.accent : _DS.border,
+                width: hasClass ? 1.5 : 1,
+              ),
+              boxShadow: _DS.shadow,
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.class_rounded,
+                  size: 13,
+                  color: hasClass ? _DS.accent : _DS.textMuted),
+              const SizedBox(width: 5),
+              Text(
+                selectedFilterClass.value?.name ?? 'All Classes',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: hasClass ? _DS.accent : _DS.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 13,
+                  color: hasClass ? _DS.accent : _DS.textMuted),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Section chip — only enabled after class is selected
+        GestureDetector(
+          onTap: hasClass ? _showSectionFilterSheet : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: hasSection
+                  ? _DS.accentSoft
+                  : (hasClass ? _DS.surface : _DS.surfaceAlt),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: hasSection
+                    ? _DS.accent
+                    : (hasClass ? _DS.border : _DS.border.withOpacity(0.5)),
+                width: hasSection ? 1.5 : 1,
+              ),
+              boxShadow: hasClass ? _DS.shadow : [],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.group_rounded,
+                  size: 13,
+                  color: hasSection
+                      ? _DS.accent
+                      : (hasClass ? _DS.textMuted : _DS.border)),
+              const SizedBox(width: 5),
+              Text(
+                selectedFilterSection.value?.name ?? 'All Sections',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: hasSection
+                      ? _DS.accent
+                      : (hasClass
+                      ? _DS.textSecondary
+                      : _DS.textMuted),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 13,
+                  color: hasSection
+                      ? _DS.accent
+                      : (hasClass ? _DS.textMuted : _DS.border)),
+            ]),
+          ),
+        ),
+        const Spacer(),
+        // Clear filters
+        if (hasClass || hasSection)
+          GestureDetector(
+            onTap: () {
+              selectedFilterClass.value = null;
+              selectedFilterSection.value = null;
+              schoolController.sections.clear();
+              final sid = _currentSchoolId;
+              if (sid.isNotEmpty) _loadStudents(schoolId: sid);
+            },
+            child: Container(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: _DS.dangerSoft,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: const Icon(Icons.close_rounded,
+                  size: 13, color: _DS.danger),
+            ),
+          ),
+      ]);
+    });
+  }
+
+  void _showClassFilterSheet() {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: _DS.border,
+                borderRadius: BorderRadius.circular(100)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Filter by Class',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          // "All Classes" option
+          Obx(() => ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedFilterClass.value == null
+                    ? _DS.accentSoft
+                    : _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: selectedFilterClass.value == null
+                      ? _DS.accent
+                      : _DS.textMuted),
+            ),
+            title: const Text('All Classes',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 14)),
+            trailing: selectedFilterClass.value == null
+                ? const Icon(Icons.check_circle_rounded,
+                color: _DS.accent, size: 20)
+                : null,
+            onTap: () {
+              selectedFilterClass.value = null;
+              selectedFilterSection.value = null;
+              schoolController.sections.clear();
+              final sid = _currentSchoolId;
+              if (sid.isNotEmpty) _loadStudents(schoolId: sid);
+              Get.back();
+            },
+          )),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: Obx(() {
+              final classes = schoolController.classes;
+              if (classes.isEmpty)
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(
+                      child: Text('No classes available',
+                          style: TextStyle(
+                              color: _DS.textMuted, fontSize: 13))),
+                );
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: classes.length,
+                itemBuilder: (_, i) {
+                  final c = classes[i];
+                  final isSel = selectedFilterClass.value?.id == c.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSel ? _DS.accentSoft : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.class_rounded,
+                          size: 18,
+                          color: isSel ? _DS.accent : _DS.textMuted),
+                    ),
+                    title: Text(c.name,
+                        style: TextStyle(
+                          fontWeight: isSel
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSel ? _DS.accent : _DS.textPrimary,
+                        )),
+                    trailing: isSel
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      selectedFilterClass.value = c;
+                      selectedFilterSection.value = null;
+                      // Load sections for this class
+                      final sid = _currentSchoolId;
+                      if (sid.isNotEmpty)
+                        schoolController.getAllSections(
+                            classId: c.id, schoolId: sid);
+                      // Reload students filtered by class
+                      if (sid.isNotEmpty)
+                        _loadStudents(schoolId: sid, classId: c.id);
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _showSectionFilterSheet() {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: _DS.border,
+                borderRadius: BorderRadius.circular(100)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Filter by Section',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _DS.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded,
+                    color: _DS.textMuted, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _DS.border),
+          Obx(() => ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedFilterSection.value == null
+                    ? _DS.accentSoft
+                    : _DS.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: selectedFilterSection.value == null
+                      ? _DS.accent
+                      : _DS.textMuted),
+            ),
+            title: const Text('All Sections',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 14)),
+            trailing: selectedFilterSection.value == null
+                ? const Icon(Icons.check_circle_rounded,
+                color: _DS.accent, size: 20)
+                : null,
+            onTap: () {
+              selectedFilterSection.value = null;
+              final sid = _currentSchoolId;
+              final cid = selectedFilterClass.value?.id;
+              if (sid.isNotEmpty)
+                _loadStudents(schoolId: sid, classId: cid);
+              Get.back();
+            },
+          )),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: Obx(() {
+              final sections = schoolController.sections;
+              if (sections.isEmpty)
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(
+                      child: Text('No sections for this class',
+                          style: TextStyle(
+                              color: _DS.textMuted, fontSize: 13))),
+                );
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: sections.length,
+                itemBuilder: (_, i) {
+                  final s = sections[i];
+                  final isSel = selectedFilterSection.value?.id == s.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSel ? _DS.accentSoft : _DS.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.group_rounded,
+                          size: 18,
+                          color: isSel ? _DS.accent : _DS.textMuted),
+                    ),
+                    title: Text(s.name,
+                        style: TextStyle(
+                          fontWeight: isSel
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSel ? _DS.accent : _DS.textPrimary,
+                        )),
+                    trailing: isSel
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: _DS.accent, size: 20)
+                        : null,
+                    onTap: () {
+                      selectedFilterSection.value = s;
+                      final sid = _currentSchoolId;
+                      final cid = selectedFilterClass.value?.id;
+                      if (sid.isNotEmpty)
+                        _loadStudents(
+                            schoolId: sid,
+                            classId: cid,
+                            sectionId: s.id);
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+  // ── FIXED _selectStudent: reads classId/sectionId from the
+  //    student's own data, not from schoolController.classes.first
+  void _selectStudent(Map<String, dynamic> student) {
+    // The student map from the API contains classId and sectionId directly
+    final classId = student['currentClassId']?.toString()
+        ?? student['classId']?.toString()
+        ?? selectedFilterClass.value?.id
+        ?? '';
+    final sectionId = student['currentSectionId']?.toString()
+        ?? student['sectionId']?.toString()
+        ?? selectedFilterSection.value?.id
+        ?? '';
+
+    controller.selectedStudent.value = {
+      'studentId':   student['_id'],
+      'studentName': student['studentName'],
+      'classId':     classId,
+      'sectionId':   sectionId,
+    };
+  }
+
+  // ── FIXED _showReceipts: reads from already-processed map ────
+  Widget _buildViewReceiptsButton() {
+    return ApiRbacWrapper(
+      apiEndpoint: 'GET /api/studentrecord/getrecord',
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () {
+            final s = controller.selectedStudent.value;
+            if (s == null) return;
+            _showReceipts(s);
+          },
+          icon: const Icon(Icons.receipt_long_rounded, size: 16),
+          label: const Text('View Receipts'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _DS.warning,
+            side: BorderSide(
+                color: _DS.warning.withOpacity(0.4), width: 1.5),
+            backgroundColor: _DS.warningSoft,
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  void _showReceipts(Map<String, dynamic> student) async {
+    final studentId = student['studentId']?.toString()
+        ?? student['_id']?.toString() ?? '';
+    final schoolId = _currentSchoolId;
+
+    if (studentId.isEmpty || schoolId.isEmpty) {
+      Get.snackbar('Error', 'Missing student or school information',
+          backgroundColor: _DS.danger, colorText: Colors.white);
+      return;
+    }
+
+    showReceipts.value = true;
+    showPaymentDetails.value = false;
+    isStudentSelectorCollapsed.value = true;
+
+    try {
+      final record =
+      await controller.getStudentRecord(schoolId, studentId);
+      if (record != null) {
+        controller.studentRecord.value = record;
+      } else {
+        Get.snackbar('Not Found', 'No fee record found for this student',
+            backgroundColor: Colors.orange, colorText: Colors.white);
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load records: $e',
+          backgroundColor: _DS.danger, colorText: Colors.white);
+    }
   }
 
   Widget _buildStudentTypeSelectorInPayment(BuildContext context, bool isTablet) {
@@ -859,28 +1343,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     );
   }
 
-// Replace _buildViewReceiptsButton
-  Widget _buildViewReceiptsButton() {
-    return ApiRbacWrapper(
-      apiEndpoint: 'GET /api/studentrecord/getrecord',
-      child: SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: _showReceipts,
-          icon: const Icon(Icons.receipt_long_rounded, size: 16),
-          label: const Text('View Receipts'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _DS.warning,
-            side: BorderSide(color: _DS.warning.withOpacity(0.4), width: 1.5),
-            backgroundColor: _DS.warningSoft,
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildCollectFeeButton() {
     return ApiRbacWrapper(
@@ -1816,45 +2279,6 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     }).toList();
   }
 
-  void _selectStudent(Map<String, dynamic> student) {
-    String classId = '';
-    String sectionId = '';
-
-    if (_feeSchoolCtrl.selectedSchool.value != null) {
-      final schoolController = Get.find<SchoolController>();
-
-      if (schoolController.classes.isEmpty) {
-        schoolController.getAllClasses(_feeSchoolCtrl.selectedSchool.value!.id).then((_) {
-          if (schoolController.classes.isNotEmpty) {
-            classId = schoolController.classes.first.id;
-            schoolController.getAllSections(schoolId: _feeSchoolCtrl.selectedSchool.value!.id).then((_) {
-              if (schoolController.sections.isNotEmpty) {
-                sectionId = schoolController.sections.first.id;
-              }
-              _updateSelectedStudent(student, classId, sectionId);
-            });
-          }
-        });
-        return;
-      } else {
-        classId = schoolController.classes.first.id;
-        if (schoolController.sections.isEmpty) {
-          schoolController.getAllSections(schoolId: _feeSchoolCtrl.selectedSchool.value!.id).then((_) {
-            if (schoolController.sections.isNotEmpty) {
-              sectionId = schoolController.sections.first.id;
-            }
-            _updateSelectedStudent(student, classId, sectionId);
-          });
-          return;
-        } else {
-          sectionId = schoolController.sections.first.id;
-        }
-      }
-    }
-
-    _updateSelectedStudent(student, classId, sectionId);
-  }
-
   void _updateSelectedStudent(Map<String, dynamic> student, String classId, String sectionId) {
     controller.selectedStudent.value = {
       'studentId': student['_id'],
@@ -1864,30 +2288,6 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     };
   }
 
-  void _showReceipts() async {
-    final student = controller.selectedStudent.value;
-    if (student == null) {
-      Get.snackbar('Error', 'No student selected');
-      return;
-    }
-
-    final studentId = student['studentId'];
-    final schoolId = _feeSchoolCtrl.selectedSchool.value?.id;
-
-    if (studentId == null || schoolId == null) {
-      Get.snackbar('Error', 'Student or School ID not found');
-      return;
-    }
-
-    showReceipts.value = true;
-    showPaymentDetails.value = false;
-    isStudentSelectorCollapsed.value = true;
-
-    final record = await controller.getStudentRecord(schoolId, studentId);
-    if (record != null) {
-      controller.studentRecord.value = record;
-    }
-  }
 
   void _collectFee() {
     if (_formKey.currentState!.validate()) {
@@ -1971,60 +2371,104 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
   final oldFeeStructure = Rxn<Map<String, dynamic>>();
   final newFeeStructure = Rxn<Map<String, dynamic>>();
   Worker? _schoolWatcher;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      schoolController.getAllSchools();
-      try {
-        final feeSchoolCtrl = Get.find<FeeCollectionSchoolController>();
-
-        final current = feeSchoolCtrl.selectedSchool.value;
-        if (current != null) {
-          selectedSchool.value = current;
-          selectedClass.value = null;
-          oldFeeStructure.value = null;
-          newFeeStructure.value = null;
-          schoolController.getAllClasses(current.id);
-          isSelectorsExpanded.value = true;
-        }
-        _schoolWatcher = ever(feeSchoolCtrl.selectedSchool, (school) {
-          if (school != null) {
-            selectedSchool.value = school;
-            selectedClass.value = null;
-            oldFeeStructure.value = null;
-            newFeeStructure.value = null;
-            schoolController.getAllClasses(school.id);
-            isSelectorsExpanded.value = true; // expand so user can pick class
-          }
-        });
-      } catch (_) {}
+      _resolveSchool();
     });
+  }
+
+  void _resolveSchool() {
+    // Step 1: try FeeCollectionSchoolController (set by sidebar)
+    try {
+      final feeSchoolCtrl = Get.find<FeeCollectionSchoolController>();
+      final current = feeSchoolCtrl.selectedSchool.value;
+      if (current != null) {
+        _applySchool(current);
+      } else {
+        _applySchoolFromAuth();
+      }
+      _schoolWatcher = ever(feeSchoolCtrl.selectedSchool, (school) {
+        if (school != null) _applySchool(school);
+      });
+    } catch (_) {
+      // FeeCollectionSchoolController not available
+      _applySchoolFromAuth();
+    }
+  }
+
+  void _applySchool(School school) {
+    selectedSchool.value = school;
+    selectedClass.value = null;
+    oldFeeStructure.value = null;
+    newFeeStructure.value = null;
+    schoolController.getAllClasses(school.id);
+    isSelectorsExpanded.value = true;
+  }
+
+  void _applySchoolFromAuth() {
+    final authCtrl = Get.find<AuthController>();
+    final schoolId = authCtrl.user.value?.schoolId;
+    if (schoolId == null || schoolId.isEmpty) return;
+
+    final existing = schoolController.schools
+        .firstWhereOrNull((s) => s.id == schoolId);
+    if (existing != null) {
+      _applySchool(existing);
+    } else {
+      schoolController.getAllSchools().then((_) {
+        final found = schoolController.schools
+            .firstWhereOrNull((s) => s.id == schoolId);
+        if (found != null) _applySchool(found);
+      });
+    }
   }
   @override
   void dispose() {
     _schoolWatcher?.dispose();
     super.dispose();
   }
+  // REPLACE the existing _loadFeeStructures method
   Future<void> _loadFeeStructures() async {
-    if (selectedSchool.value == null || selectedClass.value == null) return;
+    // Resolve schoolId from multiple sources
+    final schoolId = selectedSchool.value?.id
+        ?? _tryGetFeeSchoolId()
+        ?? Get.find<AuthController>().user.value?.schoolId;
 
-    final schoolId = selectedSchool.value!.id;
+    if (schoolId == null || schoolId.isEmpty) {
+      Get.snackbar('Error', 'No school selected',
+          backgroundColor: Colors.orange, colorText: Colors.white);
+      return;
+    }
+    if (selectedClass.value == null) return;
+
     final classId = selectedClass.value!.id;
-
-    // Show loading state
     feeController.isLoading.value = true;
 
     try {
-      // Load old fee structure
-      final oldStructure = await feeController.getFeeStructureByClass(schoolId, classId, type: 'old');
+      final oldStructure = await feeController.getFeeStructureByClass(
+          schoolId, classId, type: 'old');
       oldFeeStructure.value = oldStructure;
 
-      // Load new fee structure
-      final newStructure = await feeController.getFeeStructureByClass(schoolId, classId, type: 'new');
+      final newStructure = await feeController.getFeeStructureByClass(
+          schoolId, classId, type: 'new');
       newFeeStructure.value = newStructure;
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load fee structure: $e',
+          backgroundColor: Colors.red, colorText: Colors.white);
     } finally {
       feeController.isLoading.value = false;
+    }
+  }
+
+  String? _tryGetFeeSchoolId() {
+    try {
+      return Get.find<FeeCollectionSchoolController>()
+          .selectedSchool.value?.id;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -2266,10 +2710,11 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
                         : null,
                     onTap: () {
                       selectedClass.value = c;
-                      if (selectedSchool.value != null)
-                        _loadFeeStructures();
-                      isSelectorsExpanded.value = false;
                       Get.back();
+                      // Load fee structure first, then collapse selectors
+                      _loadFeeStructures().then((_) {
+                        isSelectorsExpanded.value = false;
+                      });
                     },
                   );
                 },
@@ -2485,7 +2930,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: isTablet ? 18 : 10,
+                  fontSize: isTablet ? 18 : 12,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
@@ -2522,17 +2967,34 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
               return Container(
                 padding: const EdgeInsets.all(24),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.info_outline, size: 48, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No fee structure found',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    Container(
+                      width: 56, height: 56,
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.info_outline_rounded,
+                          size: 26, color: color.withOpacity(0.6)),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
-                      'Select school and class to load fee structure',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      selectedClass.value != null
+                          ? 'No fee structure set for ${selectedClass.value!.name}'
+                          : 'Select a class to view fee structure',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: color.withOpacity(0.7)),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      selectedClass.value != null
+                          ? 'Use the "Fee Structure" set tab to configure fees for this class'
+                          : '',
+                      style: const TextStyle(fontSize: 12, color: _DS.textMuted),
                       textAlign: TextAlign.center,
                     ),
                   ],

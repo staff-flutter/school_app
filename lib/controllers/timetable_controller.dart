@@ -307,6 +307,7 @@ class TimetableController extends GetxController {
       
       
       if (response.statusCode == 200 && response.data != null) {
+        print("DEBUG TIMETABLE RESPONSE: ${response.data}");
         final data = response.data;
         if (data is Map && data['timetables'] is List) {
           timetables.value = List<Map<String, dynamic>>.from(data['timetables']);

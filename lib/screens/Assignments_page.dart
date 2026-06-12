@@ -27,24 +27,49 @@ class _AssignmentUIState extends State<AssignmentUI> {
 
   final PageController _pageController = PageController(initialPage: 1);
 
-  final List<Map<String, String>> dates = [
-    {"day": "Sun", "date": "17", "fullDay": "sunday"},
-    {"day": "Mon", "date": "18", "fullDay": "monday"},
-    {"day": "Tue", "date": "19", "fullDay": "tuesday"},
-    {"day": "Wed", "date": "20", "fullDay": "wednesday"},
-    {"day": "Thu", "date": "21", "fullDay": "thursday"},
-    {"day": "Fri", "date": "22", "fullDay": "friday"},
-    {"day": "Sat", "date": "23", "fullDay": "saturday"},
-  ];
+  // final List<Map<String, String>> dates = [
+  //   {"day": "Sun", "date": "17", "fullDay": "sunday"},
+  //   {"day": "Mon", "date": "18", "fullDay": "monday"},
+  //   {"day": "Tue", "date": "19", "fullDay": "tuesday"},
+  //   {"day": "Wed", "date": "20", "fullDay": "wednesday"},
+  //   {"day": "Thu", "date": "21", "fullDay": "thursday"},
+  //   {"day": "Fri", "date": "22", "fullDay": "friday"},
+  //   {"day": "Sat", "date": "23", "fullDay": "saturday"},
+  // ];
 
 
+  List<Map<String, String>> get dates {
+    final now = DateTime.now();
+    // Start from Sunday of current week
+    final startOfWeek = now.subtract(Duration(days: now.weekday % 7));
+
+    final dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    final fullDayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+    return List.generate(7, (i) {
+      final day = startOfWeek.add(Duration(days: i));
+      return {
+        "day": dayNames[i],
+        "date": day.day.toString(),
+        "fullDay": fullDayNames[i],
+        // Add the actual ISO date for filtering
+        "isoDate": "${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}",
+      };
+    });
+  }
 
 
   void onDateTap(int index) {
-    setState(() => selectedIndex = index);
-    _pageController.animateToPage(index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut);
+    setState(() {
+      selectedIndex = index;
+      // Force rebuild the target future for the selected view page
+      _assignmentFutures[index] = fetchAssignments(dates[index]["fullDay"]!);
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
 
@@ -91,65 +116,71 @@ class _AssignmentUIState extends State<AssignmentUI> {
     String baseUrl = ApiConstants.baseUrl;
 
     final controller = Get.find<MyChildrenController>();
-    final selectedStudent = Get.find<MyChildrenController>().selectedChild;
+    final selectedStudent = controller.selectedChild;
     final String? token = session.token;
-  //  final SharedPreferences prefs = await SharedPreferences.getInstance();
-   // String? token = prefs.getString('user_token');
 
-  //  If no token, try to login first
-  //   if (token == null) {
-  //     await loginAndGetToken();
-  //     token = prefs.getString('user_token');
-  //   }
-
-    final String? schoolId =session.schoolId;
-    final String? classId = controller.selectedChild['classId']?? 'null';
-    final String? sectionId =selectedStudent['sectionId']?? 'null';
-
-
+    final String? schoolId = session.schoolId;
+    final String? classId = controller.selectedChild['classId'] ?? 'null';
+    final String? sectionId = selectedStudent['sectionId'] ?? 'null';
 
     final Map<String, String> queryParameters = {
-      if(schoolId!= null)
-        "schoolId": '$schoolId',
-        "classId":'$classId',
-        "sectionId":'$sectionId',
-        "page":"1",
-        "limit":"10"
+      if (schoolId != null) "schoolId": '$schoolId',
+      "classId": '$classId',
+      "sectionId": '$sectionId',
+      "page": "1",
+      "limit": "10"
     };
+
     print("token:$token");
-     print("schoolId:$schoolId");
+    print("schoolId:$schoolId");
     print("classId:$classId");
     print("sectionId:$sectionId");
+
     final uri = Uri.parse('$baseUrl/api/homework/getall').replace(queryParameters: queryParameters);
 
-    final response = await http.get(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
-    );
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> decodedData = jsonDecode(response.body);
-      final List<AssignmentListStrings> allAssignments = [];
+      if (response.statusCode == 200) {
+        print("RAW RESPONSE: ${response.body}"); // ← add this
+        final Map<String, dynamic> decodedData = jsonDecode(response.body);
+        print("HOMEWORK DATA: ${decodedData['homework'] ?? decodedData['data']}");
+        final List<AssignmentListStrings> allAssignments = [];
 
-      if (decodedData['ok'] == true && decodedData['data'] is List) {
-        for (var homeworkDay in decodedData['data']) {
-          String dateStr = homeworkDay['homeworkDate'] ?? "";
-          List subjects = homeworkDay['subjects'] ?? [];
+        final homeworkData = decodedData['homework'] ?? decodedData['data'];
 
-          for (var subjectJson in subjects) {
-            allAssignments.add(AssignmentListStrings.fromJson(subjectJson, dateStr));
+        // Get the ISO date for the selected day index
+        final selectedIsoDate = dates[selectedIndex]["isoDate"]!;
+
+        if (homeworkData is List) {
+          for (var homeworkDay in homeworkData) {
+            String dateStr = homeworkDay['homeworkDate'] ?? "";
+
+            // ✅ Only include assignments matching the selected date
+            if (!dateStr.startsWith(selectedIsoDate)) continue;
+
+            List subjects = homeworkDay['subjects'] ?? [];
+            for (var subjectJson in subjects) {
+              allAssignments.add(AssignmentListStrings.fromJson(subjectJson, dateStr));
+            }
           }
         }
+        return allAssignments;
+      } else {
+        print("API Error Code: ${response.statusCode}");
+        return [];
       }
-      return allAssignments;
-    } else {
+    } catch (e) {
+      print("Error fetching assignments: $e");
       return [];
     }
   }
-
   @override
   void initState() {
     // TODO: implement initState
@@ -286,7 +317,9 @@ class _AssignmentUIState extends State<AssignmentUI> {
                    child: PageView.builder(
                      controller: _pageController,
                      onPageChanged: (index) {
-                       setState(() => selectedIndex = index);
+                       selectedIndex = index;
+                       // Pre-initialize or update the layout cache for the freshly swiped index
+                       _assignmentFutures[index] = fetchAssignments(dates[index]["fullDay"]!);
                      },
                     itemCount: dates.length,
                      itemBuilder: (context, index) {
@@ -341,14 +374,14 @@ class _AssignmentUIState extends State<AssignmentUI> {
                           date: item.date.split('T')[0],
                           color: Colors.blue,
                         ),
-                    SizedBox(height: 10,),
-                    AssignmentContainer(
-                      subject: item.subject,
-                      title: item.description,
-                      pages: "View Attachments (${item.imageUrls.length})",
-                      date: item.date.split('T')[0],
-                      color: Colors.blue,
-                    ),
+                    // SizedBox(height: 10,),
+                    // AssignmentContainer(
+                    //   subject: item.subject,
+                    //   title: item.description,
+                    //   pages: "View Attachments (${item.imageUrls.length})",
+                    //   date: item.date.split('T')[0],
+                    //   color: Colors.blue,
+                    // ),
                   ],
                 ),
 

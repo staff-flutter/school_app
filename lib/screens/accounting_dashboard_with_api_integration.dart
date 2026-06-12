@@ -59,14 +59,14 @@ class AccountingDashboardView1 extends StatefulWidget {
 class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     with SingleTickerProviderStateMixin {
   SchoolController? get _school {
-    if (Get.isRegistered<SchoolController>()) return Get.find<SchoolController>();
+    if (!Get.isRegistered<SchoolController>()) return Get.find<SchoolController>();
     return null;
   }
-
+  //final schoolController = Get.find<SchoolController>();
   final _auth        = Get.find<AuthController>();
   final _finance     = Get.find<FinanceLedgerController>();
   final _accounting  = Get.find<AccountingController>();
-
+  late final Worker _schoolWorker;
   // Expense report filter state
   String _expenseRange      = 'month'; // week | month | year
   String _academicYear      = '';
@@ -76,37 +76,54 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   // Cash-flow timeline range
   String _cashflowRange     = 'month'; // all | 100 | month | year | current
 
+
+
   @override
   void initState() {
     super.initState();
+    if (!Get.isRegistered<SchoolController>()) {
+      Get.lazyPut(() => SchoolController());
+    }
+    // Register listener ONCE here, not inside _init
+    _schoolWorker = ever(
+      Get.find<SchoolController>().selectedSchool,
+          (school) {
+        if (school != null && mounted) _refresh();
+      },
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
-  Future<void> _init() async {
-    final schoolId = _auth.user.value?.schoolId;
-    final role     = _auth.user.value?.role?.toLowerCase() ?? '';
+  @override
+  void dispose() {
+    _schoolWorker.dispose(); // prevent memory leak
+    super.dispose();
+  }
 
+// Helper to get the correct schoolId for any role
+  String? get _resolvedSchoolId {
+    final selected = Get.find<SchoolController>().selectedSchool.value;
+    return selected?.id ?? _auth.user.value?.schoolId;
+  }
+
+  Future<void> _init() async {
+    final schoolId = _resolvedSchoolId;
     if (schoolId == null) return;
 
-    // Set default academic year
     final now = DateTime.now();
     _academicYear = now.month >= 6
         ? '${now.year}-${now.year + 1}'
         : '${now.year - 1}-${now.year}';
     if (mounted) setState(() {});
 
-    // Load finance stats (for KPI cards)
     _finance.getFinanceStats(schoolId: schoolId, range: _cashflowRange);
-
-    // Load dashboard KPI (collected/outstanding/recent payments)
     await _accounting.loadDashboardData();
 
-    // Load expenses for Expense Report section
     if (_accounting.canViewExpenses) {
       _accounting.loadExpenses(schoolId: schoolId);
     }
 
-    // Load school name if needed
     if (_school != null && _school!.selectedSchool.value == null) {
       await _school!.getAllSchools();
       _school!.selectedSchool.value =
@@ -115,10 +132,12 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   Future<void> _refresh() async {
-    final schoolId = _auth.user.value?.schoolId;
+    final schoolId = _resolvedSchoolId; // fixed: was using _auth.user.value?.schoolId
     if (schoolId == null) return;
+
     _finance.getFinanceStats(schoolId: schoolId, range: _cashflowRange);
     await _accounting.loadDashboardData();
+
     if (_accounting.canViewExpenses) {
       _accounting.loadExpenses(schoolId: schoolId);
     }
@@ -126,6 +145,7 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: _C.bg,
       body: SafeArea(

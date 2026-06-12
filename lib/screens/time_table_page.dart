@@ -49,7 +49,7 @@ class _MyHomePageState extends State<TimeTablePage> {
     controller = Get.put(MyChildrenController());
     _currentPageIndex = 0;
     _timetableFutures[0] = fetchTimetable(days[0]);
-    loginAndGetToken();
+    //loginAndGetToken();
   }
 
   @override
@@ -60,55 +60,55 @@ class _MyHomePageState extends State<TimeTablePage> {
     _dayScrollController.dispose();
   }
 
-  Future<void> loginAndGetToken() async {
-    final url = Uri.parse('${ApiConstants.baseUrl}/api/user/login');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "identifier": "parent1@gmail.com",
-          "password": "parent1@123",
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final prefs = await SharedPreferences.getInstance();
-        final userData = data['user'];
-
-        if (userData != null) {
-          if (userData['studentId'] != null) {
-            List<String> studentIds = (userData['studentId'] as List)
-                .map((e) => e.toString())
-                .toList();
-            await prefs.setStringList('studentId', studentIds);
-          }
-
-          await prefs.setString('token', (data['token'] ?? '').toString());
-          await prefs.setString('parentId', (userData['_id'] ?? '').toString());
-          await prefs.setString('parentName', (userData['userName'] ?? '').toString());
-          await prefs.setString('parentEmail', (userData['email'] ?? '').toString());
-          await prefs.setString('parentPhoneNo', (userData['phoneNo'] ?? '').toString());
-          await prefs.setString('role', (userData['role'] ?? '').toString());
-          await prefs.setBool('isPlatformAdmin', userData['isPlatformAdmin'] ?? false);
-
-          final schoolData = userData['schoolId'];
-          if (schoolData != null) {
-            await prefs.setString('schoolId', (schoolData['_id'] ?? '').toString());
-            await prefs.setString('schoolName', (schoolData['name'] ?? '').toString());
-            await prefs.setString('schoolEmail', (schoolData['email'] ?? '').toString());
-            await prefs.setString('schoolPhoneNo', (schoolData['phoneNo'] ?? '').toString());
-            await prefs.setString('schoolAddress', (schoolData['address'] ?? '').toString());
-            await prefs.setString('schoolSocialPlatform', (schoolData['socialPlatform'] ?? '').toString());
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Login Error: $e");
-    }
-  }
+  // Future<void> loginAndGetToken() async {
+  //   final url = Uri.parse('${ApiConstants.baseUrl}/api/user/login');
+  //
+  //   try {
+  //     final response = await http.post(
+  //       url,
+  //       headers: {'Content-Type': 'application/json'},
+  //       body: jsonEncode({
+  //         "identifier": "parent1@gmail.com",
+  //         "password": "parent1@123",
+  //       }),
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final Map<String, dynamic> data = jsonDecode(response.body);
+  //       final prefs = await SharedPreferences.getInstance();
+  //       final userData = data['user'];
+  //
+  //       if (userData != null) {
+  //         if (userData['studentId'] != null) {
+  //           List<String> studentIds = (userData['studentId'] as List)
+  //               .map((e) => e.toString())
+  //               .toList();
+  //           await prefs.setStringList('studentId', studentIds);
+  //         }
+  //
+  //         await prefs.setString('token', (data['token'] ?? '').toString());
+  //         await prefs.setString('parentId', (userData['_id'] ?? '').toString());
+  //         await prefs.setString('parentName', (userData['userName'] ?? '').toString());
+  //         await prefs.setString('parentEmail', (userData['email'] ?? '').toString());
+  //         await prefs.setString('parentPhoneNo', (userData['phoneNo'] ?? '').toString());
+  //         await prefs.setString('role', (userData['role'] ?? '').toString());
+  //         await prefs.setBool('isPlatformAdmin', userData['isPlatformAdmin'] ?? false);
+  //
+  //         final schoolData = userData['schoolId'];
+  //         if (schoolData != null) {
+  //           await prefs.setString('schoolId', (schoolData['_id'] ?? '').toString());
+  //           await prefs.setString('schoolName', (schoolData['name'] ?? '').toString());
+  //           await prefs.setString('schoolEmail', (schoolData['email'] ?? '').toString());
+  //           await prefs.setString('schoolPhoneNo', (schoolData['phoneNo'] ?? '').toString());
+  //           await prefs.setString('schoolAddress', (schoolData['address'] ?? '').toString());
+  //           await prefs.setString('schoolSocialPlatform', (schoolData['socialPlatform'] ?? '').toString());
+  //         }
+  //       }
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Login Error: $e");
+  //   }
+  // }
 
   // ─── FIX 1: Parse nested weeklySchedule → periods for the requested day ───
   Future<List<TimetableListStrings>> fetchTimetable(String day) async {
@@ -120,6 +120,8 @@ class _MyHomePageState extends State<TimeTablePage> {
     final String? classId = controller.selectedChild['classId'] ?? 'null';
     final String? sectionId = selectedStudent['sectionId'] ?? 'null';
 
+    debugPrint("TIMETABLE FETCH → schoolId:$schoolId | classId:$classId | sectionId:$sectionId | day:$day | token:$token");
+
     final Map<String, String> queryParameters = {
       "schoolId": schoolId ?? "null",
       "classId": '$classId',
@@ -128,7 +130,10 @@ class _MyHomePageState extends State<TimeTablePage> {
     };
 
     debugPrint("schoolId:$schoolId | classId:$classId | SectionId:$sectionId | day:$day");
-
+    if (schoolId == null || classId == null) {
+      debugPrint("TIMETABLE: Missing schoolId or classId, aborting fetch");
+      return [];
+    }
     final uri = Uri.parse('$baseUrl/api/timetable/getall')
         .replace(queryParameters: queryParameters);
 
@@ -139,25 +144,37 @@ class _MyHomePageState extends State<TimeTablePage> {
       });
 
       if (response.statusCode == 200) {
-        debugPrint(response.body);
         final decodedData = jsonDecode(response.body);
-
-        // The API returns: { "ok": true, "data": [ { "weeklySchedule": [...] } ] }
         final List<dynamic> scheduleList =
         (decodedData is Map ? (decodedData['data'] ?? []) : decodedData) as List;
 
-        for (final schedule in scheduleList) {
-          final weeklySchedule =
-              (schedule['weeklySchedule'] as List?) ?? [];
+        // ✅ Prefer the record whose sectionId matches, fallback to null-section record
+        Map<String, dynamic>? matchedSchedule;
+        Map<String, dynamic>? fallbackSchedule;
 
-          for (final dayEntry in weeklySchedule) {
-            final entryDay = (dayEntry['day'] as String? ?? '').toLowerCase();
-            if (entryDay == day.toLowerCase()) {
-              final periods = (dayEntry['periods'] as List?) ?? [];
-              return periods
-                  .map((p) => TimetableListStrings.fromJson(p as Map<String, dynamic>))
-                  .toList();
-            }
+        for (final schedule in scheduleList) {
+          final sec = schedule['sectionId'];
+          final secId = sec is Map ? sec['_id'] : sec;
+
+          if (secId == sectionId) {
+            matchedSchedule = schedule;
+            break;
+          } else if (sec == null) {
+            fallbackSchedule = schedule;
+          }
+        }
+
+        final targetSchedule = matchedSchedule ?? fallbackSchedule;
+        if (targetSchedule == null) return [];
+
+        final weeklySchedule = (targetSchedule['weeklySchedule'] as List?) ?? [];
+        for (final dayEntry in weeklySchedule) {
+          final entryDay = (dayEntry['day'] as String? ?? '').toLowerCase();
+          if (entryDay == day.toLowerCase()) {
+            final periods = (dayEntry['periods'] as List?) ?? [];
+            return periods
+                .map((p) => TimetableListStrings.fromJson(p as Map<String, dynamic>))
+                .toList();
           }
         }
       } else {
@@ -437,7 +454,10 @@ class TimetableListStrings {
       subjectName: json['isBreak'] == true
           ? "Break"
           : (json['subjectName'] ?? "Unknown").toString(),
-      time: (json['timeRange'] ?? "00:00 - 00:00").toString(),
+      time:json['timeRange'] ??
+    (json['startTime'] != null && json['endTime'] != null
+    ? '${json['startTime']} - ${json['endTime']}'
+        : "No time set"),
       teacherName: teacherName,
       periodNumber: json['periodNumber']?.toString() ?? "-",
       isBreak: json['isBreak'] ?? false,

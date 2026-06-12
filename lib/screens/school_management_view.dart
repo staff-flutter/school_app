@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:collection/collection.dart';
 import 'package:school_app/controllers/clubs_controller.dart';
+import 'package:school_app/controllers/student_controller.dart' show StudentController;
 import 'package:school_app/widgets/clubs_dialogue_in_students_tab.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
@@ -29,6 +30,7 @@ import 'package:school_app/screens/user_detail_view.dart';
 import 'package:school_app/screens/teacher_assignment_view.dart';
 
 import '../controllers/marks_controller.dart';
+import '../routes/app_routes.dart';
 import 'create_student_profile_page.dart';
 
 // ─── Design System ────────────────────────────────────────────────────────────
@@ -1101,9 +1103,9 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           );
         }),
       floatingActionButton: ApiPermissions.hasApiAccess(
-          currentUserRole, 'POST /api/class/create')
+          currentUserRole, 'POST /api/section/create')
           ? _buildFAB(
-        onPressed: _showCreateClassDialog,
+        onPressed: _showCreateSectionDialog,
         icon: Icons.add_rounded,
         label: 'Add Section',
       )
@@ -1350,11 +1352,15 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         ),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(student.name ?? 'N/A', style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w600, color: _DS.textPrimary),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal, // <-- Crucial step
+            physics: const BouncingScrollPhysics(),
+            child: Text(student.name ?? 'N/A', style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w600, color: _DS.textPrimary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
 
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -1420,7 +1426,9 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               });
             else if (value == 'assignClub') _showAssignClubToStudentDialog(student);
             else if (value == 'removeClub') _showRemoveClubFromStudentDialog(student);
-            else if (value == 'edit') _showEditStudentDialog(student);
+            else if (value == 'edit')
+
+              _showEditStudentDialog(student);
             else if (value == 'delete') _showDeleteStudentConfirmation(student);
           },
         ),
@@ -1936,7 +1944,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         body: Column(children: [
           // ── Compact pill tab bar ──────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            padding: const EdgeInsets.fromLTRB(8, 10, 16, 6),
             child: canSetFeeStructure
                 ? Container(
               decoration: BoxDecoration(
@@ -2300,20 +2308,65 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   }
 
   void _showCreateStudentDialog() {
-    if (controller.selectedSchool.value == null) {
-      Get.snackbar('Error', 'Please select a school first'); return;
+    final authController = Get.find<AuthController>();
+    String? targetSchoolId;
+
+    if (authController.user.value?.role.toLowerCase() == 'correspondent') {
+      if (controller.selectedSchool.value == null) {
+        Get.snackbar('Error', 'Please select a school first');
+        return;
+      }
+      targetSchoolId = controller.selectedSchool.value!.id;
+    } else {
+      targetSchoolId = authController.user.value?.schoolId;
+      if (targetSchoolId == null || targetSchoolId.isEmpty) {
+        Get.snackbar('Error', 'Associated school profile not found');
+        return;
+      }
     }
-    Get.to(() => CreateStudentProfilePage(
-        schoolId: controller.selectedSchool.value!.id, isEdit: false));
-  }
 
+    Get.toNamed(
+      AppRoutes.STUDENT_PROFILE_CREATION,
+      arguments: {
+        'schoolId': targetSchoolId,
+        'isEdit': false,
+      },
+    )?.then((_) {
+      if (controller.selectedSchool.value != null)
+        controller.getAllStudents(schoolId: controller.selectedSchool.value!.id);
+    });
+  }
   void _showEditStudentDialog(Student student) {
-    Get.to(() => CreateStudentProfilePage(
-        student: student,
-        schoolId: student.schoolId ?? controller.selectedSchool.value!.id,
-        isEdit: true));
-  }
+    final authController = Get.find<AuthController>();
+    String? targetSchoolId;
 
+    if (authController.user.value?.role.toLowerCase() == 'correspondent') {
+      if (controller.selectedSchool.value == null) {
+        Get.snackbar('Error', 'Please select a school first');
+        return;
+      }
+      targetSchoolId = controller.selectedSchool.value!.id;
+    } else {
+      targetSchoolId = authController.user.value?.schoolId;
+      if (targetSchoolId == null || targetSchoolId.isEmpty) {
+        Get.snackbar('Error', 'Associated school profile not found');
+        return;
+      }
+    }
+
+    // ✅ Pass student object via Get.arguments
+    Get.toNamed(
+      AppRoutes.STUDENT_PROFILE_CREATION,
+      arguments: {
+        'schoolId': targetSchoolId,
+        'student': student,   // ← Student object passed here
+        'isEdit': true,
+      },
+    )?.then((_) {
+      if (controller.selectedSchool.value != null)
+        controller.getAllStudents(schoolId: controller.selectedSchool.value!.id);
+    });
+  }
   void _showDeleteStudentConfirmation(Student student) {
     Get.dialog(AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3312,6 +3365,9 @@ class _AttendanceTabState extends State<_AttendanceTab> {
   @override
   void initState() {
     super.initState();
+    if (!Get.isRegistered<StudentController>()) {
+      Get.lazyPut<StudentController>(() => StudentController(), fenix: true);
+    }
     isHistoryMode = !canMarkAttendance;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final school = schoolController.selectedSchool.value;
@@ -3912,9 +3968,14 @@ class _AttendanceTabState extends State<_AttendanceTab> {
                       fontWeight: FontWeight.w700, fontSize: 12))),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(r['studentName'] ?? 'Unknown',
-                style: const TextStyle(fontWeight: FontWeight.w600,
-                    color: _DS.textPrimary, fontSize: 14))),
+            Expanded(child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal, // <-- Crucial step
+              physics: const BouncingScrollPhysics(),
+              child: Text(r['studentName'] ?? 'Unknown',maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600,
+                      color: _DS.textPrimary, fontSize: 14)),
+            )),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Radio<String>(
                 value: 'present', groupValue: _normalizeStatus(r['status']),
@@ -4081,17 +4142,344 @@ class _FeeStructureTab extends StatefulWidget {
 }
 
 class _FeeStructureTabState extends State<_FeeStructureTab> {
-  final feeController = Get.put(FeeStructureController());
+  final feeController    = Get.put(FeeStructureController());
   final schoolController = Get.find<SchoolController>();
-  final admissionFeeController = TextEditingController();
-  final firstTermController = TextEditingController();
-  final secondTermController = TextEditingController();
-  final busFirstTermController = TextEditingController();
-  final busSecondTermController = TextEditingController();
-  final selectedClass = ValueNotifier<SchoolClass?>(null);
-  final selectedStudentType = ValueNotifier<String>('old');
+  final authController   = Get.find<AuthController>();
 
-  // ── bottom sheet: class picker ──────────────────────────────────
+  SchoolClass? selectedClass;
+  String selectedStudentType = 'old';
+
+  // ✅ Correct controller names matching _calculateAndSetAnnualFee
+  final _admissionFeeCtrl    = TextEditingController();
+  final _firstTermCtrl       = TextEditingController();
+  final _secondTermCtrl      = TextEditingController();
+  final _annualFeeCtrl       = TextEditingController();
+  final _busFirstTermCtrl    = TextEditingController();
+  final _busSecondTermCtrl   = TextEditingController();
+
+  String get currentUserRole =>
+      authController.user.value?.role?.toLowerCase() ?? '';
+
+  bool get canSetFee =>
+      ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/feestructure/set');
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ Auto-calculate annual fee when any term changes
+    _admissionFeeCtrl.addListener(_calculateAndSetAnnualFee);
+    _firstTermCtrl.addListener(_calculateAndSetAnnualFee);
+    _secondTermCtrl.addListener(_calculateAndSetAnnualFee);
+    _busFirstTermCtrl.addListener(_calculateAndSetAnnualFee);
+    _busSecondTermCtrl.addListener(_calculateAndSetAnnualFee);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final school = schoolController.selectedSchool.value;
+      if (school != null) schoolController.getAllClasses(school.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    _admissionFeeCtrl.dispose();
+    _firstTermCtrl.dispose();
+    _secondTermCtrl.dispose();
+    _annualFeeCtrl.dispose();
+    _busFirstTermCtrl.dispose();
+    _busSecondTermCtrl.dispose();
+    super.dispose();
+  }
+
+  void _calculateAndSetAnnualFee() {
+    final double admission  = double.tryParse(_admissionFeeCtrl.text)  ?? 0.0;
+    final double firstTerm  = double.tryParse(_firstTermCtrl.text)  ?? 0.0;
+    final double secondTerm = double.tryParse(_secondTermCtrl.text) ?? 0.0;
+    final double busFirst   = double.tryParse(_busFirstTermCtrl.text) ?? 0.0;
+    final double busSecond  = double.tryParse(_busSecondTermCtrl.text) ?? 0.0;
+    final double total = admission + firstTerm + secondTerm + busFirst + busSecond;
+    _annualFeeCtrl.text = total % 1 == 0
+        ? total.toInt().toString()
+        : total.toStringAsFixed(2);
+  }
+
+  void _clearForm() {
+    _admissionFeeCtrl.clear();
+    _firstTermCtrl.clear();
+    _secondTermCtrl.clear();
+    _annualFeeCtrl.clear();
+    _busFirstTermCtrl.clear();
+    _busSecondTermCtrl.clear();
+  }
+
+  // ✅ Fixed: single consistent signature
+  Future<void> _loadFeeStructure(String schoolId, String classId) async {
+    final data = await feeController.getFeeStructureByClass(
+      schoolId, classId,
+      type: selectedStudentType,
+    );
+    final feeHead = data?['feeHead'] ?? data?['data']?['feeHead'] ?? {};
+    if (mounted) {
+      setState(() {
+        _admissionFeeCtrl.text  = feeHead['admissionFee']?.toString()    ?? '';
+        _firstTermCtrl.text     = feeHead['firstTermAmt']?.toString()     ?? '';
+        _secondTermCtrl.text    = feeHead['secondTermAmt']?.toString()    ?? '';
+        _busFirstTermCtrl.text  = feeHead['busFirstTermAmt']?.toString()  ?? '';
+        _busSecondTermCtrl.text = feeHead['busSecondTermAmt']?.toString() ?? '';
+        _calculateAndSetAnnualFee();
+      });
+    }
+  }
+
+  void _onClassSelected(SchoolClass cls) {
+    setState(() => selectedClass = cls);
+    final schoolId = schoolController.selectedSchool.value?.id;
+    if (schoolId != null) _loadFeeStructure(schoolId, cls.id);
+  }
+
+  void _onStudentTypeSelected(String type) {
+    setState(() => selectedStudentType = type);
+    final schoolId = schoolController.selectedSchool.value?.id;
+    if (schoolId != null && selectedClass != null)
+      _loadFeeStructure(schoolId, selectedClass!.id);
+  }
+
+  void _saveFeeStructure() {
+    final schoolId = schoolController.selectedSchool.value?.id
+        ?? authController.user.value?.schoolId;
+    if (schoolId == null) {
+      Get.snackbar('Error', 'School not found',
+          backgroundColor: _DS.danger, colorText: Colors.white);
+      return;
+    }
+    if (selectedClass == null) {
+      Get.snackbar('Error', 'Please select a class',
+          backgroundColor: _DS.danger, colorText: Colors.white);
+      return;
+    }
+    feeController.setFeeStructure(
+      schoolId: schoolId,
+      classId:  selectedClass!.id,
+      type:     selectedStudentType,
+      feeHead: {
+        'admissionFee':     double.tryParse(_admissionFeeCtrl.text)  ?? 0,
+        'firstTermAmt':     double.tryParse(_firstTermCtrl.text)     ?? 0,
+        'secondTermAmt':    double.tryParse(_secondTermCtrl.text)    ?? 0,
+        'annualFee':        double.tryParse(_annualFeeCtrl.text)     ?? 0,
+        'busFirstTermAmt':  double.tryParse(_busFirstTermCtrl.text)  ?? 0,
+        'busSecondTermAmt': double.tryParse(_busSecondTermCtrl.text) ?? 0,
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _DS.bg,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(8, 8, 0, 24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // ── Filter chips ──────────────────────────────────────────
+          Row(children: [
+            GestureDetector(
+              onTap: _showClassSheet,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: selectedClass != null ? _DS.accentSoft : _DS.surface,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: selectedClass != null ? _DS.accent : _DS.border,
+                    width: selectedClass != null ? 1.5 : 1,
+                  ),
+                  boxShadow: _DS.shadow,
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.class_rounded, size: 14,
+                      color: selectedClass != null ? _DS.accent : _DS.textMuted),
+                  const SizedBox(width: 6),
+                  Text(selectedClass?.name ?? 'Select Class',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: selectedClass != null ? _DS.accent : _DS.textSecondary)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 14,
+                      color: selectedClass != null ? _DS.accent : _DS.textMuted),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _showStudentTypeSheet,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selectedStudentType == 'new' ? _DS.successSoft : _DS.accentSoft,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: selectedStudentType == 'new' ? _DS.success : _DS.accent,
+                    width: 1.5,
+                  ),
+                  boxShadow: _DS.shadow,
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(selectedStudentType == 'new'
+                      ? Icons.person_add_rounded : Icons.school_rounded,
+                      size: 14,
+                      color: selectedStudentType == 'new' ? _DS.success : _DS.accent),
+                  const SizedBox(width: 6),
+                  Text(selectedStudentType == 'new' ? 'New Students' : 'Old Students',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: selectedStudentType == 'new' ? _DS.success : _DS.accent)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 14,
+                      color: selectedStudentType == 'new' ? _DS.success : _DS.accent),
+                ]),
+              ),
+            ),
+          ]),
+
+          const SizedBox(height: 16),
+
+          // ── Fee fields card ───────────────────────────────────────
+          _card(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              // Card header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: _DS.accentSoft,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(_DS.radius)),
+                  border: const Border(bottom: BorderSide(color: _DS.border)),
+                ),
+                child: Row(children: [
+                  _iconBox(Icons.receipt_long_rounded, size: 16),
+                  const SizedBox(width: 10),
+                  const Text('Fee Configuration',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: _DS.textPrimary)),
+                  const Spacer(),
+                  if (selectedClass != null)
+                    _badge(
+                      '${selectedClass!.name} · ${selectedStudentType == 'new' ? 'New' : 'Old'}',
+                      bg: _DS.accentSoft, fg: _DS.accent,
+                    ),
+                ]),
+              ),
+
+              // Fee rows
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(children: [
+                  _feeFieldRow('Admission Fee', _admissionFeeCtrl,
+                      Icons.login_rounded, _DS.success, _DS.successSoft,
+                      'One-time admission charge', canSetFee),
+                  const SizedBox(height: 10),
+                  _feeFieldRow('First Term', _firstTermCtrl,
+                      Icons.looks_one_rounded, _DS.accent, _DS.accentSoft,
+                      'Tuition fee for first term', canSetFee),
+                  const SizedBox(height: 10),
+                  _feeFieldRow('Second Term', _secondTermCtrl,
+                      Icons.looks_two_rounded,
+                      const Color(0xFFD97706), const Color(0xFFFEF3C7),
+                      'Tuition fee for second term', canSetFee),
+                  const SizedBox(height: 10),
+                  // ✅ Annual fee - read only, auto-calculated
+                  _feeFieldRow('Annual Fee', _annualFeeCtrl,
+                      Icons.calendar_today_rounded,
+                      const Color(0xFF7C3AED), const Color(0xFFEDE9FE),
+                      'Auto-calculated from all terms', false),
+                  const SizedBox(height: 10),
+                  _feeFieldRow('Bus First Term', _busFirstTermCtrl,
+                      Icons.directions_bus_rounded,
+                      const Color(0xFF0891B2), const Color(0xFFCFFAFE),
+                      'Transport fee for first term', canSetFee),
+                  const SizedBox(height: 10),
+                  _feeFieldRow('Bus Second Term', _busSecondTermCtrl,
+                      Icons.directions_bus_filled_rounded,
+                      const Color(0xFF9333EA), const Color(0xFFF3E8FF),
+                      'Transport fee for second term', canSetFee),
+                ]),
+              ),
+            ]),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Save button ───────────────────────────────────────────
+          if (canSetFee)
+            Obx(() => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (selectedClass == null || feeController.isLoading.value)
+                    ? null : _saveFeeStructure,
+                icon: feeController.isLoading.value
+                    ? const SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.save_rounded, size: 18),
+                label: Text(feeController.isLoading.value ? 'Saving…' : 'Save Fee Structure',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _DS.accent,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: _DS.accentMid,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_DS.radius)),
+                ),
+              ),
+            )),
+        ]),
+      ),
+    );
+  }
+
+  Widget _feeFieldRow(String label, TextEditingController ctrl,
+      IconData icon, Color fg, Color bg, String helperText, bool enabled) {
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(_DS.radiusSm),
+        border: Border.all(color: fg.withOpacity(0.2)),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Row(children: [
+        Icon(icon, color: fg, size: 18),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+          const SizedBox(height: 5),
+          TextFormField(
+            controller: ctrl,
+            enabled: enabled,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 14, color: _DS.textPrimary),
+            decoration: InputDecoration(
+              prefixText: '₹ ',
+              hintText: '0',
+              helperText: helperText,
+              helperStyle: TextStyle(fontSize: 10, color: fg.withOpacity(0.6)),
+              isDense: true,
+              filled: true,
+              fillColor: _DS.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: fg.withOpacity(0.3))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: fg.withOpacity(0.3))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: fg, width: 1.5)),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: fg.withOpacity(0.15))),
+            ),
+          ),
+        ])),
+      ]),
+    );
+  }
+
   void _showClassSheet() {
     Get.bottomSheet(
       Container(
@@ -4100,73 +4488,64 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-                color: _DS.border,
-                borderRadius: BorderRadius.circular(100)),
-          ),
+          Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4,
+              decoration: BoxDecoration(color: _DS.border, borderRadius: BorderRadius.circular(100))),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Row(children: [
-              const Text('Select Class',
-                  style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: _DS.textPrimary)),
+              const Text('Select Class', style: TextStyle(fontSize: 17,
+                  fontWeight: FontWeight.w700, color: _DS.textPrimary)),
               const Spacer(),
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: const Icon(Icons.close_rounded,
-                    color: _DS.textMuted, size: 22),
-              ),
+              GestureDetector(onTap: () => Get.back(),
+                  child: const Icon(Icons.close_rounded, color: _DS.textMuted, size: 22)),
             ]),
           ),
           const Divider(height: 1, color: _DS.border),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 360),
+            constraints: const BoxConstraints(maxHeight: 380),
             child: Obx(() {
               final sorted = ClassUtils.sortClasses(schoolController.classes);
+              if (sorted.isEmpty)
+                return const Padding(padding: EdgeInsets.all(32),
+                    child: Center(child: Text('No classes available',
+                        style: TextStyle(color: _DS.textMuted))));
               return ListView.builder(
                 shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 itemCount: sorted.length,
                 itemBuilder: (_, i) {
                   final c = sorted[i];
-                  final isSelected = selectedClass.value?.id == c.id;
-                  return ListTile(
-                    leading: Container(
-                      width: 36, height: 36,
+                  final isSelected = selectedClass?.id == c.id;
+                  return GestureDetector(
+                    onTap: () { _onClassSelected(c); Get.back(); },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected ? _DS.accentSoft : _DS.surfaceAlt,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: isSelected ? _DS.accent : _DS.border,
+                            width: isSelected ? 1.5 : 1),
                       ),
-                      child: Icon(Icons.class_rounded,
-                          size: 18,
-                          color: isSelected ? _DS.accent : _DS.textMuted),
+                      child: Row(children: [
+                        Container(width: 34, height: 34,
+                          decoration: BoxDecoration(
+                              color: isSelected ? _DS.accent : _DS.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isSelected ? _DS.accent : _DS.border)),
+                          child: Icon(ClassUtils.getClassIcon(c.name), size: 16,
+                              color: isSelected ? Colors.white : _DS.accent),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(c.name, style: TextStyle(fontSize: 14,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? _DS.accent : _DS.textPrimary))),
+                        if (isSelected)
+                          const Icon(Icons.check_circle_rounded, color: _DS.accent, size: 18),
+                      ]),
                     ),
-                    title: Text(c.name,
-                        style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          fontSize: 14,
-                          color:
-                          isSelected ? _DS.accent : _DS.textPrimary,
-                        )),
-                    trailing: isSelected
-                        ? const Icon(Icons.check_circle_rounded,
-                        color: _DS.accent, size: 20)
-                        : null,
-                    onTap: () {
-                      selectedClass.value = c;
-                      if (schoolController.selectedSchool.value != null)
-                        _loadFeeStructure(
-                            schoolController.selectedSchool.value!.id,
-                            c.id);
-                      Get.back();
-                      setState(() {});
-                    },
                   );
                 },
               );
@@ -4179,8 +4558,13 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
     );
   }
 
-  // ── bottom sheet: student type picker ──────────────────────────
   void _showStudentTypeSheet() {
+    final options = [
+      ('old', 'Old Students', 'Existing enrolled students',
+      Icons.school_rounded, _DS.accent, _DS.accentSoft),
+      ('new', 'New Students', 'Newly admitted students',
+      Icons.person_add_rounded, _DS.success, _DS.successSoft),
+    ];
     Get.bottomSheet(
       Container(
         decoration: const BoxDecoration(
@@ -4188,412 +4572,63 @@ class _FeeStructureTabState extends State<_FeeStructureTab> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-                color: _DS.border,
-                borderRadius: BorderRadius.circular(100)),
-          ),
+          Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4,
+              decoration: BoxDecoration(color: _DS.border, borderRadius: BorderRadius.circular(100))),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Row(children: [
-              const Text('Student Type',
-                  style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: _DS.textPrimary)),
+              const Text('Student Type', style: TextStyle(fontSize: 17,
+                  fontWeight: FontWeight.w700, color: _DS.textPrimary)),
               const Spacer(),
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: const Icon(Icons.close_rounded,
-                    color: _DS.textMuted, size: 22),
-              ),
+              GestureDetector(onTap: () => Get.back(),
+                  child: const Icon(Icons.close_rounded, color: _DS.textMuted, size: 22)),
             ]),
           ),
           const Divider(height: 1, color: _DS.border),
-          ListTile(
-            leading: Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: selectedStudentType.value == 'old'
-                    ? _DS.accentSoft
-                    : _DS.surfaceAlt,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.school_rounded,
-                  size: 18,
-                  color: selectedStudentType.value == 'old'
-                      ? _DS.accent
-                      : _DS.textMuted),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+            child: Column(
+              children: options.map((o) {
+                final isSelected = selectedStudentType == o.$1;
+                return GestureDetector(
+                  onTap: () { _onStudentTypeSelected(o.$1); Get.back(); },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isSelected ? o.$6 : _DS.surfaceAlt,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: isSelected ? o.$5 : _DS.border,
+                          width: isSelected ? 1.5 : 1),
+                    ),
+                    child: Row(children: [
+                      Container(width: 40, height: 40,
+                        decoration: BoxDecoration(
+                            color: isSelected ? o.$5 : _DS.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: isSelected ? o.$5 : _DS.border)),
+                        child: Icon(o.$4, size: 20,
+                            color: isSelected ? Colors.white : _DS.textMuted),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(o.$2, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                            color: isSelected ? o.$5 : _DS.textPrimary)),
+                        const SizedBox(height: 2),
+                        Text(o.$3, style: const TextStyle(fontSize: 11, color: _DS.textMuted)),
+                      ])),
+                      if (isSelected) Icon(Icons.check_circle_rounded, color: o.$5, size: 20),
+                    ]),
+                  ),
+                );
+              }).toList(),
             ),
-            title: Text('Old Students',
-                style: TextStyle(
-                  fontWeight: selectedStudentType.value == 'old'
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  color: selectedStudentType.value == 'old'
-                      ? _DS.accent
-                      : _DS.textPrimary,
-                )),
-            trailing: selectedStudentType.value == 'old'
-                ? const Icon(Icons.check_circle_rounded,
-                color: _DS.accent, size: 20)
-                : null,
-            onTap: () {
-              selectedStudentType.value = 'old';
-              if (schoolController.selectedSchool.value != null &&
-                  selectedClass.value != null)
-                _loadFeeStructure(
-                    schoolController.selectedSchool.value!.id,
-                    selectedClass.value!.id);
-              Get.back();
-              setState(() {});
-            },
           ),
-          ListTile(
-            leading: Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: selectedStudentType.value == 'new'
-                    ? const Color(0xFFD1FAE5)
-                    : _DS.surfaceAlt,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.person_add_rounded,
-                  size: 18,
-                  color: selectedStudentType.value == 'new'
-                      ? const Color(0xFF059669)
-                      : _DS.textMuted),
-            ),
-            title: Text('New Students',
-                style: TextStyle(
-                  fontWeight: selectedStudentType.value == 'new'
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  color: selectedStudentType.value == 'new'
-                      ? const Color(0xFF059669)
-                      : _DS.textPrimary,
-                )),
-            trailing: selectedStudentType.value == 'new'
-                ? const Icon(Icons.check_circle_rounded,
-                color: Color(0xFF059669), size: 20)
-                : null,
-            onTap: () {
-              selectedStudentType.value = 'new';
-              if (schoolController.selectedSchool.value != null &&
-                  selectedClass.value != null)
-                _loadFeeStructure(
-                    schoolController.selectedSchool.value!.id,
-                    selectedClass.value!.id);
-              Get.back();
-              setState(() {});
-            },
-          ),
-          const SizedBox(height: 24),
         ]),
       ),
       isScrollControlled: true,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _DS.bg,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-
-              // ── Two chips row ───────────────────────────────────────
-              Row(children: [
-                // Class chip
-                GestureDetector(
-                  onTap: _showClassSheet,
-                  child: ValueListenableBuilder<SchoolClass?>(
-                    valueListenable: selectedClass,
-                    builder: (_, cls, __) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: cls != null ? _DS.accentSoft : _DS.surface,
-                        borderRadius: BorderRadius.circular(100),
-                        border: Border.all(
-                          color: cls != null ? _DS.accent : _DS.border,
-                          width: cls != null ? 1.5 : 1,
-                        ),
-                        boxShadow: _DS.shadow,
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.class_rounded,
-                            size: 14,
-                            color: cls != null ? _DS.accent : _DS.textMuted),
-                        const SizedBox(width: 6),
-                        Text(
-                          cls?.name ?? 'Select Class',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: cls != null
-                                ? _DS.accent
-                                : _DS.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.keyboard_arrow_down_rounded,
-                            size: 14,
-                            color: cls != null ? _DS.accent : _DS.textMuted),
-                      ]),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Student type chip
-                GestureDetector(
-                  onTap: _showStudentTypeSheet,
-                  child: ValueListenableBuilder<String>(
-                    valueListenable: selectedStudentType,
-                    builder: (_, type, __) {
-                      final isNew = type == 'new';
-                      final chipColor = isNew
-                          ? const Color(0xFF059669)
-                          : _DS.accent;
-                      final chipBg = isNew
-                          ? const Color(0xFFD1FAE5)
-                          : _DS.accentSoft;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: chipBg,
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: chipColor, width: 1.5),
-                          boxShadow: _DS.shadow,
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(
-                            isNew
-                                ? Icons.person_add_rounded
-                                : Icons.school_rounded,
-                            size: 14,
-                            color: chipColor,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            isNew ? 'New Students' : 'Old Students',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: chipColor,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.keyboard_arrow_down_rounded,
-                              size: 14, color: chipColor),
-                        ]),
-                      );
-                    },
-                  ),
-                ),
-              ]),
-
-              const SizedBox(height: 16),
-
-              // ── Fee fields ──────────────────────────────────────────
-              _card(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        _iconBox(Icons.receipt_long_rounded),
-                        const SizedBox(width: 10),
-                        const Text('Fee Details',
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: _DS.textPrimary)),
-                      ]),
-                      const SizedBox(height: 16),
-                      _feeField(
-                          'Admission Fee',
-                          admissionFeeController,
-                          Icons.login_rounded,
-                          const Color(0xFF059669),
-                          const Color(0xFFD1FAE5)),
-                      const SizedBox(height: 10),
-                      _feeField(
-                          'First Term',
-                          firstTermController,
-                          Icons.looks_one_rounded,
-                          _DS.accent,
-                          _DS.accentSoft),
-                      const SizedBox(height: 10),
-                      _feeField(
-                          'Second Term',
-                          secondTermController,
-                          Icons.looks_two_rounded,
-                          const Color(0xFFD97706),
-                          const Color(0xFFFEF3C7)),
-                      const SizedBox(height: 10),
-                      _feeField(
-                          'Bus First Term',
-                          busFirstTermController,
-                          Icons.directions_bus_rounded,
-                          const Color(0xFF0891B2),
-                          const Color(0xFFCFFAFE)),
-                      const SizedBox(height: 10),
-                      _feeField(
-                          'Bus Second Term',
-                          busSecondTermController,
-                          Icons.directions_bus_filled_rounded,
-                          const Color(0xFF7C3AED),
-                          const Color(0xFFEDE9FE)),
-                      const SizedBox(height: 20),
-                      _buildSaveButton(),
-                    ]),
-              ),
-            ]),
-      ),
-    );
-  }
-
-  Widget _feeField(String label, TextEditingController ctrl,
-      IconData icon, Color fg, Color bg) {
-    return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(_DS.radiusSm),
-        border: Border.all(color: fg.withOpacity(0.2)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: Row(children: [
-          Icon(icon, color: fg, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: fg,
-                          fontSize: 12)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: ctrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(
-                        fontSize: 15, color: _DS.textPrimary),
-                    decoration: InputDecoration(
-                      prefixText: '₹ ',
-                      hintText: '0',
-                      isDense: true,
-                      filled: true,
-                      fillColor: _DS.surface,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          BorderSide(color: fg.withOpacity(0.3))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          BorderSide(color: fg.withOpacity(0.3))),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          BorderSide(color: fg, width: 1.5)),
-                    ),
-                  ),
-                ]),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    final authController = Get.find<AuthController>();
-    final currentUserRole =
-        authController.user.value?.role?.toLowerCase() ?? '';
-    if (!ApiPermissions.hasApiAccess(
-        currentUserRole, 'POST /api/feestructure/set'))
-      return const SizedBox.shrink();
-    return Obx(() => _primaryBtn(
-      label: 'Save Fee Structure',
-      icon: Icons.save_rounded,
-      loading: feeController.isLoading.value,
-      onPressed:
-      feeController.isLoading.value ? null : _saveFeeStructure,
-    ));
-  }
-
-  void _clearForm() {
-    admissionFeeController.clear();
-    firstTermController.clear();
-    secondTermController.clear();
-    busFirstTermController.clear();
-    busSecondTermController.clear();
-  }
-
-  void _loadFeeStructure(String schoolId, String classId) async {
-    final studentType = selectedStudentType.value;
-    final feeStructure = await feeController.getFeeStructureByClass(
-        schoolId, classId,
-        type: studentType);
-    if (feeStructure != null) {
-      final feeHead =
-          feeStructure['feeHead'] ?? feeStructure['data']?['feeHead'] ?? {};
-      admissionFeeController.text =
-          feeHead['admissionFee']?.toString() ?? '';
-      firstTermController.text = feeHead['firstTermAmt']?.toString() ?? '';
-      secondTermController.text =
-          feeHead['secondTermAmt']?.toString() ?? '';
-      busFirstTermController.text =
-          feeHead['busFirstTermAmt']?.toString() ?? '';
-      busSecondTermController.text =
-          feeHead['busSecondTermAmt']?.toString() ?? '';
-    } else {
-      _clearForm();
-    }
-  }
-
-  void _saveFeeStructure() {
-    if (schoolController.selectedSchool.value == null) {
-      Get.snackbar('Error', 'Please select a school first',
-          backgroundColor: _DS.danger,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP);
-      return;
-    }
-    final cls = selectedClass.value;
-    if (cls == null) {
-      Get.snackbar('Error', 'Please select a class',
-          backgroundColor: _DS.danger,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP);
-      return;
-    }
-    feeController.setFeeStructure(
-      schoolId: schoolController.selectedSchool.value!.id,
-      classId: cls.id,
-      type: selectedStudentType.value,
-      feeHead: {
-        'admissionFee':
-        double.tryParse(admissionFeeController.text) ?? 0,
-        'firstTermAmt':
-        double.tryParse(firstTermController.text) ?? 0,
-        'secondTermAmt':
-        double.tryParse(secondTermController.text) ?? 0,
-        'busFirstTermAmt':
-        double.tryParse(busFirstTermController.text) ?? 0,
-        'busSecondTermAmt':
-        double.tryParse(busSecondTermController.text) ?? 0,
-      },
     );
   }
 }
