@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart' hide Response;
 import 'package:image_picker/image_picker.dart';
 import 'package:school_app/constants/api_constants.dart';
-import 'package:school_app/controllers/student_controller.dart' hide Student;
-
 import '../controllers/auth_controller.dart';
 import '../controllers/school_controller.dart';
 import '../core/theme/app_theme.dart';
@@ -17,28 +16,28 @@ import 'package:dio/dio.dart' as dio;
 import 'package:file_picker/file_picker.dart';
 
 // =============================================================================
-// DESIGN TOKENS — matches sidebar palette
+// DESIGN TOKENS
 // =============================================================================
 
 class _AppColors {
-  static const primary       = Color(0xFF1565C0);
-  static const primaryLight  = Color(0xFFE3EEF9);
-  static const primaryMid    = Color(0xFF1976D2);
-  static const primaryDark   = Color(0xFF0D47A1);
-  static const surface       = Color(0xFFF5F7FA);
-  static const cardBg        = Color(0xFFFFFFFF);
-  static const sectionBg     = Color(0xFFF0F4FA);
-  static const textPrimary   = Color(0xFF1A2340);
+  static const primary = Color(0xFF1565C0);
+  static const primaryLight = Color(0xFFE3EEF9);
+  static const primaryMid = Color(0xFF1976D2);
+  static const primaryDark = Color(0xFF0D47A1);
+  static const surface = Color(0xFFF5F7FA);
+  static const cardBg = Color(0xFFFFFFFF);
+  static const sectionBg = Color(0xFFF0F4FA);
+  static const textPrimary = Color(0xFF1A2340);
   static const textSecondary = Color(0xFF5B6880);
-  static const textHint      = Color(0xFF9AA5B4);
-  static const border        = Color(0xFFDDE3EC);
-  static const borderFocus   = Color(0xFF1976D2);
-  static const success       = Color(0xFF2E7D32);
-  static const successBg     = Color(0xFFE8F5E9);
-  static const error         = Color(0xFFC62828);
-  static const errorBg       = Color(0xFFFFEBEE);
-  static const stepDone      = Color(0xFF1976D2);
-  static const stepInactive  = Color(0xFFCDD4E0);
+  static const textHint = Color(0xFF9AA5B4);
+  static const border = Color(0xFFDDE3EC);
+  static const borderFocus = Color(0xFF1976D2);
+  static const success = Color(0xFF2E7D32);
+  static const successBg = Color(0xFFE8F5E9);
+  static const error = Color(0xFFC62828);
+  static const errorBg = Color(0xFFFFEBEE);
+  static const stepDone = Color(0xFF1976D2);
+  static const stepInactive = Color(0xFFCDD4E0);
 }
 
 // =============================================================================
@@ -86,17 +85,33 @@ class MandatoryDetails {
   String? mainstreamedDate, disabilityCert, disabilityPercent, bloodGroup;
 
   Map<String, dynamic> toJson() => {
-    'gender': gender, 'dob': dob, 'educationNumber': educationNumber,
-    'motherName': motherName, 'fatherName': fatherName,
-    'guardianName': guardianName, 'aadhaarNumber': aadhaarNumber,
-    'aadhaarName': aadhaarName, 'address': address, 'pincode': pincode,
-    'mobileNumber': mobileNumber, 'alternateMobile': alternateMobile,
-    'email': email, 'motherTongue': motherTongue,
-    'socialCategory': socialCategory, 'minorityGroup': minorityGroup,
-    'bpl': bpl, 'aay': aay, 'ews': ews, 'cwsn': cwsn,
-    'impairments': impairments, 'indian': indian, 'outOfSchool': outOfSchool,
-    'mainstreamedDate': mainstreamedDate, 'disabilityCert': disabilityCert,
-    'disabilityPercent': disabilityPercent, 'bloodGroup': bloodGroup,
+    'gender': gender,
+    'dob': dob,
+    'educationNumber': educationNumber,
+    'motherName': motherName,
+    'fatherName': fatherName,
+    'guardianName': guardianName,
+    'aadhaarNumber': aadhaarNumber,
+    'aadhaarName': aadhaarName,
+    'address': address,
+    'pincode': pincode,
+    'mobileNumber': mobileNumber,
+    'alternateMobile': alternateMobile,
+    'email': email,
+    'motherTongue': motherTongue,
+    'socialCategory': socialCategory,
+    'minorityGroup': minorityGroup,
+    'bpl': bpl,
+    'aay': aay,
+    'ews': ews,
+    'cwsn': cwsn,
+    'impairments': impairments,
+    'indian': indian,
+    'outOfSchool': outOfSchool,
+    'mainstreamedDate': mainstreamedDate,
+    'disabilityCert': disabilityCert,
+    'disabilityPercent': disabilityPercent,
+    'bloodGroup': bloodGroup,
   };
 }
 
@@ -114,25 +129,120 @@ class NonMandatoryDetails {
   Map<String, dynamic> toJson() => {
     'facilitiesProvided': facilitiesProvided,
     'facilitiesForCWSN': facilitiesForCWSN,
-    'screenedForSLD': screenedForSLD, 'sldType': sldType,
-    'screenedForASD': screenedForASD, 'screenedForADHD': screenedForADHD,
+    'screenedForSLD': screenedForSLD,
+    'sldType': sldType,
+    'screenedForASD': screenedForASD,
+    'screenedForADHD': screenedForADHD,
     'isGiftedOrTalented': isGiftedOrTalented,
     'participatedInCompetitions': participatedInCompetitions,
     'participatedInActivities': participatedInActivities,
     'canHandleDigitalDevices': canHandleDigitalDevices,
-    'heightInCm': heightInCm, 'weightInKg': weightInKg,
+    'heightInCm': heightInCm,
+    'weightInKg': weightInKg,
     'distanceToSchool': distanceToSchool,
     'parentEducationLevel': parentEducationLevel,
-    'admissionNumber': admissionNumber, 'admissionDate': admissionDate,
-    'rollNumber': rollNumber, 'mediumOfInstruction': mediumOfInstruction,
-    'languagesStudied': languagesStudied, 'academicStream': academicStream,
+    'admissionNumber': admissionNumber,
+    'admissionDate': admissionDate,
+    'rollNumber': rollNumber,
+    'mediumOfInstruction': mediumOfInstruction,
+    'languagesStudied': languagesStudied,
+    'academicStream': academicStream,
     'subjectsStudied': subjectsStudied,
     'statusInPreviousYear': statusInPreviousYear,
     'gradeStudiedLastYear': gradeStudiedLastYear,
-    'enrolledUnder': enrolledUnder, 'previousResult': previousResult,
+    'enrolledUnder': enrolledUnder,
+    'previousResult': previousResult,
     'marksObtainedPercentage': marksObtainedPercentage,
     'daysAttendedLastYear': daysAttendedLastYear,
   };
+}
+
+/// Represents a single uploaded document/work-photo attached to a student,
+/// as returned by GET /api/studentrecord/v1/getrecord/:schoolId/:studentId
+/// (or the legacy getall response). Field names on the server are not fully
+/// standardized, so [fromJson] checks several common keys.
+class StudentDocument {
+  final String id;
+  final String url;
+  final String name;
+
+  const StudentDocument({required this.id, required this.url, required this.name});
+
+  static StudentDocument? fromJson(dynamic json) {
+    if (json is! Map) return null;
+    final m = Map<String, dynamic>.from(json as Map);
+    final id = (m['_id'] ?? m['id'] ?? m['documentId'])?.toString();
+    final url =
+    (m['url'] ?? m['fileUrl'] ?? m['path'] ?? m['location'] ?? m['link'])
+        ?.toString();
+    if (id == null || url == null || url.isEmpty) return null;
+    final name = (m['originalName'] ?? m['filename'] ?? m['name'] ?? 'File')
+        .toString();
+    return StudentDocument(id: id, url: resolveStudentFileUrl(url)!, name: name);
+  }
+}
+
+/// Resolves a possibly-relative file path returned by the API into an
+/// absolute URL the app can load with Image.network / url_launcher.
+String? resolveStudentFileUrl(String? path) {
+  if (path == null || path.trim().isEmpty) return null;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  final base = ApiConstants.baseUrl.endsWith('/')
+      ? ApiConstants.baseUrl.substring(0, ApiConstants.baseUrl.length - 1)
+      : ApiConstants.baseUrl;
+  final p = path.startsWith('/') ? path : '/$path';
+  return '$base$p';
+}
+
+/// Best-effort extraction of a profile image URL from a student / student
+/// record JSON object. Checks several common key names since the API isn't
+/// fully standardized across endpoints.
+String? extractProfileImageUrl(Map<String, dynamic> data) {
+  for (final key in [
+    'profileImage',
+    'profileImageUrl',
+    'profilePic',
+    'profilePicture',
+    'profilePhoto',
+    'photo',
+    'photoUrl',
+    'image',
+    'imageUrl',
+    'studentImage',
+    'studentImageUrl',
+  ]) {
+    final v = data[key];
+    if (v is String && v.trim().isNotEmpty) return resolveStudentFileUrl(v);
+    if (v is Map) {
+      final nested = (v['url'] ?? v['path'] ?? v['fileUrl'])?.toString();
+      if (nested != null && nested.isNotEmpty) {
+        return resolveStudentFileUrl(nested);
+      }
+    }
+  }
+  return null;
+}
+
+/// Best-effort extraction of the document/work-photo list from a student /
+/// student record JSON object.
+List<StudentDocument> extractStudentDocuments(Map<String, dynamic> data) {
+  for (final key in [
+    'documents',
+    'files',
+    'uploadedFiles',
+    'attachments',
+    'workPhotos',
+    'workPhotoFiles',
+  ]) {
+    final v = data[key];
+    if (v is List && v.isNotEmpty) {
+      return v
+          .map(StudentDocument.fromJson)
+          .whereType<StudentDocument>()
+          .toList();
+    }
+  }
+  return const [];
 }
 
 // =============================================================================
@@ -144,11 +254,23 @@ class CreateStudentProfilePage extends StatefulWidget {
   final Student? student;
   final bool isEdit;
 
+  /// Profile photo URL fetched via GET /api/studentrecord/v1/getrecord
+  /// (or extracted from the management list), shown until the user picks a
+  /// new image.
+  final String? existingImageUrl;
+
+  /// Previously-uploaded work-photo documents for this student, fetched via
+  /// GET /api/studentrecord/v1/getrecord. Each entry is the raw JSON map
+  /// from the API and is parsed with [StudentDocument.fromJson].
+  final List<Map<String, dynamic>>? existingDocuments;
+
   const CreateStudentProfilePage({
     super.key,
     this.schoolId,
     this.student,
     this.isEdit = false,
+    this.existingImageUrl,
+    this.existingDocuments,
   });
 
   @override
@@ -158,34 +280,32 @@ class CreateStudentProfilePage extends StatefulWidget {
 
 class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     with TickerProviderStateMixin {
-  StudentController get controller => Get.find<StudentController>();
-  final _auth   = Get.find<AuthController>();
+  final _auth = Get.find<AuthController>();
   final _school = Get.find<SchoolController>();
   final billFiles = <PlatformFile>[].obs;
   final workPhotoFiles = <PlatformFile>[].obs;
 
-
-
   String? get _resolvedSchoolId {
-    // ✅ First check constructor param, then Get.arguments
-    final argSchoolId = Get.arguments?['schoolId'] as String?;
-    final id = widget.schoolId ?? argSchoolId;
-    if (id != null && id.isNotEmpty) return id;
+    if (widget.schoolId != null && widget.schoolId!.isNotEmpty) {
+      return widget.schoolId;
+    }
     final role = _auth.user.value?.role?.toLowerCase() ?? '';
     if (role == 'correspondent') return _school.selectedSchool.value?.id;
     return _auth.user.value?.schoolId;
   }
 
-  Student? get _resolvedStudent {
-    // ✅ First check constructor param, then Get.arguments
-    return widget.student ?? Get.arguments?['student'] as Student?;
-  }
-
-  bool get _resolvedIsEdit {
-    return widget.isEdit || (Get.arguments?['isEdit'] as bool? ?? false);
-  }
   bool get _isCorrespondent =>
       (_auth.user.value?.role?.toLowerCase() ?? '') == 'correspondent';
+
+  /// Display label for the picked class/section. Handles the case where a
+  /// student has no class/section assigned yet (currentClassId == null in
+  /// the getrecord response) instead of literally showing "null".
+  String _classSectionLabel({bool compact = false}) {
+    if (_pickedClassName == null) return 'No Class Assigned';
+    final secPrefix = compact ? 'Sec' : 'Section';
+    return '$_pickedClassName'
+        '${_pickedSectionName != null ? "  ·  $secPrefix $_pickedSectionName" : ""}';
+  }
 
   String? _pickedClassId;
   String? _pickedClassName;
@@ -198,70 +318,91 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   bool _isSubmitting = false;
   File? _pickedImage;
 
+  /// Existing profile image URL (from GET getrecord). Shown until the user
+  /// picks a new [_pickedImage].
+  String? _existingImageUrl;
+
+  /// Previously-uploaded documents/work-photos for this student. Mutable so
+  /// deleted items can be removed from the UI immediately.
+  final List<StudentDocument> _documents = [];
+  String? _deletingDocId;
+
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
 
-  final _basicKey      = GlobalKey<FormState>();
-  final _mandatoryKey  = GlobalKey<FormState>();
+  final _basicKey = GlobalKey<FormState>();
+  final _mandatoryKey = GlobalKey<FormState>();
   final _additionalKey = GlobalKey<FormState>();
   final _enrollmentKey = GlobalKey<FormState>();
 
   final _nameCtrl = TextEditingController();
   final _srIdCtrl = TextEditingController();
-  bool _isActive  = true;
+  bool _isActive = true;
 
-  final _dobCtrl              = TextEditingController();
-  final _eduNoCtrl            = TextEditingController();
-  final _motherCtrl           = TextEditingController();
-  final _fatherCtrl           = TextEditingController();
-  final _guardianCtrl         = TextEditingController();
-  final _aadhaarNoCtrl        = TextEditingController();
-  final _aadhaarNameCtrl      = TextEditingController();
-  final _addressCtrl          = TextEditingController();
-  final _pincodeCtrl          = TextEditingController();
-  final _mobileCtrl           = TextEditingController();
-  final _altMobileCtrl        = TextEditingController();
-  final _emailCtrl            = TextEditingController();
-  final _motherTongueCtrl     = TextEditingController();
-  final _minorityCtrl         = TextEditingController();
-  final _impairmentsCtrl      = TextEditingController();
+  final _dobCtrl = TextEditingController();
+  final _eduNoCtrl = TextEditingController();
+  final _motherCtrl = TextEditingController();
+  final _fatherCtrl = TextEditingController();
+  final _guardianCtrl = TextEditingController();
+  final _aadhaarNoCtrl = TextEditingController();
+  final _aadhaarNameCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _pincodeCtrl = TextEditingController();
+  final _mobileCtrl = TextEditingController();
+  final _altMobileCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _motherTongueCtrl = TextEditingController();
+  final _minorityCtrl = TextEditingController();
+  final _impairmentsCtrl = TextEditingController();
   final _mainstreamedDateCtrl = TextEditingController();
-  final _disabilityPctCtrl    = TextEditingController();
+  final _disabilityPctCtrl = TextEditingController();
   String? _selGender, _selBlood, _selSocialCat;
-  String? _selBpl, _selAay, _selEws, _selCwsn, _selIndian, _selOos, _selDisCert;
+  String? _selBpl, _selAay, _selEws, _selCwsn, _selIndian, _selOos,
+      _selDisCert;
   String? _selMedium, _selStream, _selPrevStatus, _selPrevResult;
 
-  final _heightCtrl     = TextEditingController();
-  final _weightCtrl     = TextEditingController();
-  final _distanceCtrl   = TextEditingController();
-  final _sldTypeCtrl    = TextEditingController();
+  final _heightCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
+  final _distanceCtrl = TextEditingController();
+  final _sldTypeCtrl = TextEditingController();
   final _activitiesCtrl = TextEditingController();
-  final _parentEduCtrl  = TextEditingController();
+  final _parentEduCtrl = TextEditingController();
   final _facilitiesCtrl = TextEditingController();
-  final _facCwsnCtrl    = TextEditingController();
-  String? _selSLD, _selASD, _selADHD, _selGifted, _selCompetitions, _selDigital;
+  final _facCwsnCtrl = TextEditingController();
+  String? _selSLD, _selASD, _selADHD, _selGifted, _selCompetitions,
+      _selDigital;
 
-  final _admNoCtrl     = TextEditingController();
-  final _admDateCtrl   = TextEditingController();
-  final _rollNoCtrl    = TextEditingController();
+  final _admNoCtrl = TextEditingController();
+  final _admDateCtrl = TextEditingController();
+  final _rollNoCtrl = TextEditingController();
   final _languagesCtrl = TextEditingController();
-  final _subjectsCtrl  = TextEditingController();
-  final _enrolledCtrl  = TextEditingController();
+  final _subjectsCtrl = TextEditingController();
+  final _enrolledCtrl = TextEditingController();
   final _gradeLastCtrl = TextEditingController();
-  final _marksPctCtrl  = TextEditingController();
-  final _daysCtrl      = TextEditingController();
+  final _marksPctCtrl = TextEditingController();
+  final _daysCtrl = TextEditingController();
 
-  static const _yesNo   = ['Yes', 'No'];
+  static const _yesNo = ['Yes', 'No'];
   static const _genders = ['Male', 'Female', 'Other'];
-  static const _bloods  = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  static const _bloods = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   static const _socCats = ['General', 'OBC', 'SC', 'ST'];
-  static const _mediums  = ['Telugu', 'Hindi', 'English', 'Urdu', 'Tamil'];
-  static const _streams  = ['Science', 'Commerce', 'Arts', 'Vocational'];
-  static const _prevSts  = ['Promoted', 'Detained', 'Transferred', 'Dropped out'];
-  static const _prevRes  = ['Pass', 'Fail', 'Absent'];
+  static const _mediums = ['Telugu', 'Hindi', 'English', 'Urdu', 'Tamil'];
+  static const _streams = ['Science', 'Commerce', 'Arts', 'Vocational'];
+  static const _prevSts = [
+    'Promoted',
+    'Detained',
+    'Transferred',
+    'Dropped out'
+  ];
+  static const _prevRes = ['Pass', 'Fail', 'Absent'];
 
-  static const _stepLabels = ['Basic', 'Mandatory', 'Additional', 'Enrollment'];
-  static const _stepIcons  = [
+  static const _stepLabels = [
+    'Basic',
+    'Mandatory',
+    'Additional',
+    'Enrollment'
+  ];
+  static const _stepIcons = [
     Icons.person_outline_rounded,
     Icons.family_restroom_rounded,
     Icons.monitor_heart_outlined,
@@ -279,114 +420,149 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
 
+    // Pre-fill existing profile photo + previously-uploaded documents, as
+    // fetched via GET /api/studentrecord/v1/getrecord by the management page.
+    _existingImageUrl = resolveStudentFileUrl(widget.existingImageUrl);
+    if (widget.existingDocuments != null) {
+      for (final raw in widget.existingDocuments!) {
+        final doc = StudentDocument.fromJson(raw);
+        if (doc != null) _documents.add(doc);
+      }
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sid = _resolvedSchoolId;
       if (sid != null) {
         _school.getAllClasses(sid).then((_) {
-          // ✅ Use _resolvedStudent instead of widget.student
-          if (_resolvedIsEdit && _resolvedStudent?.classId != null) {
-            _school.getAllSections(
-              classId: _resolvedStudent!.classId,
+          if (widget.isEdit && widget.student?.classId != null) {
+            _school
+                .getAllSections(
+              classId: widget.student!.classId,
               schoolId: sid,
-            ).then((_) => _applyEditPreFill());
+            )
+                .then((_) => _applyEditPreFill());
           }
         });
       }
 
-      if (_resolvedIsEdit && _resolvedStudent != null) {
+      if (widget.isEdit && widget.student != null) {
         _applyEditPreFill();
-        if (_pickedClassId == null) {
-          _showClassSectionPicker();
-        }
+        // Don't auto-open the picker for edit mode — the form is shown
+        // regardless of whether a class/section is assigned (see
+        // _applyEditPreFill). Users can tap "Change" to assign one.
       } else {
         _showClassSectionPicker();
       }
     });
   }
 
+  // ── Date helpers ────────────────────────────────────────────────────────────
+
+  /// DD/MM/YYYY (UI) → YYYY-MM-DD (server)
+  String? _isoDate(String? ddmmyyyy) {
+    if (ddmmyyyy == null || ddmmyyyy.trim().isEmpty) return null;
+    final parts = ddmmyyyy.split('/');
+    if (parts.length != 3) return ddmmyyyy; // already ISO or unknown format
+    final day = parts[0].padLeft(2, '0');
+    final month = parts[1].padLeft(2, '0');
+    final year = parts[2];
+    return '$year-$month-$day';
+  }
+
+  /// YYYY-MM-DD (server) → DD/MM/YYYY (UI) — used when pre-filling edit form
+  String? _fromIsoDate(String? v) {
+    if (v == null || v.trim().isEmpty) return null;
+    if (v.contains('/')) return v; // already DD/MM/YYYY
+    final parts = v.split('-');
+    if (parts.length == 3 && parts[0].length == 4) {
+      return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}/${parts[0]}';
+    }
+    return v;
+  }
+
   void _applyEditPreFill() {
-   // final s = widget.student;
-    final s = _resolvedStudent;
+    final s = widget.student;
     if (s == null) return;
 
-    _nameCtrl.text  = s.name ?? '';
-    _srIdCtrl.text  = s.srId ?? '';
-    _isActive       = s.isActive ?? true;
+    _nameCtrl.text = s.name ?? '';
+    _srIdCtrl.text = s.srId ?? '';
+    _isActive = s.isActive ?? true;
 
     if (s.classId != null) {
-      final matchedClass = _school.classes
-          .firstWhereOrNull((c) => c.id == s.classId);
-      _pickedClassId   = s.classId;
+      final matchedClass =
+      _school.classes.firstWhereOrNull((c) => c.id == s.classId);
+      _pickedClassId = s.classId;
       _pickedClassName = matchedClass?.name ?? s.classId;
     }
     if (s.sectionId != null) {
-      final matchedSection = _school.sections
-          .firstWhereOrNull((sec) => sec.id == s.sectionId);
-      _pickedSectionId   = s.sectionId;
+      final matchedSection =
+      _school.sections.firstWhereOrNull((sec) => sec.id == s.sectionId);
+      _pickedSectionId = s.sectionId;
       _pickedSectionName = matchedSection?.name ?? s.sectionId;
     }
 
-    // Valid if class is matched, regardless of section existence
-    if (_pickedClassId != null) {
-      _selectionDone = true;
-    }
+    // Edit mode: always proceed to the form, even if this student has no
+    // class/section assigned yet (currentClassId/currentSectionId == null).
+    // The user can still assign one later via the "Change" banner.
+    if (widget.isEdit || _pickedClassId != null) _selectionDone = true;
 
-    _selGender         = s.gender;
-    _dobCtrl.text      = s.dob ?? '';
-    _eduNoCtrl.text    = s.educationNumber ?? '';
-    _motherCtrl.text   = s.motherName ?? '';
-    _fatherCtrl.text   = s.fatherName ?? '';
+    _selGender = s.gender;
+    // FIX: convert ISO dates → DD/MM/YYYY for display in date fields
+    _dobCtrl.text = _fromIsoDate(s.dob) ?? '';
+    _eduNoCtrl.text = s.educationNumber ?? '';
+    _motherCtrl.text = s.motherName ?? '';
+    _fatherCtrl.text = s.fatherName ?? '';
     _guardianCtrl.text = s.guardianName ?? '';
-    _aadhaarNoCtrl.text   = s.aadhaarNumber ?? '';
+    _aadhaarNoCtrl.text = s.aadhaarNumber ?? '';
     _aadhaarNameCtrl.text = s.aadhaarName ?? '';
-    _addressCtrl.text  = s.address ?? '';
-    _pincodeCtrl.text  = s.pincode ?? '';
-    _mobileCtrl.text   = s.mobileNumber ?? '';
+    _addressCtrl.text = s.address ?? '';
+    _pincodeCtrl.text = s.pincode ?? '';
+    _mobileCtrl.text = s.mobileNumber ?? '';
     _altMobileCtrl.text = s.alternateMobile ?? '';
-    _emailCtrl.text    = s.email ?? '';
+    _emailCtrl.text = s.email ?? '';
     _motherTongueCtrl.text = s.motherTongue ?? '';
-    _selSocialCat      = s.socialCategory;
+    _selSocialCat = s.socialCategory;
     _minorityCtrl.text = s.minorityGroup ?? '';
-    _selBpl            = s.bpl;
-    _selAay            = s.aay;
-    _selEws            = s.ews;
-    _selCwsn           = s.cwsn;
+    _selBpl = s.bpl;
+    _selAay = s.aay;
+    _selEws = s.ews;
+    _selCwsn = s.cwsn;
     _impairmentsCtrl.text = s.impairments ?? '';
-    _selIndian         = s.indian;
-    _selOos            = s.outOfSchool;
-    _mainstreamedDateCtrl.text = s.mainstreamedDate ?? '';
-    _selDisCert        = s.disabilityCert;
+    _selIndian = s.indian;
+    _selOos = s.outOfSchool;
+    _mainstreamedDateCtrl.text = _fromIsoDate(s.mainstreamedDate) ?? '';
+    _selDisCert = s.disabilityCert;
     _disabilityPctCtrl.text = s.disabilityPercent ?? '';
-    _selBlood          = s.bloodGroup;
+    _selBlood = s.bloodGroup;
 
     _facilitiesCtrl.text = s.facilitiesProvided ?? '';
-    _facCwsnCtrl.text    = s.facilitiesForCWSN ?? '';
-    _selSLD              = s.screenedForSLD;
-    _sldTypeCtrl.text    = s.sldType ?? '';
-    _selASD              = s.screenedForASD;
-    _selADHD             = s.screenedForADHD;
-    _selGifted           = s.isGiftedOrTalented;
-    _selCompetitions     = s.participatedInCompetitions;
+    _facCwsnCtrl.text = s.facilitiesForCWSN ?? '';
+    _selSLD = s.screenedForSLD;
+    _sldTypeCtrl.text = s.sldType ?? '';
+    _selASD = s.screenedForASD;
+    _selADHD = s.screenedForADHD;
+    _selGifted = s.isGiftedOrTalented;
+    _selCompetitions = s.participatedInCompetitions;
     _activitiesCtrl.text = s.participatedInActivities ?? '';
-    _selDigital          = s.canHandleDigitalDevices;
-    _heightCtrl.text     = s.heightInCm ?? '';
-    _weightCtrl.text     = s.weightInKg ?? '';
-    _distanceCtrl.text   = s.distanceToSchool ?? '';
-    _parentEduCtrl.text  = s.parentEducationLevel ?? '';
+    _selDigital = s.canHandleDigitalDevices;
+    _heightCtrl.text = s.heightInCm ?? '';
+    _weightCtrl.text = s.weightInKg ?? '';
+    _distanceCtrl.text = s.distanceToSchool ?? '';
+    _parentEduCtrl.text = s.parentEducationLevel ?? '';
 
-    _admNoCtrl.text      = s.admissionNumber ?? '';
-    _admDateCtrl.text    = s.admissionDate ?? '';
-    _rollNoCtrl.text     = s.rollNumber ?? '';
-    _selMedium           = s.mediumOfInstruction;
-    _languagesCtrl.text  = s.languagesStudied ?? '';
-    _selStream           = s.academicStream;
-    _subjectsCtrl.text   = s.subjectsStudied ?? '';
-    _selPrevStatus       = s.statusInPreviousYear;
-    _gradeLastCtrl.text  = s.gradeStudiedLastYear ?? '';
-    _enrolledCtrl.text   = s.enrolledUnder ?? '';
-    _selPrevResult       = s.previousResult;
-    _marksPctCtrl.text   = s.marksObtainedPercentage ?? '';
-    _daysCtrl.text       = s.daysAttendedLastYear ?? '';
+    _admNoCtrl.text = s.admissionNumber ?? '';
+    _admDateCtrl.text = _fromIsoDate(s.admissionDate) ?? '';
+    _rollNoCtrl.text = s.rollNumber ?? '';
+    _selMedium = s.mediumOfInstruction;
+    _languagesCtrl.text = s.languagesStudied ?? '';
+    _selStream = s.academicStream;
+    _subjectsCtrl.text = s.subjectsStudied ?? '';
+    _selPrevStatus = s.statusInPreviousYear;
+    _gradeLastCtrl.text = s.gradeStudiedLastYear ?? '';
+    _enrolledCtrl.text = s.enrolledUnder ?? '';
+    _selPrevResult = s.previousResult;
+    _marksPctCtrl.text = s.marksObtainedPercentage ?? '';
+    _daysCtrl.text = s.daysAttendedLastYear ?? '';
 
     setState(() {});
   }
@@ -396,20 +572,52 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     _fadeCtrl.dispose();
     _pageCtrl.dispose();
     for (final c in [
-      _nameCtrl, _srIdCtrl, _dobCtrl, _eduNoCtrl, _motherCtrl, _fatherCtrl,
-      _guardianCtrl, _aadhaarNoCtrl, _aadhaarNameCtrl, _addressCtrl,
-      _pincodeCtrl, _mobileCtrl, _altMobileCtrl, _emailCtrl, _motherTongueCtrl,
-      _minorityCtrl, _impairmentsCtrl, _mainstreamedDateCtrl, _disabilityPctCtrl,
-      _heightCtrl, _weightCtrl, _distanceCtrl, _sldTypeCtrl, _activitiesCtrl,
-      _parentEduCtrl, _facilitiesCtrl, _facCwsnCtrl, _admNoCtrl, _admDateCtrl,
-      _rollNoCtrl, _languagesCtrl, _subjectsCtrl, _enrolledCtrl, _gradeLastCtrl,
-      _marksPctCtrl, _daysCtrl,
-    ]) { c.dispose(); }
+      _nameCtrl,
+      _srIdCtrl,
+      _dobCtrl,
+      _eduNoCtrl,
+      _motherCtrl,
+      _fatherCtrl,
+      _guardianCtrl,
+      _aadhaarNoCtrl,
+      _aadhaarNameCtrl,
+      _addressCtrl,
+      _pincodeCtrl,
+      _mobileCtrl,
+      _altMobileCtrl,
+      _emailCtrl,
+      _motherTongueCtrl,
+      _minorityCtrl,
+      _impairmentsCtrl,
+      _mainstreamedDateCtrl,
+      _disabilityPctCtrl,
+      _heightCtrl,
+      _weightCtrl,
+      _distanceCtrl,
+      _sldTypeCtrl,
+      _activitiesCtrl,
+      _parentEduCtrl,
+      _facilitiesCtrl,
+      _facCwsnCtrl,
+      _admNoCtrl,
+      _admDateCtrl,
+      _rollNoCtrl,
+      _languagesCtrl,
+      _subjectsCtrl,
+      _enrolledCtrl,
+      _gradeLastCtrl,
+      _marksPctCtrl,
+      _daysCtrl,
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   void _showClassSectionPicker() {
-    if (_isCorrespondent && _school.selectedSchool.value == null && widget.schoolId == null) {
+    if (_isCorrespondent &&
+        _school.selectedSchool.value == null &&
+        widget.schoolId == null) {
       Get.snackbar('No School Selected',
           'Please select a school from the sidebar first.',
           snackPosition: SnackPosition.BOTTOM,
@@ -421,9 +629,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
     if (_pickedClassId != null && _school.sections.isEmpty) {
       _school.getAllSections(
-        classId: _pickedClassId,
-        schoolId: _resolvedSchoolId,
-      );
+          classId: _pickedClassId, schoolId: _resolvedSchoolId);
     }
 
     Get.bottomSheet(
@@ -431,17 +637,17 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         schoolController: _school,
         resolvedSchoolId: _resolvedSchoolId,
         isEdit: widget.isEdit,
-        initialClassId:     _pickedClassId,
-        initialClassName:   _pickedClassName,
-        initialSectionId:   _pickedSectionId,
+        initialClassId: _pickedClassId,
+        initialClassName: _pickedClassName,
+        initialSectionId: _pickedSectionId,
         initialSectionName: _pickedSectionName,
         onConfirm: (classId, className, sectionId, sectionName) {
           setState(() {
-            _pickedClassId     = classId;
-            _pickedClassName   = className;
-            _pickedSectionId   = sectionId;
+            _pickedClassId = classId;
+            _pickedClassName = className;
+            _pickedSectionId = sectionId;
             _pickedSectionName = sectionName;
-            _selectionDone     = true;
+            _selectionDone = true;
           });
         },
       ),
@@ -453,11 +659,16 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
   bool _validateCurrentStep() {
     switch (_currentPage) {
-      case 0: return _basicKey.currentState?.validate() ?? false;
-      case 1: return _mandatoryKey.currentState?.validate() ?? false;
-      case 2: return _additionalKey.currentState?.validate() ?? false;
-      case 3: return _enrollmentKey.currentState?.validate() ?? false;
-      default: return true;
+      case 0:
+        return _basicKey.currentState?.validate() ?? false;
+      case 1:
+        return _mandatoryKey.currentState?.validate() ?? false;
+      case 2:
+        return _additionalKey.currentState?.validate() ?? false;
+      case 3:
+        return _enrollmentKey.currentState?.validate() ?? false;
+      default:
+        return true;
     }
   }
 
@@ -481,36 +692,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           curve: Curves.easeInOutCubic);
     }
   }
-  void _handleResponse(dynamic data, {bool isEdit = false}) {
-    if (data is Map && data['ok'] == true) {
-      final studentId = data['data']?['_id']?.toString()      // ← adjust to your API response shape
-          ?? data['student']?['id']?.toString();
 
-      // Upload files if any were selected
-      if (studentId != null && workPhotoFiles.isNotEmpty) {
-        controller.uploadStudentFiles(
-          studentId: studentId,
-          selectedFiles: workPhotoFiles,
-        );
-      }
-
-      final action = isEdit ? 'Updated' : 'Created';
-      Get.snackbar(
-        '✅ Student $action',
-        'Profile for ${_nameCtrl.text.trim()} has been $action successfully!',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFF2E7D32),
-        colorText: Colors.white,
-        borderRadius: 12,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 4),
-      );
-      Future.delayed(const Duration(seconds: 3), () => Get.back(result: true));
-    } else {
-      _showError((data is Map ? data['message']?.toString() : null)
-          ?? 'Failed to ${isEdit ? 'update' : 'create'} student.');
-    }
-  }
   Future<void> _pickImage() async {
     final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -544,75 +726,127 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
   StudentPayload _buildPayload() {
     final mandatory = MandatoryDetails()
-      ..gender           = _selGender
-      ..dob              = _t(_dobCtrl)
-      ..educationNumber  = _t(_eduNoCtrl)
-      ..motherName       = _t(_motherCtrl)
-      ..fatherName       = _t(_fatherCtrl)
-      ..guardianName     = _t(_guardianCtrl)
-      ..aadhaarNumber    = _t(_aadhaarNoCtrl)
-      ..aadhaarName      = _t(_aadhaarNameCtrl)
-      ..address          = _t(_addressCtrl)
-      ..pincode          = _t(_pincodeCtrl)
-      ..mobileNumber     = _t(_mobileCtrl)
-      ..alternateMobile  = _t(_altMobileCtrl)
-      ..email            = _t(_emailCtrl)
-      ..motherTongue     = _t(_motherTongueCtrl)
-      ..socialCategory   = _selSocialCat
-      ..minorityGroup    = _t(_minorityCtrl)
-      ..bpl              = _selBpl
-      ..aay              = _selAay
-      ..ews              = _selEws
-      ..cwsn             = _selCwsn
-      ..impairments      = _t(_impairmentsCtrl)
-      ..indian           = _selIndian
-      ..outOfSchool      = _selOos
+      ..gender = _selGender
+      ..dob = _t(_dobCtrl)
+      ..educationNumber = _t(_eduNoCtrl)
+      ..motherName = _t(_motherCtrl)
+      ..fatherName = _t(_fatherCtrl)
+      ..guardianName = _t(_guardianCtrl)
+      ..aadhaarNumber = _t(_aadhaarNoCtrl)
+      ..aadhaarName = _t(_aadhaarNameCtrl)
+      ..address = _t(_addressCtrl)
+      ..pincode = _t(_pincodeCtrl)
+      ..mobileNumber = _t(_mobileCtrl)
+      ..alternateMobile = _t(_altMobileCtrl)
+      ..email = _t(_emailCtrl)
+      ..motherTongue = _t(_motherTongueCtrl)
+      ..socialCategory = _selSocialCat
+      ..minorityGroup = _t(_minorityCtrl)
+      ..bpl = _selBpl
+      ..aay = _selAay
+      ..ews = _selEws
+      ..cwsn = _selCwsn
+      ..impairments = _t(_impairmentsCtrl)
+      ..indian = _selIndian
+      ..outOfSchool = _selOos
       ..mainstreamedDate = _t(_mainstreamedDateCtrl)
-      ..disabilityCert   = _selDisCert
+      ..disabilityCert = _selDisCert
       ..disabilityPercent = _t(_disabilityPctCtrl)
-      ..bloodGroup       = _selBlood;
+      ..bloodGroup = _selBlood;
 
     final nonMandatory = NonMandatoryDetails()
-      ..facilitiesProvided         = _t(_facilitiesCtrl)
-      ..facilitiesForCWSN          = _t(_facCwsnCtrl)
-      ..screenedForSLD             = _selSLD
-      ..sldType                    = _t(_sldTypeCtrl)
-      ..screenedForASD             = _selASD
-      ..screenedForADHD            = _selADHD
-      ..isGiftedOrTalented         = _selGifted
+      ..facilitiesProvided = _t(_facilitiesCtrl)
+      ..facilitiesForCWSN = _t(_facCwsnCtrl)
+      ..screenedForSLD = _selSLD
+      ..sldType = _t(_sldTypeCtrl)
+      ..screenedForASD = _selASD
+      ..screenedForADHD = _selADHD
+      ..isGiftedOrTalented = _selGifted
       ..participatedInCompetitions = _selCompetitions
-      ..participatedInActivities   = _t(_activitiesCtrl)
-      ..canHandleDigitalDevices    = _selDigital
-      ..heightInCm                 = _t(_heightCtrl)
-      ..weightInKg                 = _t(_weightCtrl)
-      ..distanceToSchool           = _t(_distanceCtrl)
-      ..parentEducationLevel       = _t(_parentEduCtrl)
-      ..admissionNumber            = _t(_admNoCtrl)
-      ..admissionDate              = _t(_admDateCtrl)
-      ..rollNumber                 = _t(_rollNoCtrl)
-      ..mediumOfInstruction        = _selMedium
-      ..languagesStudied           = _t(_languagesCtrl)
-      ..academicStream             = _selStream
-      ..subjectsStudied            = _t(_subjectsCtrl)
-      ..statusInPreviousYear       = _selPrevStatus
-      ..gradeStudiedLastYear       = _t(_gradeLastCtrl)
-      ..enrolledUnder              = _t(_enrolledCtrl)
-      ..previousResult             = _selPrevResult
-      ..marksObtainedPercentage    = _t(_marksPctCtrl)
-      ..daysAttendedLastYear       = _t(_daysCtrl);
+      ..participatedInActivities = _t(_activitiesCtrl)
+      ..canHandleDigitalDevices = _selDigital
+      ..heightInCm = _t(_heightCtrl)
+      ..weightInKg = _t(_weightCtrl)
+      ..distanceToSchool = _t(_distanceCtrl)
+      ..parentEducationLevel = _t(_parentEduCtrl)
+      ..admissionNumber = _t(_admNoCtrl)
+      ..admissionDate = _t(_admDateCtrl)
+      ..rollNumber = _t(_rollNoCtrl)
+      ..mediumOfInstruction = _selMedium
+      ..languagesStudied = _t(_languagesCtrl)
+      ..academicStream = _selStream
+      ..subjectsStudied = _t(_subjectsCtrl)
+      ..statusInPreviousYear = _selPrevStatus
+      ..gradeStudiedLastYear = _t(_gradeLastCtrl)
+      ..enrolledUnder = _t(_enrolledCtrl)
+      ..previousResult = _selPrevResult
+      ..marksObtainedPercentage = _t(_marksPctCtrl)
+      ..daysAttendedLastYear = _t(_daysCtrl);
 
     return StudentPayload(
-      schoolId:         _resolvedSchoolId!,
-      srId:             _t(_srIdCtrl),
-      studentName:      _nameCtrl.text.trim(),
-      currentClassId:   _pickedClassId,
+      schoolId: _resolvedSchoolId!,
+      srId: _t(_srIdCtrl),
+      studentName: _nameCtrl.text.trim(),
+      currentClassId: _pickedClassId,
       currentSectionId: _pickedSectionId,
-      isActive:         _isActive,
-      mandatory:        mandatory,
-      nonMandatory:     nonMandatory,
+      isActive: _isActive,
+      mandatory: mandatory,
+      nonMandatory: nonMandatory,
     );
   }
 
+  // ── Separate file upload ───────────────────────────────────────────────────
+  //
+  // POST /api/student/v1/upload-files/:studentId
+  // Field name : 'files'  (multipart, multiple allowed)
+  // Auth header: x-school-id  ← was missing, caused 403/404
+  // Called AFTER the student record is successfully created / updated.
+  // ──────────────────────────────────────────────────────────────────────────
+  Future<void> _uploadFilesToStudent(
+      String studentId, String schoolId) async {
+    if (workPhotoFiles.isEmpty) return;
+    final apiService = Get.find<ApiService>();
+
+    final formData = dio.FormData();
+    for (final wf in workPhotoFiles) {
+      if (wf.path != null) {
+        formData.files.add(MapEntry(
+          'files',
+          await dio.MultipartFile.fromFile(wf.path!, filename: wf.name),
+        ));
+      } else if (wf.bytes != null) {
+        formData.files.add(MapEntry(
+          'files',
+          dio.MultipartFile.fromBytes(wf.bytes!, filename: wf.name),
+        ));
+      }
+    }
+
+    debugPrint('[STUDENT UPLOAD] POST ${ApiConstants.uploadStudentFiles}/$studentId '
+        '(${workPhotoFiles.length} file(s))');
+
+    final resp = await apiService.dio.post(
+      '${ApiConstants.uploadStudentFiles}/$studentId',
+      data: formData,
+      options: dio.Options(headers: {'x-school-id': schoolId}), // ← required
+    );
+
+    debugPrint(
+        '[STUDENT UPLOAD] status=${resp.statusCode} ok=${resp.data['ok']}');
+
+    if (resp.data['ok'] != true) {
+      throw Exception('File upload failed: ${resp.data['message']}');
+    }
+  }
+
+  // ── Main submit ────────────────────────────────────────────────────────────
+  //
+  // mandatory/nonMandatory → JSON-encoded strings (server calls JSON.parse())
+  // 'file'  field           → profile photo, sent with the main create/update
+  // 'files' field           → work-photo files, sent to the SEPARATE endpoint
+  //                           /api/student/v1/upload-files/:studentId AFTER
+  //                           the student record is saved.
+  // ──────────────────────────────────────────────────────────────────────────
   Future<void> _submit() async {
     final schoolId = _resolvedSchoolId;
     if (schoolId == null || schoolId.isEmpty) {
@@ -626,129 +860,156 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
     try {
       final apiService = Get.find<ApiService>();
-      final payload    = _buildPayload();
+      final payload = _buildPayload();
 
-      final mandatoryJson    = jsonEncode(
-          _stripNulls(payload.mandatory.toJson()).isEmpty
-              ? <String, dynamic>{}
-              : _stripNulls(payload.mandatory.toJson()));
-      final nonMandatoryJson = jsonEncode(
-          _stripNulls(payload.nonMandatory.toJson()).isEmpty
-              ? <String, dynamic>{}
-              : _stripNulls(payload.nonMandatory.toJson()));
+      final mandatoryMap = _stripNulls(payload.mandatory.toJson());
+      final nonMandatoryMap = _stripNulls(payload.nonMandatory.toJson());
 
-      if (_resolvedIsEdit ) {
-        final studentId = _resolvedStudent!.id;
+      // Convert date fields UI (DD/MM/YYYY) → server (YYYY-MM-DD)
+      if (mandatoryMap['dob'] != null) {
+        mandatoryMap['dob'] = _isoDate(mandatoryMap['dob'] as String);
+      }
+      if (mandatoryMap['mainstreamedDate'] != null) {
+        mandatoryMap['mainstreamedDate'] =
+            _isoDate(mandatoryMap['mainstreamedDate'] as String);
+      }
+      if (nonMandatoryMap['admissionDate'] != null) {
+        nonMandatoryMap['admissionDate'] =
+            _isoDate(nonMandatoryMap['admissionDate'] as String);
+      }
 
-        if (_pickedImage != null) {
-          final formData = dio.FormData.fromMap({
-            'schoolId': schoolId,
-            if (payload.srId != null) 'srId': payload.srId,
-            'studentName': payload.studentName,
-            if (payload.currentClassId != null)
-              'currentClassId': payload.currentClassId,
-            if (payload.currentSectionId != null)
-              'currentSectionId': payload.currentSectionId,
-            'isActive': payload.isActive.toString(),
-            'mandatory':    mandatoryJson,
-            'nonMandatory': nonMandatoryJson,
-            'studentImage': await dio.MultipartFile.fromFile(
-              _pickedImage!.path,
-              filename: 'student_image.${_pickedImage!.path.split('.').last}',
-            ),
-          });
-          final res = await apiService.dio.put(
-            '${ApiConstants.updateStudent}/$studentId',
-            data: formData,
-            options: dio.Options(headers: {'x-school-id': schoolId}),
-          );
-          if (!mounted) return;
-          _handleResponse(res.data, isEdit: true);
-        } else {
-          final res = await apiService.dio.put(
-            '${ApiConstants.updateStudent}/$studentId',
-            data: {
-              'schoolId':     schoolId,
-              if (payload.srId != null) 'srId': payload.srId,
-              'studentName':  payload.studentName,
-              if (payload.currentClassId != null)
-                'currentClassId': payload.currentClassId,
-              if (payload.currentSectionId != null)
-                'currentSectionId': payload.currentSectionId,
-              'isActive':     payload.isActive,
-              'mandatory':    mandatoryJson,
-              'nonMandatory': nonMandatoryJson,
-            },
-            options: dio.Options(headers: {
-              'x-school-id':  schoolId,
-              'Content-Type': 'application/json',
-            }),
-          );
-          if (!mounted) return;
-          _handleResponse(res.data, isEdit: true);
-        }
+      debugPrint('[STUDENT ${widget.isEdit ? "UPDATE" : "CREATE"}] '
+          'name=${payload.studentName} classId=${payload.currentClassId}');
+
+      // Build flat FormData — mandatory & nonMandatory are JSON strings so the
+      // server can call JSON.parse() on them directly (no bracket notation).
+      final formData = dio.FormData.fromMap({
+        if (!widget.isEdit) 'schoolId': schoolId,
+        if (!widget.isEdit && payload.srId != null) 'srId': payload.srId,
+        'studentName': payload.studentName,
+        if (payload.currentClassId != null)
+          'currentClassId': payload.currentClassId,
+        if (payload.currentSectionId != null)
+          'currentSectionId': payload.currentSectionId,
+        'isActive': payload.isActive.toString(),
+        'mandatory': jsonEncode(mandatoryMap),       // ← JSON string
+        'nonMandatory': jsonEncode(nonMandatoryMap), // ← JSON string
+      });
+
+      // Profile photo only — sent with the main create/update request.
+      if (_pickedImage != null) {
+        formData.files.add(MapEntry(
+          'file',
+          await dio.MultipartFile.fromFile(
+            _pickedImage!.path,
+            filename:
+            'student_image.${_pickedImage!.path.split('.').last}',
+          ),
+        ));
+      }
+
+      // (work-photo files are uploaded separately after save — see below)
+
+      // Debug: log every field
+      debugPrint('[STUDENT PAYLOAD FIELDS]');
+      for (final f in formData.fields) {
+        debugPrint('  ${f.key} = ${f.value}');
+      }
+      for (final f in formData.files) {
+        debugPrint('  ${f.key} = <binary: ${f.value.filename}>');
+      }
+
+      Map<String, dynamic>? responseData;
+
+      if (widget.isEdit) {
+        final studentId = widget.student!.id!;
+        debugPrint(
+            '[STUDENT UPDATE] PUT ${ApiConstants.updateStudent}/$studentId');
+        final res = await apiService.dio.put(
+          '${ApiConstants.updateStudent}/$studentId',
+          data: formData,
+          options: dio.Options(headers: {'x-school-id': schoolId}),
+        );
+        debugPrint(
+            '[STUDENT UPDATE] status=${res.statusCode} ok=${res.data['ok']}');
+        responseData = res.data as Map<String, dynamic>?;
       } else {
-        if (_pickedImage != null) {
-          final formData = dio.FormData.fromMap({
-            'schoolId': schoolId,
-            if (payload.srId != null) 'srId': payload.srId,
-            'studentName': payload.studentName,
-            if (payload.currentClassId != null)
-              'currentClassId': payload.currentClassId,
-            if (payload.currentSectionId != null)
-              'currentSectionId': payload.currentSectionId,
-            'isActive': payload.isActive.toString(),
-            'mandatory':    mandatoryJson,
-            'nonMandatory': nonMandatoryJson,
-            'studentImage': await dio.MultipartFile.fromFile(
-              _pickedImage!.path,
-              filename: 'student_image.${_pickedImage!.path.split('.').last}',
-            ),
-          });
-          final res = await apiService.dio.post(
-            ApiConstants.createStudent,
-            data: formData,
-            options: dio.Options(headers: {'x-school-id': schoolId}),
-          );
-          if (!mounted) return;
-          _handleResponse(res.data);
-        } else {
-          final res = await apiService.dio.post(
-            ApiConstants.createStudent,
-            data: {
-              'schoolId':     schoolId,
-              if (payload.srId != null) 'srId': payload.srId,
-              'studentName':  payload.studentName,
-              if (payload.currentClassId != null)
-                'currentClassId': payload.currentClassId,
-              if (payload.currentSectionId != null)
-                'currentSectionId': payload.currentSectionId,
-              'isActive':     payload.isActive,
-              'mandatory':    mandatoryJson,
-              'nonMandatory': nonMandatoryJson,
-            },
-            options: dio.Options(headers: {
-              'x-school-id':  schoolId,
-              'Content-Type': 'application/json',
-            }),
-          );
-          if (!mounted) return;
-          _handleResponse(res.data);
+        debugPrint('[STUDENT CREATE] POST ${ApiConstants.createStudent}');
+        final res = await apiService.dio.post(
+          ApiConstants.createStudent,
+          data: formData,
+          options: dio.Options(headers: {'x-school-id': schoolId}),
+        );
+        debugPrint(
+            '[STUDENT CREATE] status=${res.statusCode} ok=${res.data['ok']}');
+        responseData = res.data as Map<String, dynamic>?;
+      }
+
+      if (!mounted) return;
+
+      if (responseData?['ok'] == true) {
+        final studentId = responseData?['data']?['_id']?.toString() ??
+            responseData?['student']?['_id']?.toString();
+        debugPrint('[STUDENT SUCCESS] studentId=$studentId');
+
+        // Upload work-photo files via the dedicated endpoint AFTER save.
+        if (studentId != null && workPhotoFiles.isNotEmpty) {
+          debugPrint(
+              '[STUDENT] Uploading ${workPhotoFiles.length} work photo(s)…');
+          try {
+            await _uploadFilesToStudent(studentId, schoolId);
+            debugPrint('[STUDENT] File upload complete');
+          } catch (e) {
+            debugPrint('[STUDENT] File upload failed (non-critical): $e');
+            // Non-fatal: student was saved; notify but don't block nav.
+            Get.snackbar('Upload Warning',
+                'Student saved, but file upload failed: $e',
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: const Color(0xFFF57C00),
+                colorText: Colors.white,
+                duration: const Duration(seconds: 4));
+          }
         }
+
+        final action = widget.isEdit ? 'Updated' : 'Created';
+        Get.snackbar(
+          '✅ Student $action',
+          'Profile for ${_nameCtrl.text.trim()} has been $action successfully!',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: const Color(0xFF2E7D32),
+          colorText: Colors.white,
+          borderRadius: 12,
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) Get.back(result: true);
+        });
+      } else {
+        final msg = responseData?['message']?.toString() ??
+            'Failed to ${widget.isEdit ? 'update' : 'create'} student.';
+        debugPrint('[STUDENT ERROR] $msg');
+        _showError(msg);
       }
     } on dio.DioException catch (e) {
       if (!mounted) return;
-      _showError(e.response?.data?['message']?.toString()
-          ?? e.message ?? 'Request failed');
-    } catch (e) {
+      debugPrint(
+          '[STUDENT DioException] ${e.response?.statusCode}: ${e.response?.data}');
+      _showError(
+        (e.response?.data is Map
+            ? e.response!.data['message']?.toString()
+            : null) ??
+            e.message ??
+            'Request failed',
+      );
+    } catch (e, st) {
       if (!mounted) return;
+      debugPrint('[STUDENT CATCH] $e\n$st');
       _showError(e.toString());
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
-
-
 
   void _showError(String message) {
     Get.snackbar('Error', message,
@@ -806,14 +1067,15 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-              _resolvedIsEdit  ? 'Edit Student Profile' : 'Create Student Profile',
-              style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w700,
-                color: Colors.white,
-              )),
+            widget.isEdit ? 'Edit Student Profile' : 'Create Student Profile',
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white),
+          ),
           if (_selectionDone)
             Text(
-              '$_pickedClassName${_pickedSectionName != null ? "  ·  Section $_pickedSectionName" : ""}'
+              '${_classSectionLabel()}'
                   '${_isCorrespondent ? "  ·  ${_school.selectedSchool.value?.name ?? ''}" : ""}',
               style: TextStyle(
                   fontSize: 11,
@@ -840,10 +1102,13 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.class_outlined, size: 13, color: Colors.white),
             const SizedBox(width: 5),
-            Text('$_pickedClassName${_pickedSectionName != null ? "  ·  Sec $_pickedSectionName" : ""}',
-                style: const TextStyle(
-                    fontSize: 12, color: Colors.white,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              _classSectionLabel(compact: true),
+              style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600),
+            ),
           ]),
         ),
         const Spacer(),
@@ -859,7 +1124,9 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               Icon(Icons.edit_rounded, size: 12, color: Colors.white),
               SizedBox(width: 4),
               Text('Change',
-                  style: TextStyle(fontSize: 12, color: Colors.white,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
                       fontWeight: FontWeight.w500)),
             ]),
           ),
@@ -887,7 +1154,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         ),
         child: Row(
           children: List.generate(_stepLabels.length, (i) {
-            final done   = i < _currentPage;
+            final done = i < _currentPage;
             final active = i == _currentPage;
             return Expanded(
               child: Row(children: [
@@ -904,7 +1171,9 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                       height: 2,
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: done ? _AppColors.primary : _AppColors.border,
+                        color: done
+                            ? _AppColors.primary
+                            : _AppColors.border,
                         borderRadius: BorderRadius.circular(1),
                       ),
                     ),
@@ -940,7 +1209,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             Expanded(
               child: _NavButton(
                 label: isLast
-                    ? (_resolvedIsEdit  ? 'Update Student' : 'Create Student')
+                    ? (widget.isEdit ? 'Update Student' : 'Create Student')
                     : 'Next Step',
                 icon: isLast
                     ? Icons.check_circle_outline_rounded
@@ -964,7 +1233,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
-              width: 80, height: 80,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 color: _AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(20),
@@ -975,15 +1245,17 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             const SizedBox(height: 20),
             const Text('Select Class & Section',
                 style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w700,
-                  color: _AppColors.textPrimary,
-                )),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: _AppColors.textPrimary)),
             const SizedBox(height: 8),
             const Text(
               'Choose where this student will be enrolled before filling out the profile.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 14, color: _AppColors.textSecondary, height: 1.5),
+                  fontSize: 14,
+                  color: _AppColors.textSecondary,
+                  height: 1.5),
             ),
             const SizedBox(height: 28),
             SizedBox(
@@ -1010,37 +1282,55 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     );
   }
 
+  // ── Pages ──────────────────────────────────────────────────────────────────
+
   Widget _buildBasicPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: Form(
         key: _basicKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _FormCard(
             child: Column(children: [
               GestureDetector(
                 onTap: _pickImage,
                 child: Stack(alignment: Alignment.bottomRight, children: [
                   Container(
-                    width: 96, height: 96,
+                    width: 96,
+                    height: 96,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _AppColors.primaryLight,
                       border: Border.all(
-                          color: _AppColors.primary.withOpacity(0.3), width: 2),
+                          color: _AppColors.primary.withOpacity(0.3),
+                          width: 2),
                       image: _pickedImage != null
                           ? DecorationImage(
                           image: FileImage(_pickedImage!),
                           fit: BoxFit.cover)
-                          : null,
+                          : (_existingImageUrl != null
+                          ? DecorationImage(
+                        image: NetworkImage(_existingImageUrl!),
+                        fit: BoxFit.cover,
+                        onError: (_, __) {
+                          // Broken/expired URL — fall back silently
+                          // to the placeholder icon.
+                          if (mounted) {
+                            setState(() => _existingImageUrl = null);
+                          }
+                        },
+                      )
+                          : null),
                     ),
-                    child: _pickedImage == null
+                    child: (_pickedImage == null && _existingImageUrl == null)
                         ? const Icon(Icons.person_rounded,
                         size: 44, color: _AppColors.primary)
                         : null,
                   ),
                   Container(
-                    width: 30, height: 30,
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
                       color: _AppColors.primary,
                       shape: BoxShape.circle,
@@ -1053,48 +1343,56 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               ),
               const SizedBox(height: 10),
               const Text('Tap to upload photo',
-                  style: TextStyle(fontSize: 12, color: _AppColors.textSecondary)),
+                  style: TextStyle(
+                      fontSize: 12, color: _AppColors.textSecondary)),
             ]),
           ),
-          const SizedBox(height:10),
-          _buildFileUploadSection(  'Photo of Work/Item',
-          'Upload photo of actual work done or item purchased (Optional)',
-          workPhotoFiles,
-          false,
-          false,),
+          const SizedBox(height: 10),
+          _buildFileUploadSection(
+            'Photo of Work/Item',
+            'Upload photo of actual work done or item purchased (Optional)',
+            workPhotoFiles,
+            false,
+            false,
+          ),
+          if (_documents.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildExistingDocumentsSection(),
+          ],
           const SizedBox(height: 16),
           _secHeader(Icons.person_outline_rounded, 'Basic Information'),
           const SizedBox(height: 12),
-
           _FormCard(
             child: Column(children: [
               _field(_nameCtrl, 'Student Name',
                   required: true,
                   icon: Icons.badge_outlined,
-                  validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Student name is required' : null),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Student name is required'
+                      : null),
               _divider(),
               _field(_srIdCtrl, 'SR ID',
                   hint: 'Auto-generated if left blank',
                   icon: Icons.tag_rounded),
             ]),
           ),
-
           const SizedBox(height: 16),
           _FormCard(
             child: Row(children: [
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Active Student',
                           style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600,
-                            color: _AppColors.textPrimary,
-                          )),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _AppColors.textPrimary)),
                       const SizedBox(height: 2),
                       const Text('Shows on class rosters',
                           style: TextStyle(
-                              fontSize: 12, color: _AppColors.textSecondary)),
+                              fontSize: 12,
+                              color: _AppColors.textSecondary)),
                     ]),
               ),
               Switch.adaptive(
@@ -1114,113 +1412,154 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: Form(
         key: _mandatoryKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _secHeader(Icons.family_restroom_rounded, 'Personal & Family'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            _dropRow('Gender', _selGender, _genders,
-                    (v) => setState(() => _selGender = v), Icons.wc_rounded),
-            _divider(),
-            _dateFieldRow(_dobCtrl, 'Date of Birth'),
-            _divider(),
-            _field(_motherCtrl, "Mother's Name", icon: Icons.person_2_outlined),
-            _divider(),
-            _field(_fatherCtrl, "Father's Name", icon: Icons.person_outlined),
-            _divider(),
-            _field(_guardianCtrl, "Guardian's Name", icon: Icons.supervisor_account_outlined),
-            _divider(),
-            _dropRow('Blood Group', _selBlood, _bloods,
-                    (v) => setState(() => _selBlood = v), Icons.bloodtype_outlined),
-          ])),
-
+          _FormCard(
+              child: Column(children: [
+                _dropRow('Gender', _selGender, _genders,
+                        (v) => setState(() => _selGender = v), Icons.wc_rounded,
+                    required: true),
+                _divider(),
+                _dateFieldRow(_dobCtrl, 'Date of Birth', required: true),
+                _divider(),
+                _field(_motherCtrl, "Mother's Name",
+                    icon: Icons.person_2_outlined, required: true),
+                _divider(),
+                _field(_fatherCtrl, "Father's Name",
+                    icon: Icons.person_outlined, required: true),
+                _divider(),
+                _field(_guardianCtrl, "Guardian's Name",
+                    icon: Icons.supervisor_account_outlined, required: true),
+                _divider(),
+                _dropRow('Blood Group', _selBlood, _bloods,
+                        (v) => setState(() => _selBlood = v),
+                    Icons.bloodtype_outlined,
+                    required: true),
+              ])),
           const SizedBox(height: 20),
           _secHeader(Icons.phone_outlined, 'Contact Details'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            _field(_mobileCtrl, 'Mobile Number',
-                keyboard: TextInputType.phone, icon: Icons.phone_rounded),
-            _divider(),
-            _field(_altMobileCtrl, 'Alternate Mobile',
-                keyboard: TextInputType.phone, icon: Icons.phone_callback_outlined),
-            _divider(),
-            _field(_emailCtrl, 'Email',
-                keyboard: TextInputType.emailAddress, icon: Icons.mail_outline_rounded),
-            _divider(),
-            _field(_motherTongueCtrl, 'Mother Tongue', icon: Icons.language_rounded),
-          ])),
-
+          _FormCard(
+              child: Column(children: [
+                _field(_mobileCtrl, 'Mobile Number',
+                    keyboard: TextInputType.phone,
+                    icon: Icons.phone_rounded,
+                    required: true),
+                _divider(),
+                _field(_altMobileCtrl, 'Alternate Mobile',
+                    keyboard: TextInputType.phone,
+                    icon: Icons.phone_callback_outlined,
+                    required: true),
+                _divider(),
+                _field(_emailCtrl, 'Email',
+                    keyboard: TextInputType.emailAddress,
+                    icon: Icons.mail_outline_rounded,
+                    required: true),
+                _divider(),
+                _field(_motherTongueCtrl, 'Mother Tongue',
+                    icon: Icons.language_rounded, required: true),
+              ])),
           const SizedBox(height: 20),
           _secHeader(Icons.location_on_outlined, 'Address & ID'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            _field(_addressCtrl, 'Address', maxLines: 3, icon: Icons.home_outlined),
-            _divider(),
-            _field(_pincodeCtrl, 'Pincode',
-                keyboard: TextInputType.number,
-                icon: Icons.pin_drop_outlined,
-                formatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(6),
-                ]),
-            _divider(),
-            _field(_eduNoCtrl, 'Education Number', icon: Icons.numbers_rounded),
-            _divider(),
-            _field(_aadhaarNoCtrl, 'Aadhaar Number',
-                keyboard: TextInputType.number,
-                icon: Icons.credit_card_outlined,
-                formatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(12),
-                ]),
-            _divider(),
-            _field(_aadhaarNameCtrl, 'Name on Aadhaar', icon: Icons.person_pin_outlined),
-          ])),
-
+          _FormCard(
+              child: Column(children: [
+                _field(_addressCtrl, 'Address',
+                    maxLines: 3, icon: Icons.home_outlined, required: true),
+                _divider(),
+                _field(_pincodeCtrl, 'Pincode',
+                    keyboard: TextInputType.number,
+                    icon: Icons.pin_drop_outlined,
+                    required: true,
+                    formatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ]),
+                _divider(),
+                _field(_eduNoCtrl, 'Education Number',
+                    icon: Icons.numbers_rounded, required: true),
+                _divider(),
+                _field(_aadhaarNoCtrl, 'Aadhaar Number',
+                    keyboard: TextInputType.number,
+                    icon: Icons.credit_card_outlined,
+                    required: true,
+                    formatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(12),
+                    ]),
+                _divider(),
+                _field(_aadhaarNameCtrl, 'Name on Aadhaar',
+                    icon: Icons.person_pin_outlined, required: true),
+              ])),
           const SizedBox(height: 20),
           _secHeader(Icons.checklist_rounded, 'Social & Welfare'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            _dropRow('Social Category', _selSocialCat, _socCats,
-                    (v) => setState(() => _selSocialCat = v), Icons.group_outlined),
-            _divider(),
-            _field(_minorityCtrl, 'Minority Group', icon: Icons.people_outline),
-            _divider(),
-            Row(children: [
-              Expanded(child: _dropCompact('BPL', _selBpl, _yesNo,
-                      (v) => setState(() => _selBpl = v))),
-              const SizedBox(width: 12),
-              Expanded(child: _dropCompact('AAY', _selAay, _yesNo,
-                      (v) => setState(() => _selAay = v))),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: _dropCompact('EWS', _selEws, _yesNo,
-                      (v) => setState(() => _selEws = v))),
-              const SizedBox(width: 12),
-              Expanded(child: _dropCompact('CWSN', _selCwsn, _yesNo,
-                      (v) => setState(() => _selCwsn = v))),
-            ]),
-            _divider(),
-            _field(_impairmentsCtrl, 'Impairments', icon: Icons.accessibility_new_outlined),
-            _divider(),
-            Row(children: [
-              Expanded(child: _dropCompact('Indian National', _selIndian,
-                  _yesNo, (v) => setState(() => _selIndian = v))),
-              const SizedBox(width: 12),
-              Expanded(child: _dropCompact('Out of School', _selOos,
-                  _yesNo, (v) => setState(() => _selOos = v))),
-            ]),
-            _divider(),
-            _dateFieldRow(_mainstreamedDateCtrl, 'Mainstreamed Date'),
-            _divider(),
-            Row(children: [
-              Expanded(child: _dropCompact('Disability Cert', _selDisCert,
-                  _yesNo, (v) => setState(() => _selDisCert = v))),
-              const SizedBox(width: 12),
-              Expanded(child: _field(_disabilityPctCtrl, 'Disability %',
-                  keyboard: TextInputType.number)),
-            ]),
-          ])),
+          _FormCard(
+              child: Column(children: [
+                _dropRow('Social Category', _selSocialCat, _socCats,
+                        (v) => setState(() => _selSocialCat = v),
+                    Icons.group_outlined,
+                    required: true),
+                _divider(),
+                _field(_minorityCtrl, 'Minority Group',
+                    icon: Icons.people_outline, required: true),
+                _divider(),
+                Row(children: [
+                  Expanded(
+                      child: _dropCompact('BPL', _selBpl, _yesNo,
+                              (v) => setState(() => _selBpl = v),
+                          required: true)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _dropCompact('AAY', _selAay, _yesNo,
+                              (v) => setState(() => _selAay = v),
+                          required: true)),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                      child: _dropCompact('EWS', _selEws, _yesNo,
+                              (v) => setState(() => _selEws = v),
+                          required: true)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _dropCompact('CWSN', _selCwsn, _yesNo,
+                              (v) => setState(() => _selCwsn = v),
+                          required: true)),
+                ]),
+                _divider(),
+                _field(_impairmentsCtrl, 'Impairments',
+                    icon: Icons.accessibility_new_outlined, required: true),
+                _divider(),
+                Row(children: [
+                  Expanded(
+                      child: _dropCompact('Indian National', _selIndian, _yesNo,
+                              (v) => setState(() => _selIndian = v),
+                          required: true)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _dropCompact('Out of School', _selOos, _yesNo,
+                              (v) => setState(() => _selOos = v),
+                          required: true)),
+                ]),
+                _divider(),
+                _dateFieldRow(_mainstreamedDateCtrl, 'Mainstreamed Date',
+                    required: true),
+                _divider(),
+                Row(children: [
+                  Expanded(
+                      child: _dropCompact(
+                          'Disability Cert', _selDisCert, _yesNo,
+                              (v) => setState(() => _selDisCert = v),
+                          required: true)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _field(_disabilityPctCtrl, 'Disability %',
+                          keyboard: TextInputType.number, required: true)),
+                ]),
+              ])),
         ]),
       ),
     );
@@ -1231,58 +1570,81 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: Form(
         key: _additionalKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _secHeader(Icons.monitor_heart_outlined, 'Health & Physical'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            Row(children: [
-              Expanded(child: _field(_heightCtrl, 'Height (cm)',
-                  keyboard: TextInputType.number, icon: Icons.height_rounded)),
-              const SizedBox(width: 12),
-              Expanded(child: _field(_weightCtrl, 'Weight (kg)',
-                  keyboard: TextInputType.number, icon: Icons.monitor_weight_outlined)),
-            ]),
-            _divider(),
-            _field(_distanceCtrl, 'Distance to School (km)',
-                icon: Icons.directions_walk_rounded),
-            _divider(),
-            _dropRow('Screened for SLD', _selSLD, _yesNo,
-                    (v) => setState(() => _selSLD = v), Icons.psychology_outlined),
-            _divider(),
-            _field(_sldTypeCtrl, 'SLD Type', icon: Icons.notes_rounded),
-            _divider(),
-            Row(children: [
-              Expanded(child: _dropCompact('ASD', _selASD, _yesNo,
-                      (v) => setState(() => _selASD = v))),
-              const SizedBox(width: 12),
-              Expanded(child: _dropCompact('ADHD', _selADHD, _yesNo,
-                      (v) => setState(() => _selADHD = v))),
-            ]),
-            _divider(),
-            _field(_facilitiesCtrl, 'Facilities Provided', icon: Icons.house_outlined),
-            _divider(),
-            _field(_facCwsnCtrl, 'Facilities for CWSN', icon: Icons.accessible_outlined),
-          ])),
-
+          _FormCard(
+              child: Column(children: [
+                Row(children: [
+                  Expanded(
+                      child: _field(_heightCtrl, 'Height (cm)',
+                          keyboard: TextInputType.number,
+                          icon: Icons.height_rounded)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _field(_weightCtrl, 'Weight (kg)',
+                          keyboard: TextInputType.number,
+                          icon: Icons.monitor_weight_outlined)),
+                ]),
+                _divider(),
+                _field(_distanceCtrl, 'Distance to School (km)',
+                    icon: Icons.directions_walk_rounded),
+                _divider(),
+                _dropRow('Screened for SLD', _selSLD, _yesNo,
+                        (v) => setState(() => _selSLD = v),
+                    Icons.psychology_outlined),
+                _divider(),
+                _field(_sldTypeCtrl, 'SLD Type', icon: Icons.notes_rounded),
+                _divider(),
+                Row(children: [
+                  Expanded(
+                      child: _dropCompact('ASD', _selASD, _yesNo,
+                              (v) => setState(() => _selASD = v))),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _dropCompact('ADHD', _selADHD, _yesNo,
+                              (v) => setState(() => _selADHD = v))),
+                ]),
+                _divider(),
+                _field(_facilitiesCtrl, 'Facilities Provided',
+                    icon: Icons.house_outlined),
+                _divider(),
+                _field(_facCwsnCtrl, 'Facilities for CWSN',
+                    icon: Icons.accessible_outlined),
+              ])),
           const SizedBox(height: 20),
           _secHeader(Icons.star_outline_rounded, 'Talents & Digital'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            _dropRow('Gifted / Talented', _selGifted, _yesNo,
-                    (v) => setState(() => _selGifted = v), Icons.emoji_events_outlined),
-            _divider(),
-            _dropRow('Participated in Competitions', _selCompetitions, _yesNo,
-                    (v) => setState(() => _selCompetitions = v), Icons.military_tech_outlined),
-            _divider(),
-            _field(_activitiesCtrl, 'Activities (sports, arts…)',
-                icon: Icons.sports_soccer_outlined),
-            _divider(),
-            _dropRow('Handles Digital Devices', _selDigital, _yesNo,
-                    (v) => setState(() => _selDigital = v), Icons.tablet_android_outlined),
-            _divider(),
-            _field(_parentEduCtrl, 'Parent Education Level',
-                icon: Icons.school_outlined),
-          ])),
+          _FormCard(
+              child: Column(children: [
+                _dropRow(
+                    'Gifted / Talented',
+                    _selGifted,
+                    _yesNo,
+                        (v) => setState(() => _selGifted = v),
+                    Icons.emoji_events_outlined),
+                _divider(),
+                _dropRow(
+                    'Participated in Competitions',
+                    _selCompetitions,
+                    _yesNo,
+                        (v) => setState(() => _selCompetitions = v),
+                    Icons.military_tech_outlined),
+                _divider(),
+                _field(_activitiesCtrl, 'Activities (sports, arts…)',
+                    icon: Icons.sports_soccer_outlined),
+                _divider(),
+                _dropRow(
+                    'Handles Digital Devices',
+                    _selDigital,
+                    _yesNo,
+                        (v) => setState(() => _selDigital = v),
+                    Icons.tablet_android_outlined),
+                _divider(),
+                _field(_parentEduCtrl, 'Parent Education Level',
+                    icon: Icons.school_outlined),
+              ])),
         ]),
       ),
     );
@@ -1293,82 +1655,104 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: Form(
         key: _enrollmentKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _secHeader(Icons.school_outlined, 'Enrollment Details'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            Row(children: [
-              Expanded(child: _field(_admNoCtrl, 'Admission No.',
-                  icon: Icons.tag_rounded)),
-              const SizedBox(width: 12),
-              Expanded(child: _dateFieldRow(_admDateCtrl, 'Admission Date')),
-            ]),
-            _divider(),
-            _field(_rollNoCtrl, 'Roll Number', icon: Icons.format_list_numbered_rounded),
-            _divider(),
-            _dropRow('Medium of Instruction', _selMedium, _mediums,
-                    (v) => setState(() => _selMedium = v), Icons.translate_rounded),
-            _divider(),
-            _field(_languagesCtrl, 'Languages Studied',
-                hint: 'e.g. English, Telugu', icon: Icons.language_rounded),
-            _divider(),
-            _dropRow('Academic Stream', _selStream, _streams,
-                    (v) => setState(() => _selStream = v), Icons.timeline_rounded),
-            _divider(),
-            _field(_subjectsCtrl, 'Subjects Studied',
-                hint: 'Comma-separated', icon: Icons.book_outlined),
-            _divider(),
-            _field(_enrolledCtrl, 'Enrolled Under', icon: Icons.assignment_outlined),
-          ])),
-
+          _FormCard(
+              child: Column(children: [
+                Row(children: [
+                  Expanded(
+                      child: _field(_admNoCtrl, 'Admission No.',
+                          icon: Icons.tag_rounded)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _dateFieldRow(_admDateCtrl, 'Admission Date')),
+                ]),
+                _divider(),
+                _field(_rollNoCtrl, 'Roll Number',
+                    icon: Icons.format_list_numbered_rounded),
+                _divider(),
+                _dropRow('Medium of Instruction', _selMedium, _mediums,
+                        (v) => setState(() => _selMedium = v),
+                    Icons.translate_rounded),
+                _divider(),
+                _field(_languagesCtrl, 'Languages Studied',
+                    hint: 'e.g. English, Telugu', icon: Icons.language_rounded),
+                _divider(),
+                _dropRow('Academic Stream', _selStream, _streams,
+                        (v) => setState(() => _selStream = v),
+                    Icons.timeline_rounded),
+                _divider(),
+                _field(_subjectsCtrl, 'Subjects Studied',
+                    hint: 'Comma-separated', icon: Icons.book_outlined),
+                _divider(),
+                _field(_enrolledCtrl, 'Enrolled Under',
+                    icon: Icons.assignment_outlined),
+              ])),
           const SizedBox(height: 20),
           _secHeader(Icons.history_rounded, 'Previous Academic Year'),
           const SizedBox(height: 12),
-          _FormCard(child: Column(children: [
-            _dropRow('Status in Previous Year', _selPrevStatus, _prevSts,
-                    (v) => setState(() => _selPrevStatus = v), Icons.grade_outlined),
-            _divider(),
-            _field(_gradeLastCtrl, 'Grade Last Year',
-                hint: 'e.g. Class 5', icon: Icons.class_outlined),
-            _divider(),
-            _dropRow('Previous Result', _selPrevResult, _prevRes,
-                    (v) => setState(() => _selPrevResult = v), Icons.fact_check_outlined),
-            _divider(),
-            Row(children: [
-              Expanded(child: _field(_marksPctCtrl, 'Marks %',
-                  keyboard: TextInputType.number, icon: Icons.percent_rounded)),
-              const SizedBox(width: 12),
-              Expanded(child: _field(_daysCtrl, 'Days Attended',
-                  keyboard: TextInputType.number, icon: Icons.calendar_today_rounded)),
-            ]),
-          ])),
+          _FormCard(
+              child: Column(children: [
+                _dropRow(
+                    'Status in Previous Year',
+                    _selPrevStatus,
+                    _prevSts,
+                        (v) => setState(() => _selPrevStatus = v),
+                    Icons.grade_outlined),
+                _divider(),
+                _field(_gradeLastCtrl, 'Grade Last Year',
+                    hint: 'e.g. Class 5', icon: Icons.class_outlined),
+                _divider(),
+                _dropRow(
+                    'Previous Result',
+                    _selPrevResult,
+                    _prevRes,
+                        (v) => setState(() => _selPrevResult = v),
+                    Icons.fact_check_outlined),
+                _divider(),
+                Row(children: [
+                  Expanded(
+                      child: _field(_marksPctCtrl, 'Marks %',
+                          keyboard: TextInputType.number,
+                          icon: Icons.percent_rounded)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _field(_daysCtrl, 'Days Attended',
+                          keyboard: TextInputType.number,
+                          icon: Icons.calendar_today_rounded)),
+                ]),
+              ])),
         ]),
       ),
     );
   }
 
+  // ── Small helpers ──────────────────────────────────────────────────────────
+
   Widget _secHeader(IconData icon, String title) => Padding(
     padding: const EdgeInsets.only(bottom: 0),
     child: Row(children: [
       Container(
-        width: 32, height: 32,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
-          color: _AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(8),
-        ),
+            color: _AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(8)),
         child: Icon(icon, size: 16, color: _AppColors.primary),
       ),
       const SizedBox(width: 10),
       Text(title,
           style: const TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w700,
-            color: _AppColors.textPrimary,
-          )),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _AppColors.textPrimary)),
     ]),
   );
 
-  Widget _divider() => const Divider(
-      height: 1, thickness: 0.5, color: _AppColors.border);
+  Widget _divider() =>
+      const Divider(height: 1, thickness: 0.5, color: _AppColors.border);
 
   Widget _field(
       TextEditingController ctrl,
@@ -1381,6 +1765,12 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         IconData? icon,
         bool required = false,
       }) {
+    final effectiveValidator = validator ??
+        (required
+            ? (String? v) =>
+        (v == null || v.trim().isEmpty) ? '$label is required' : null
+            : null);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: TextFormField(
@@ -1388,9 +1778,10 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         maxLines: maxLines,
         keyboardType: keyboard,
         inputFormatters: formatters,
-        validator: validator,
+        validator: effectiveValidator,
         style: const TextStyle(
-            fontSize: 14, color: _AppColors.textPrimary,
+            fontSize: 14,
+            color: _AppColors.textPrimary,
             fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           labelText: required ? '$label *' : label,
@@ -1400,66 +1791,84 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               : null,
           labelStyle: const TextStyle(
               fontSize: 13, color: _AppColors.textSecondary),
-          hintStyle: const TextStyle(
-              fontSize: 13, color: _AppColors.textHint),
+          hintStyle:
+          const TextStyle(fontSize: 13, color: _AppColors.textHint),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           errorBorder: InputBorder.none,
           focusedErrorBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 0, vertical: 12),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
           isDense: true,
         ),
       ),
     );
   }
 
-  Widget _dropRow(String label, String? value, List<String> items,
-      void Function(String?) onChanged, IconData icon) {
+  Widget _dropRow(
+      String label,
+      String? value,
+      List<String> items,
+      void Function(String?) onChanged,
+      IconData icon, {
+        bool required = false,
+      }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: DropdownButtonFormField<String>(
         value: value,
         isExpanded: true,
+        validator: required
+            ? (v) => (v == null || v.isEmpty) ? '$label is required' : null
+            : null,
         icon: const Icon(Icons.keyboard_arrow_down_rounded,
             color: _AppColors.textHint, size: 20),
         style: const TextStyle(
-            fontSize: 14, color: _AppColors.textPrimary,
+            fontSize: 14,
+            color: _AppColors.textPrimary,
             fontWeight: FontWeight.w500),
         decoration: InputDecoration(
-          labelText: label,
+          labelText: required ? '$label *' : label,
           prefixIcon: Icon(icon, size: 18, color: _AppColors.textHint),
           labelStyle: const TextStyle(
               fontSize: 13, color: _AppColors.textSecondary),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 0, vertical: 12),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
           isDense: true,
         ),
         items: items
             .map((e) => DropdownMenuItem(
-          value: e,
-          child: Text(e, style: const TextStyle(fontSize: 14)),
-        ))
+            value: e,
+            child: Text(e, style: const TextStyle(fontSize: 14))))
             .toList(),
         onChanged: onChanged,
       ),
     );
   }
 
-  Widget _dropCompact(String label, String? value, List<String> items,
-      void Function(String?) onChanged) {
+  Widget _dropCompact(
+      String label,
+      String? value,
+      List<String> items,
+      void Function(String?) onChanged, {
+        bool required = false,
+      }) {
     return DropdownButtonFormField<String>(
       value: value,
       isExpanded: true,
+      validator: required
+          ? (v) => (v == null || v.isEmpty) ? '$label is required' : null
+          : null,
       icon: const Icon(Icons.keyboard_arrow_down_rounded,
           color: _AppColors.textHint, size: 18),
-      style: const TextStyle(fontSize: 13, color: _AppColors.textPrimary),
+      style:
+      const TextStyle(fontSize: 13, color: _AppColors.textPrimary),
       decoration: InputDecoration(
-        labelText: label,
+        labelText: required ? '$label *' : label,
         labelStyle: const TextStyle(
             fontSize: 12, color: _AppColors.textSecondary),
         border: OutlineInputBorder(
@@ -1472,10 +1881,11 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: _AppColors.primary, width: 1.5),
+          borderSide:
+          const BorderSide(color: _AppColors.primary, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10, vertical: 10),
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         isDense: true,
         filled: true,
         fillColor: _AppColors.sectionBg,
@@ -1489,23 +1899,32 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     );
   }
 
-  Widget _dateFieldRow(TextEditingController ctrl, String label) {
+  Widget _dateFieldRow(
+      TextEditingController ctrl,
+      String label, {
+        bool required = false,
+      }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: TextFormField(
         controller: ctrl,
         readOnly: true,
         onTap: () => _pickDate(ctrl),
+        validator: required
+            ? (v) =>
+        (v == null || v.trim().isEmpty) ? '$label is required' : null
+            : null,
         style: const TextStyle(
-            fontSize: 14, color: _AppColors.textPrimary,
+            fontSize: 14,
+            color: _AppColors.textPrimary,
             fontWeight: FontWeight.w500),
         decoration: InputDecoration(
-          labelText: label,
+          labelText: required ? '$label *' : label,
           hintText: 'DD / MM / YYYY',
           labelStyle: const TextStyle(
               fontSize: 13, color: _AppColors.textSecondary),
-          hintStyle: const TextStyle(
-              fontSize: 13, color: _AppColors.textHint),
+          hintStyle:
+          const TextStyle(fontSize: 13, color: _AppColors.textHint),
           prefixIcon: const Icon(Icons.calendar_month_rounded,
               size: 18, color: _AppColors.textHint),
           suffixIcon: const Icon(Icons.arrow_drop_down_rounded,
@@ -1513,8 +1932,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 0, vertical: 12),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
           isDense: true,
         ),
       ),
@@ -1531,22 +1950,14 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize:  11,
-            color: AppTheme.primaryText,
-          ),
-        ),
+        Text(title,
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                color: AppTheme.primaryText)),
         const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 10,
-            color: AppTheme.mutedText,
-          ),
-        ),
+        Text(subtitle,
+            style: TextStyle(fontSize: 10, color: AppTheme.mutedText)),
         const SizedBox(height: 12),
         Obx(() => Container(
           width: double.infinity,
@@ -1567,95 +1978,94 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: files.isEmpty
-                    ? Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF2563EB).withOpacity(0.1),
-                            const Color(0xFF2563EB).withOpacity(0.05),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.cloud_upload,
-                        size: 32,
-                        color: const Color(0xFF2563EB),
-                      ),
+                    ? Column(children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [
+                        const Color(0xFF2563EB).withOpacity(0.1),
+                        const Color(0xFF2563EB).withOpacity(0.05),
+                      ]),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Tap to upload file${isMandatory ? " *" : ""}',
-                      style: TextStyle(
+                    child: const Icon(Icons.cloud_upload,
+                        size: 32, color: Color(0xFF2563EB)),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Tap to upload file${isMandatory ? " *" : ""}',
+                    style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.mutedText,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      'JPG, PNG, PDF (Multiple files allowed)',
-                      style: TextStyle(
+                        fontWeight: FontWeight.w500),
+                  ),
+                  Text(
+                    'JPG, PNG, PDF (Multiple files allowed)',
+                    style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.mutedText,
-                      ),
-                    ),
-                  ],
-                )
+                        color: AppTheme.mutedText),
+                  ),
+                ])
                     : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                            borderRadius: BorderRadius.circular(8),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF2563EB),
+                              Color(0xFF1D4ED8)
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            '${files.length} file(s) selected',
-                            style: TextStyle(
+                        child: const Icon(Icons.check_circle,
+                            color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${files.length} file(s) selected',
+                          style: const TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF2563EB),
-                            ),
-                          ),
+                              color: Color(0xFF2563EB)),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
                             color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: IconButton(
-                            onPressed: () => files.clear(),
-                            icon: Icon(Icons.close, color: AppTheme.mutedText),
-                            iconSize: 20,
-                          ),
+                            borderRadius:
+                            BorderRadius.circular(8)),
+                        child: IconButton(
+                          onPressed: () => files.clear(),
+                          icon: Icon(Icons.close,
+                              color: AppTheme.mutedText),
+                          iconSize: 20,
                         ),
-                      ],
-                    ),
+                      ),
+                    ]),
                     const SizedBox(height: 8),
                     ...files.map((file) => Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          Icon(Icons.insert_drive_file, size: 16, color: const Color(0xFF2563EB)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              file.name,
-                              style: const TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                      padding:
+                      const EdgeInsets.only(top: 4),
+                      child: Row(children: [
+                        const Icon(
+                            Icons.insert_drive_file,
+                            size: 16,
+                            color: Color(0xFF2563EB)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(file.name,
+                              style: const TextStyle(
+                                  fontSize: 12),
+                              overflow:
+                              TextOverflow.ellipsis),
+                        ),
+                      ]),
                     )),
                   ],
                 ),
@@ -1668,48 +2078,216 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   }
 
   void _pickFile(bool isBillFile) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
       allowMultiple: true,
     );
-
     if (result != null && result.files.isNotEmpty) {
       if (isBillFile) {
         billFiles.value = result.files;
-        Get.snackbar('Success', '${result.files.length} bill file(s) selected');
+        Get.snackbar(
+            'Success', '${result.files.length} bill file(s) selected');
       } else {
         workPhotoFiles.value = result.files;
-        Get.snackbar('Success', '${result.files.length} work photo(s) selected');
+        Get.snackbar(
+            'Success', '${result.files.length} work photo(s) selected');
       }
     }
   }
+
+  // ── Existing uploaded documents (from getrecord) ──────────────────────────
+
+  Widget _buildExistingDocumentsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Uploaded Documents',
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                color: AppTheme.primaryText)),
+        const SizedBox(height: 4),
+        Text('Previously uploaded files for this student',
+            style: TextStyle(fontSize: 10, color: AppTheme.mutedText)),
+        const SizedBox(height: 10),
+        _FormCard(
+          child: Column(
+            children: List.generate(_documents.length, (i) {
+              final doc = _documents[i];
+              final isDeleting = _deletingDocId == doc.id;
+              final isImage = RegExp(r'\.(png|jpe?g|gif|webp)$',
+                  caseSensitive: false)
+                  .hasMatch(doc.url);
+              return Column(children: [
+                if (i > 0) _divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: isImage
+                          ? Image.network(
+                        doc.url,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 40,
+                          height: 40,
+                          color: _AppColors.sectionBg,
+                          child: const Icon(Icons.insert_drive_file,
+                              size: 18, color: _AppColors.primary),
+                        ),
+                      )
+                          : Container(
+                        width: 40,
+                        height: 40,
+                        color: _AppColors.sectionBg,
+                        child: const Icon(Icons.description_outlined,
+                            size: 18, color: _AppColors.primary),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(doc.name,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: _AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (isDeleting)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: _AppColors.error),
+                      )
+                    else
+                      IconButton(
+                        onPressed: () => _deleteDocument(doc),
+                        icon: const Icon(Icons.delete_outline_rounded,
+                            size: 20, color: _AppColors.error),
+                        tooltip: 'Delete',
+                      ),
+                  ]),
+                ),
+              ]);
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Delete an existing document ────────────────────────────────────────────
+  //
+  // DELETE /api/student/v1/delete-document/:studentId/:documentId
+  // Roles: correspondent, administrator, accountant
+  // Returns {ok: true, data: ...}
+  // ──────────────────────────────────────────────────────────────────────────
+  Future<void> _deleteDocument(StudentDocument doc) async {
+    if (!widget.isEdit || widget.student?.id == null) return;
+    final studentId = widget.student!.id!;
+    final schoolId = _resolvedSchoolId;
+    if (schoolId == null) return;
+
+    final confirmed = await Get.dialog<bool>(AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Delete Document',
+          style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: _AppColors.textPrimary)),
+      content: Text('Delete "${doc.name}"? This cannot be undone.',
+          style: const TextStyle(
+              fontSize: 14, color: _AppColors.textSecondary, height: 1.5)),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(result: false),
+          child: const Text('Cancel',
+              style: TextStyle(color: _AppColors.textSecondary)),
+        ),
+        ElevatedButton(
+          onPressed: () => Get.back(result: true),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _AppColors.error,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8))),
+          child: const Text('Delete',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    ));
+    if (confirmed != true) return;
+
+    setState(() => _deletingDocId = doc.id);
+    try {
+      final apiService = Get.find<ApiService>();
+      debugPrint('[STUDENT] DELETE '
+          '${ApiConstants.deleteStudentDocument}/$studentId/${doc.id}');
+      final resp = await apiService.dio.delete(
+        '${ApiConstants.deleteStudentDocument}/$studentId/${doc.id}',
+        options: dio.Options(headers: {'x-school-id': schoolId}),
+      );
+      debugPrint('[STUDENT] delete-document ok=${resp.data['ok']}');
+      if (resp.data['ok'] == true) {
+        setState(() {
+          _documents.removeWhere((d) => d.id == doc.id);
+          _deletingDocId = null;
+        });
+        Get.snackbar('Deleted', '"${doc.name}" has been removed',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFF2E7D32),
+            colorText: Colors.white,
+            duration: const Duration(seconds: 2));
+      } else {
+        throw Exception(resp.data['message']?.toString() ?? 'Delete failed');
+      }
+    } on dio.DioException catch (e) {
+      debugPrint('[STUDENT] delete-document DioException '
+          '${e.response?.statusCode}: ${e.response?.data}');
+      if (mounted) setState(() => _deletingDocId = null);
+      _showError((e.response?.data is Map
+          ? e.response!.data['message']?.toString()
+          : null) ??
+          'Failed to delete document');
+    } catch (e) {
+      debugPrint('[STUDENT] delete-document error: $e');
+      if (mounted) setState(() => _deletingDocId = null);
+      _showError('Failed to delete document: $e');
+    }
+  }
 }
+
+// =============================================================================
+// SHARED WIDGETS
+// =============================================================================
 
 class _FormCard extends StatelessWidget {
   final Widget child;
   const _FormCard({required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: _AppColors.cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _AppColors.border),
-        boxShadow: [
-          BoxShadow(
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    decoration: BoxDecoration(
+      color: _AppColors.cardBg,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: _AppColors.border),
+      boxShadow: [
+        BoxShadow(
             color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
+            offset: const Offset(0, 2)),
+      ],
+    ),
+    child: child,
+  );
 }
 
 class _SheetSectionLabel extends StatelessWidget {
@@ -1717,17 +2295,12 @@ class _SheetSectionLabel extends StatelessWidget {
   const _SheetSectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
+  Widget build(BuildContext context) => Text(text,
       style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: _AppColors.textSecondary,
-        letterSpacing: 0.8,
-      ),
-    );
-  }
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: _AppColors.textSecondary,
+          letterSpacing: 0.8));
 }
 
 class _StepIndicator extends StatelessWidget {
@@ -1746,35 +2319,38 @@ class _StepIndicator extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        width: 32, height: 32,
-        decoration: BoxDecoration(
-          color: (isDone || isActive)
-              ? _AppColors.primary
-              : _AppColors.stepInactive,
-          shape: BoxShape.circle,
+  Widget build(BuildContext context) =>
+      Column(mainAxisSize: MainAxisSize.min, children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: (isDone || isActive)
+                ? _AppColors.primary
+                : _AppColors.stepInactive,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: isDone
+              ? const Icon(Icons.check_rounded,
+              size: 16, color: Colors.white)
+              : Icon(icon,
+              size: 15,
+              color:
+              isActive ? Colors.white : _AppColors.textSecondary),
         ),
-        alignment: Alignment.center,
-        child: isDone
-            ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-            : Icon(icon,
-            size: 15,
-            color: isActive ? Colors.white : _AppColors.textSecondary),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-          color: isActive ? _AppColors.primary : _AppColors.textSecondary,
-        ),
-      ),
-    ]);
-  }
+        const SizedBox(height: 4),
+        Text(label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight:
+              isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive
+                  ? _AppColors.primary
+                  : _AppColors.textSecondary,
+            )),
+      ]);
 }
 
 // =============================================================================
@@ -1789,12 +2365,7 @@ class _ClassSectionPickerSheet extends StatefulWidget {
   final String? initialClassName;
   final String? initialSectionId;
   final String? initialSectionName;
-  final void Function(
-      String classId,
-      String className,
-      String? sectionId,     // Changed to Nullable String
-      String? sectionName,   // Changed to Nullable String
-      ) onConfirm;
+  final void Function(String, String, String?, String?) onConfirm;
 
   const _ClassSectionPickerSheet({
     required this.schoolController,
@@ -1812,39 +2383,34 @@ class _ClassSectionPickerSheet extends StatefulWidget {
       _ClassSectionPickerSheetState();
 }
 
-class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
-  String? _classId;
-  String? _className;
-  String? _sectionId;
-  String? _sectionName;
+class _ClassSectionPickerSheetState
+    extends State<_ClassSectionPickerSheet> {
+  final _classId = Rx<String?>(null);
+  final _className = Rx<String?>(null);
+  final _sectionId = Rx<String?>(null);
+  final _sectionName = Rx<String?>(null);
 
   @override
   void initState() {
     super.initState();
-    _classId     = widget.initialClassId;
-    _className   = widget.initialClassName;
-    _sectionId   = widget.initialSectionId;
-    _sectionName = widget.initialSectionName;
+    _classId.value = widget.initialClassId;
+    _className.value = widget.initialClassName;
+    _sectionId.value = widget.initialSectionId;
+    _sectionName.value = widget.initialSectionName;
   }
 
   void _selectClass(SchoolClass cls) {
-    setState(() {
-      _classId     = cls.id;
-      _className   = cls.name;
-      _sectionId   = null;
-      _sectionName = null;
-    });
-    widget.schoolController.getAllSections(
-      classId: cls.id,
-      schoolId: widget.resolvedSchoolId,
-    );
+    _classId.value = cls.id;
+    _className.value = cls.name;
+    _sectionId.value = null;
+    _sectionName.value = null;
+    widget.schoolController
+        .getAllSections(classId: cls.id, schoolId: widget.resolvedSchoolId);
   }
 
   void _selectSection(Section sec) {
-    setState(() {
-      _sectionId   = sec.id;
-      _sectionName = sec.name;
-    });
+    _sectionId.value = sec.id;
+    _sectionName.value = sec.name;
   }
 
   @override
@@ -1854,10 +2420,8 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
         color: _AppColors.cardBg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(
-        20, 8, 20,
-        MediaQuery.of(context).viewInsets.bottom + 32,
-      ),
+      padding: EdgeInsets.fromLTRB(20, 8, 20,
+          MediaQuery.of(context).viewInsets.bottom + 32),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1865,43 +2429,47 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
           children: [
             Center(
               child: Container(
-                margin: const EdgeInsets.only(bottom: 20, top: 8),
-                width: 40, height: 4,
+                margin:
+                const EdgeInsets.only(bottom: 20, top: 8),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: _AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                    color: _AppColors.border,
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
-
             Row(children: [
               Container(
-                width: 40, height: 40,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: _AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                    color: _AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.school_rounded,
                     color: _AppColors.primary, size: 20),
               ),
               const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                    widget.isEdit
-                        ? 'Change Class & Section'
-                        : 'Select Class & Section',
-                    style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w700,
-                      color: _AppColors.textPrimary,
-                    )),
-                const Text('Assign student to class and section',
-                    style: TextStyle(
-                        fontSize: 12, color: _AppColors.textSecondary)),
-              ]),
+              Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.isEdit
+                          ? 'Change Class & Section'
+                          : 'Select Class & Section',
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: _AppColors.textPrimary),
+                    ),
+                    const Text('Assign student to class and section',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: _AppColors.textSecondary)),
+                  ]),
             ]),
             const SizedBox(height: 24),
 
-            // ── CLASS CHIPS ──────────────────────────────────────────────
+            // Class chips
             const _SheetSectionLabel('CLASS'),
             const SizedBox(height: 10),
             Obx(() {
@@ -1910,13 +2478,16 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text('No classes available',
-                      style: TextStyle(fontSize: 13, color: _AppColors.textHint)),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: _AppColors.textHint)),
                 );
               }
               return Wrap(
-                spacing: 8, runSpacing: 8,
+                spacing: 8,
+                runSpacing: 8,
                 children: classes.map((cls) {
-                  final sel = _classId == cls.id;
+                  final sel = _classId.value == cls.id;
                   return GestureDetector(
                     onTap: () => _selectClass(cls),
                     child: AnimatedContainer(
@@ -1924,10 +2495,14 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: sel ? _AppColors.primary : _AppColors.sectionBg,
+                        color: sel
+                            ? _AppColors.primary
+                            : _AppColors.sectionBg,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: sel ? _AppColors.primary : _AppColors.border,
+                          color: sel
+                              ? _AppColors.primary
+                              : _AppColors.border,
                           width: sel ? 1.5 : 1,
                         ),
                       ),
@@ -1935,7 +2510,9 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: sel ? Colors.white : _AppColors.textPrimary,
+                            color: sel
+                                ? Colors.white
+                                : _AppColors.textPrimary,
                           )),
                     ),
                   );
@@ -1943,45 +2520,50 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
               );
             }),
 
-            // ── SECTION CHIPS (Hidden if no class is selected yet) ───────
-
-
+            // Section chips
             Obx(() {
-              final hasNoSections = widget.schoolController.sections.isEmpty;
-
               final sections = widget.schoolController.sections;
-              if (_classId == null) {
+              if (_classId.value == null) {
                 return const SizedBox.shrink();
               }
-
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
                   const _SheetSectionLabel('SECTION'),
                   const SizedBox(height: 10),
-                  if (hasNoSections) // Use the variable we already read
-
+                  if (sections.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('No sections available for this class',
-                          style: TextStyle(fontSize: 13, color: _AppColors.textHint)),
+                      child: Text(
+                          'No sections available for this class',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: _AppColors.textHint)),
                     )
                   else
                     Wrap(
-                      spacing: 12, runSpacing: 12,
+                      spacing: 12,
+                      runSpacing: 12,
                       children: sections.map((sec) {
-                        final sel = _sectionId == sec.id;
+                        final sel = _sectionId.value == sec.id;
                         return GestureDetector(
                           onTap: () => _selectSection(sec),
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 52, height: 52,
+                            duration:
+                            const Duration(milliseconds: 150),
+                            width: 52,
+                            height: 52,
                             decoration: BoxDecoration(
-                              color: sel ? _AppColors.primary : _AppColors.sectionBg,
-                              borderRadius: BorderRadius.circular(12),
+                              color: sel
+                                  ? _AppColors.primary
+                                  : _AppColors.sectionBg,
+                              borderRadius:
+                              BorderRadius.circular(12),
                               border: Border.all(
-                                color: sel ? _AppColors.primary : _AppColors.border,
+                                color: sel
+                                    ? _AppColors.primary
+                                    : _AppColors.border,
                                 width: sel ? 1.5 : 1,
                               ),
                             ),
@@ -1990,7 +2572,9 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
-                                  color: sel ? Colors.white : _AppColors.textPrimary,
+                                  color: sel
+                                      ? Colors.white
+                                      : _AppColors.textPrimary,
                                 )),
                           ),
                         );
@@ -1998,26 +2582,26 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                     ),
                 ],
               );
-
             }),
             const SizedBox(height: 28),
 
-            // ── CTA BUTTON (Now smart-evaluates clean fallback paths) ─────
+            // CTA button
             Obx(() {
-              final isListEmpty = widget.schoolController.sections.isEmpty;
               final sections = widget.schoolController.sections;
+              final isListEmpty = sections.isEmpty;
+              final classId = _classId.value;
+              final sectionId = _sectionId.value;
+              final standsValid =
+                  classId != null && (isListEmpty || sectionId != null);
 
-
-              // Valid to continue if class is chosen AND either (sections are empty OR a section is picked)
-              final bool standsValid = _classId != null &&
-                  (isListEmpty  || _sectionId != null);
-
-              String buttonText = 'Select class and section to continue';
-              if (_classId != null) {
-                if (sections.isEmpty) {
-                  buttonText = 'Continue · $_className';
-                } else if (_sectionId != null) {
-                  buttonText = 'Continue · $_className, Section $_sectionName';
+              String buttonText =
+                  'Select class and section to continue';
+              if (classId != null) {
+                if (isListEmpty) {
+                  buttonText = 'Continue · ${_className.value}';
+                } else if (sectionId != null) {
+                  buttonText =
+                  'Continue · ${_className.value}, Section ${_sectionName.value}';
                 } else {
                   buttonText = 'Select a section to continue';
                 }
@@ -2030,10 +2614,10 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                   onPressed: standsValid
                       ? () {
                     widget.onConfirm(
-                      _classId!,
-                      _className!,
-                      _sectionId,     // Pass String? string cleanly
-                      _sectionName,   // Pass String? string cleanly
+                      _classId.value!,
+                      _className.value!,
+                      _sectionId.value,
+                      _sectionName.value,
                     );
                     Get.back();
                   }
@@ -2046,11 +2630,9 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text(
-                    buttonText,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
+                  child: Text(buttonText,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
               );
             }),
@@ -2060,6 +2642,10 @@ class _ClassSectionPickerSheetState extends State<_ClassSectionPickerSheet> {
     );
   }
 }
+
+// =============================================================================
+// NAV BUTTON
+// =============================================================================
 
 class _NavButton extends StatelessWidget {
   final String label;
@@ -2080,20 +2666,23 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      if (loading)
-        const SizedBox(
-          width: 16, height: 16,
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: Colors.white),
-        )
-      else
-        Icon(icon, size: 16),
-      const SizedBox(width: 6),
-      Text(label,
-          style: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600)),
-    ]);
+    final child = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (loading)
+          const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white))
+        else
+          Icon(icon, size: 16),
+        const SizedBox(width: 6),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600)),
+      ],
+    );
 
     if (outlined) {
       return OutlinedButton(
@@ -2101,7 +2690,8 @@ class _NavButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: _AppColors.primary,
           side: const BorderSide(color: _AppColors.border),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10)),
         ),
@@ -2116,7 +2706,8 @@ class _NavButton extends StatelessWidget {
         foregroundColor: Colors.white,
         disabledBackgroundColor: _AppColors.stepInactive,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding:
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10)),
       ),

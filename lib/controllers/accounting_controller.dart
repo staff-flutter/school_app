@@ -248,7 +248,7 @@ class AccountingController extends GetxController {
         cashDenominations.clear();
         selectedFiles.clear();
         // Refresh the page or navigate back
-        Navigator.pop(Get.context!);
+       // Navigator.pop(Get.context!);
       } else {
         
         Get.snackbar('Error', response.data['message'] ?? 'Fee collection failed',backgroundColor: Colors.red,colorText: Colors.white);
@@ -369,7 +369,7 @@ class AccountingController extends GetxController {
         Get.snackbar('Success', response.data['message'] ?? 'Expense added successfully',
           backgroundColor: Colors.green, colorText: Colors.white);
         loadExpenses(); // Refresh the expenses list
-        Navigator.pop(Get.context!); // Return to previous screen
+        //Navigator.pop(Get.context!); // Return to previous screen
       } else {
         Get.snackbar('Error', response.data['message'] ?? 'Failed to add expense',
           backgroundColor: Colors.red, colorText: Colors.white);

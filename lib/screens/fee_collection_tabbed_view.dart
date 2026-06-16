@@ -7,6 +7,7 @@ import 'package:school_app/controllers/student_record_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/accounting_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
+import 'package:school_app/screens/set_fee_configuration_page.dart';
 import 'package:school_app/widgets/api_rbac_wrapper.dart';
 import 'package:school_app/core/rbac/api_rbac.dart';
 import 'package:school_app/widgets/student_record_integration.dart';
@@ -788,19 +789,24 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   // ── FIXED _selectStudent: reads classId/sectionId from the
   //    student's own data, not from schoolController.classes.first
   void _selectStudent(Map<String, dynamic> student) {
-    // The student map from the API contains classId and sectionId directly
-    final classId = student['currentClassId']?.toString()
-        ?? student['classId']?.toString()
-        ?? selectedFilterClass.value?.id
-        ?? '';
-    final sectionId = student['currentSectionId']?.toString()
-        ?? student['sectionId']?.toString()
-        ?? selectedFilterSection.value?.id
-        ?? '';
+    print('Top-level keys: ${student.keys.toList()}');
+    print('Student raw data: $student');
+
+    // Helper function to extract ID securely whether it's a raw String or a nested Map object
+    String extractId(dynamic field) {
+      if (field == null) return '';
+      if (field is Map) {
+        return (field['_id'] ?? field['id'] ?? '').toString();
+      }
+      return field.toString();
+    }
+
+    final classId = extractId(student['currentClassId'] ?? student['classId'] ?? selectedFilterClass.value?.id);
+    final sectionId = extractId(student['currentSectionId'] ?? student['sectionId'] ?? selectedFilterSection.value?.id);
 
     controller.selectedStudent.value = {
-      'studentId':   student['_id'],
-      'studentName': student['studentName'],
+      'studentId':   student['_id']?.toString() ?? '',
+      'studentName': (student['studentName'] ?? '').toString(),
       'classId':     classId,
       'sectionId':   sectionId,
     };
@@ -1575,26 +1581,29 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
               const SizedBox(height: 12),
               Obx(() => isBusApplicable.value
                   ? TextFormField(
-                      controller: _busPointController,
-                      decoration: InputDecoration(
-                        labelText: 'Bus Stop/Point',
-                        hintText: 'Enter bus stop name',
-                        prefixIcon: const Icon(Icons.location_on),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                      validator: (value) {
-                        if (isBusApplicable.value && (value == null || value.isEmpty)) {
-                          return 'Please enter bus stop name';
-                        }
-                        return null;
-                      },
-                    )
+                key: const ValueKey('busPointField'), // ADD THIS
+                controller: _busPointController,
+                decoration: InputDecoration(
+                  labelText: 'Bus Stop/Point',
+                  hintText: 'Enter bus stop name',
+                  prefixIcon: const Icon(Icons.location_on),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 12),
+                ),
+                validator: (value) {
+                  if (isBusApplicable.value &&
+                      (value == null || value.isEmpty)) {
+                    return 'Please enter bus stop name';
+                  }
+                  return null;
+                },
+              )
                   : const SizedBox()),
             ],
           ),
@@ -1602,10 +1611,11 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         const SizedBox(height: 16),
 
         // Manual Due Allocation Toggle
+        // Manual Due Allocation Toggle — DISABLED until paidHeads UI is built
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: Colors.grey.shade100,  // greyed out
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade200),
           ),
@@ -1615,26 +1625,35 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.calculate, color: const Color(0xFF2563EB)),
+                  Icon(Icons.calculate, color: Colors.grey.shade400),  // greyed
                   const SizedBox(width: 12),
                   Flexible(
                     fit: FlexFit.loose,
-                    child: Text(
-                      'Manual Due Allocation',
-                      style: TextStyle(
-                        fontSize: isTablet ? 16 : 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Manual Due Allocation',
+                          style: TextStyle(
+                            fontSize: isTablet ? 16 : 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade400,  // greyed
+                          ),
+                        ),
+                        Text(
+                          'Coming soon',
+                          style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              Obx(() => Switch(
-                value: manualDueAllocation.value,
-                onChanged: (value) => manualDueAllocation.value = value,
+              Switch(
+                value: false,         // always off
+                onChanged: null,      // disabled
                 activeColor: const Color(0xFF2563EB),
-              )),
+              ),
             ],
           ),
         ),
@@ -2179,11 +2198,24 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
           },
         ),
         const SizedBox(height: 16),
+        // Replace _chequeDateController TextFormField in _buildChequeFields:
         TextFormField(
           controller: _chequeDateController,
+          readOnly: true,
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+            );
+            if (picked != null) {
+              _chequeDateController.text =
+              '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+            }
+          },
           decoration: InputDecoration(
             labelText: 'Cheque Date',
-            hintText: '2025-12-25',
             prefixIcon: const Icon(Icons.calendar_today),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -2290,6 +2322,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
 
 
   void _collectFee() {
+    _formKey.currentState!.save();
     if (_formKey.currentState!.validate()) {
       final student = controller.selectedStudent.value!;
       final amount = double.parse(_amountController.text);
@@ -2298,8 +2331,11 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
       final classId = student['classId']?.toString() ?? '';
       final sectionId = student['sectionId']?.toString() ?? '';
       final schoolId = _feeSchoolCtrl.selectedSchool.value?.id ?? '';
-
-      if (studentId.isEmpty || schoolId.isEmpty || classId.isEmpty || sectionId.isEmpty) {
+      print('studentId: $studentId');
+      print('classId: $classId');
+      print('sectionId: $sectionId');
+      print('schoolId: $schoolId');
+      if (studentId.isEmpty || schoolId.isEmpty || classId.isEmpty ) {
         Get.snackbar('Error', 'Missing required information');
         return;
       }
@@ -2313,7 +2349,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         'paymentMode': controller.selectedPaymentMode.value,
         'studentName': student['studentName'] ?? '',
         'newOld': selectedStudentType.value, // 'old' or 'new'
-        'manualDueAllocation': manualDueAllocation.value,
+        'manualDueAllocation': false,
         'paidHeads': {}, // Empty object as default, can be populated if needed
         'remarks': _remarksController.text,
         'isBusApplicable': isBusApplicable.value,
@@ -2349,9 +2385,18 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         showPaymentDetails.value = false;
         isStudentSelectorCollapsed.value = false;
       });
+    }else {
+      // Scroll to the first error so user can see it
+      Get.snackbar('Validation', 'Please check highlighted fields above',
+          backgroundColor: Colors.orange, colorText: Colors.white);
     }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// DROP-IN REPLACEMENT for _FeeStructureViewTab + _FeeStructureViewTabState
+// in fee_collection_tabbed_view.dart
+// ═══════════════════════════════════════════════════════════════
 
 class _FeeStructureViewTab extends StatefulWidget {
   @override
@@ -2360,28 +2405,32 @@ class _FeeStructureViewTab extends StatefulWidget {
 
 class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
   final schoolController = Get.find<SchoolController>();
-  final feeController = Get.put(FeeStructureController());
+  final feeController    = Get.put(FeeStructureController());
 
   final selectedSchool = Rxn<School>();
-  final selectedClass = Rxn<SchoolClass>();
-  final isSelectorsExpanded = ValueNotifier<bool>(true);
-  final isOldStructureExpanded = ValueNotifier<bool>(true);
-  final isNewStructureExpanded = ValueNotifier<bool>(true);
+  final selectedClass  = Rxn<SchoolClass>();
 
-  final oldFeeStructure = Rxn<Map<String, dynamic>>();
-  final newFeeStructure = Rxn<Map<String, dynamic>>();
+  final isSelectorsExpanded      = ValueNotifier<bool>(true);
+  final isOldStructureExpanded   = ValueNotifier<bool>(true);
+  final isNewStructureExpanded   = ValueNotifier<bool>(true);
+
+  // ── Per-type fee head lists (populated by _loadFeeStructures) ─
+  final oldFeeHeads = <Map<String, dynamic>>[].obs;
+  final newFeeHeads = <Map<String, dynamic>>[].obs;
+
+  final isLoadingOld = false.obs;
+  final isLoadingNew = false.obs;
+
   Worker? _schoolWatcher;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _resolveSchool();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveSchool());
   }
 
+  // ── School resolution (unchanged) ─────────────────────────────
   void _resolveSchool() {
-    // Step 1: try FeeCollectionSchoolController (set by sidebar)
     try {
       final feeSchoolCtrl = Get.find<FeeCollectionSchoolController>();
       final current = feeSchoolCtrl.selectedSchool.value;
@@ -2394,16 +2443,15 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
         if (school != null) _applySchool(school);
       });
     } catch (_) {
-      // FeeCollectionSchoolController not available
       _applySchoolFromAuth();
     }
   }
 
   void _applySchool(School school) {
     selectedSchool.value = school;
-    selectedClass.value = null;
-    oldFeeStructure.value = null;
-    newFeeStructure.value = null;
+    selectedClass.value  = null;
+    oldFeeHeads.clear();
+    newFeeHeads.clear();
     schoolController.getAllClasses(school.id);
     isSelectorsExpanded.value = true;
   }
@@ -2413,221 +2461,238 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
     final schoolId = authCtrl.user.value?.schoolId;
     if (schoolId == null || schoolId.isEmpty) return;
 
-    final existing = schoolController.schools
-        .firstWhereOrNull((s) => s.id == schoolId);
+    final existing = schoolController.schools.firstWhereOrNull((s) => s.id == schoolId);
     if (existing != null) {
       _applySchool(existing);
     } else {
       schoolController.getAllSchools().then((_) {
-        final found = schoolController.schools
-            .firstWhereOrNull((s) => s.id == schoolId);
+        final found = schoolController.schools.firstWhereOrNull((s) => s.id == schoolId);
         if (found != null) _applySchool(found);
       });
     }
   }
+
   @override
   void dispose() {
     _schoolWatcher?.dispose();
     super.dispose();
   }
-  // REPLACE the existing _loadFeeStructures method
+
+  // ── KEY FIX: Load both student types in parallel ─────
   Future<void> _loadFeeStructures() async {
-    // Resolve schoolId from multiple sources
     final schoolId = selectedSchool.value?.id
         ?? _tryGetFeeSchoolId()
         ?? Get.find<AuthController>().user.value?.schoolId;
 
     if (schoolId == null || schoolId.isEmpty) {
-      Get.snackbar('Error', 'No school selected',
-          backgroundColor: Colors.orange, colorText: Colors.white);
+      Get.snackbar(
+        'Error',
+        'No school selected',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
       return;
     }
-    if (selectedClass.value == null) return;
 
+    if (selectedClass.value == null) return;
     final classId = selectedClass.value!.id;
-    feeController.isLoading.value = true;
+
+    // Start both loading states simultaneously
+    isLoadingOld.value = true;
+    isLoadingNew.value = true;
 
     try {
-      final oldStructure = await feeController.getFeeStructureByClass(
-          schoolId, classId, type: 'old');
-      oldFeeStructure.value = oldStructure;
+      // Run both API calls at the exact same time in parallel
+      final results = await Future.wait([
+        feeController.getCustomFeeHeads(
+          schoolId: schoolId,
+          classId:  classId,
+          type:     'old',
+        ),
+        feeController.getCustomFeeHeads(
+          schoolId: schoolId,
+          classId:  classId,
+          type:     'new',
+        ),
+      ]);
 
-      final newStructure = await feeController.getFeeStructureByClass(
-          schoolId, classId, type: 'new');
-      newFeeStructure.value = newStructure;
+      // Assign the parallel results cleanly
+      oldFeeHeads.assignAll(results[0]);
+      newFeeHeads.assignAll(results[1]);
+
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load fee structure: $e',
-          backgroundColor: Colors.red, colorText: Colors.white);
+      debugPrint('❌ Parallel fee head loading error: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to load fee configurations.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     } finally {
-      feeController.isLoading.value = false;
+      // Ensure loaders turn off regardless of success or failure
+      isLoadingOld.value = false;
+      isLoadingNew.value = false;
     }
   }
-
   String? _tryGetFeeSchoolId() {
     try {
-      return Get.find<FeeCollectionSchoolController>()
-          .selectedSchool.value?.id;
+      return Get.find<FeeCollectionSchoolController>().selectedSchool.value?.id;
     } catch (_) {
       return null;
     }
   }
 
+  // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 600;
-    final isLandscape = screenSize.width > screenSize.height;
+    final isTablet = MediaQuery.of(context).size.width > 600;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.blue.shade50, Colors.blue.shade50],
-        ),
-      ),
+      color: const Color(0xFFF0F4F8),
       child: Padding(
         padding: EdgeInsets.all(isTablet ? 20 : 16),
         child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Collapsible School and Class Selectors
-              ValueListenableBuilder<bool>(
-                valueListenable: isSelectorsExpanded,
-                builder: (context, isExpanded, child) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    height: isExpanded ? null : 60,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: isExpanded
-                          ? _buildExpandedSelectors(isTablet, isLandscape)
-                          : _buildCompactSelectors(isTablet),
+          child: Column(children: [
+            // ── Class selector ─────────────────────────────────
+            ValueListenableBuilder<bool>(
+              valueListenable: isSelectorsExpanded,
+              builder: (context, isExpanded, _) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: isExpanded ? null : 60,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: _DS.shadow,
                     ),
-                  );
-                },
-              ),
+                    child: isExpanded
+                        ? _buildExpandedSelectors(isTablet)
+                        : _buildCompactSelectors(isTablet),
+                  ),
+                );
+              },
+            ),
 
-              const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-              // Old Fee Structure
-              _buildFeeStructureContainer(
-                title: 'Old Students Fee Structure',
-                icon: Icons.school,
-                color: Colors.blue,
-                feeStructure: oldFeeStructure,
-                isExpanded: isOldStructureExpanded,
-                isTablet: isTablet,
-              ),
+            // ── Old students fee structure ─────────────────────
+            _buildFeeStructureCard(
+              title:     'Old Students Fee Structure',
+              icon:      Icons.school_rounded,
+              color:     _DS.accent,
+              feeHeads:  oldFeeHeads,
+              isLoading: isLoadingOld,
+              isExpanded: isOldStructureExpanded,
+              isTablet:  isTablet,
+            ),
 
-              const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-              // New Fee Structure
-              _buildFeeStructureContainer(
-                title: 'New Students Fee Structure',
-                icon: Icons.person_add,
-                color: Colors.green,
-                feeStructure: newFeeStructure,
-                isExpanded: isNewStructureExpanded,
-                isTablet: isTablet,
-              ),
-            ],
-          ),
+            // ── New students fee structure ─────────────────────
+            _buildFeeStructureCard(
+              title:     'New Students Fee Structure',
+              icon:      Icons.person_add_rounded,
+              color:     _DS.success,
+              feeHeads:  newFeeHeads,
+              isLoading: isLoadingNew,
+              isExpanded: isNewStructureExpanded,
+              isTablet:  isTablet,
+            ),
+
+            const SizedBox(height: 20),
+          ]),
         ),
       ),
     );
   }
 
+  // ── Compact selector (collapsed) ──────────────────────────────
   Widget _buildCompactSelectors(bool isTablet) {
     return InkWell(
       onTap: () => isSelectorsExpanded.value = true,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: EdgeInsets.all(isTablet ? 20 : 16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.class_, color: Color(0xFF2563EB), size: 18),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _DS.accentSoft,
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Obx(() => Text(
-                selectedClass.value?.name ?? 'Select a class',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              )),
-            ),
-            const Icon(Icons.edit, size: 18, color: Colors.grey),
-          ],
-        ),
+            child: const Icon(Icons.class_rounded, color: _DS.accent, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Obx(() => Text(
+              selectedClass.value?.name ?? 'Select a class to view fee structure',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: _DS.textPrimary),
+              overflow: TextOverflow.ellipsis,
+            )),
+          ),
+          const Icon(Icons.edit_rounded, size: 16, color: _DS.textMuted),
+        ]),
       ),
     );
   }
 
-  Widget _buildExpandedSelectors(bool isTablet, bool isLandscape) {
+  // ── Expanded selector (class chip) ────────────────────────────
+  Widget _buildExpandedSelectors(bool isTablet) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      child: Row(children: [
-        // Class chip
-        Obx(() {
-          final cls = selectedClass.value;
-          final isSelected = cls != null;
-          return GestureDetector(
-            onTap: _showClassSheet,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: isSelected ? _DS.accentSoft : _DS.surface,
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(
-                  color: isSelected ? _DS.accent : _DS.border,
-                  width: isSelected ? 1.5 : 1,
-                ),
-                boxShadow: _DS.shadow,
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.class_rounded,
-                    size: 14,
-                    color: isSelected ? _DS.accent : _DS.textMuted),
-                const SizedBox(width: 6),
-                Text(
-                  cls?.name ?? 'Select Class',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? _DS.accent
-                        : _DS.textSecondary,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Select Class',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _DS.textMuted)),
+          const SizedBox(height: 10),
+          Obx(() {
+            final cls = selectedClass.value;
+            return GestureDetector(
+              onTap: _showClassSheet,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: cls != null ? _DS.accentSoft : _DS.surfaceAlt,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: cls != null ? _DS.accent : _DS.border,
+                    width: cls != null ? 1.5 : 1,
                   ),
+                  boxShadow: _DS.shadow,
                 ),
-                const SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_down_rounded,
-                    size: 14,
-                    color: isSelected ? _DS.accent : _DS.textMuted),
-              ]),
-            ),
-          );
-        }),
-      ]),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.class_rounded,
+                      size: 14,
+                      color: cls != null ? _DS.accent : _DS.textMuted),
+                  const SizedBox(width: 6),
+                  Text(
+                    cls?.name ?? 'Choose a class…',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: cls != null ? _DS.accent : _DS.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: cls != null ? _DS.accent : _DS.textMuted),
+                ]),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
+  // ── Class picker sheet ─────────────────────────────────────────
   void _showClassSheet() {
     Get.bottomSheet(
       Container(
@@ -2640,9 +2705,7 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
             margin: const EdgeInsets.only(top: 12),
             width: 40, height: 4,
             decoration: BoxDecoration(
-              color: _DS.border,
-              borderRadius: BorderRadius.circular(100),
-            ),
+                color: _DS.border, borderRadius: BorderRadius.circular(100)),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
@@ -2670,48 +2733,40 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
                   padding: EdgeInsets.all(32),
                   child: Center(
                       child: Text('No classes available',
-                          style: TextStyle(
-                              color: _DS.textMuted, fontSize: 14))),
+                          style: TextStyle(color: _DS.textMuted, fontSize: 14))),
                 );
               return ListView.builder(
                 shrinkWrap: true,
                 itemCount: classes.length,
                 itemBuilder: (_, i) {
                   final c = classes[i];
-                  final isSelected = selectedClass.value?.id == c.id;
+                  final isSel = selectedClass.value?.id == c.id;
                   return ListTile(
                     leading: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? _DS.accentSoft
-                            : _DS.surfaceAlt,
+                        color: isSel ? _DS.accentSoft : _DS.surfaceAlt,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(Icons.class_rounded,
                           size: 18,
-                          color: isSelected
-                              ? _DS.accent
-                              : _DS.textMuted),
+                          color: isSel ? _DS.accent : _DS.textMuted),
                     ),
                     title: Text(c.name,
                         style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                          fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
                           fontSize: 14,
-                          color: isSelected
-                              ? _DS.accent
-                              : _DS.textPrimary,
+                          color: isSel ? _DS.accent : _DS.textPrimary,
                         )),
-                    trailing: isSelected
+                    trailing: isSel
                         ? const Icon(Icons.check_circle_rounded,
                         color: _DS.accent, size: 20)
                         : null,
                     onTap: () {
                       selectedClass.value = c;
+                      oldFeeHeads.clear();
+                      newFeeHeads.clear();
                       Get.back();
-                      // Load fee structure first, then collapse selectors
                       _loadFeeStructures().then((_) {
                         isSelectorsExpanded.value = false;
                       });
@@ -2728,333 +2783,257 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
     );
   }
 
-  Widget _buildSchoolDropdown() {
-    final authController = Get.find<AuthController>();
-    final userRole = authController.user.value?.role?.toLowerCase() ?? '';
-    final isCorrespondent = userRole == 'correspondent';
-
-    return Obx(() {
-      if (isCorrespondent) {
-        return DropdownButtonFormField<School>(
-          decoration: InputDecoration(
-            labelText: 'Select School',
-            prefixIcon: Icon(Icons.school, color: const Color(0xFF2563EB)),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            filled: true,
-            fillColor: Colors.grey.shade50,
-          ),
-          value: selectedSchool.value,
-          items: schoolController.schools.map((school) {
-            return DropdownMenuItem<School>(
-              value: school,
-              child: Text(school.name),
-            );
-          }).toList(),
-          onChanged: (school) {
-            selectedSchool.value = school;
-            selectedClass.value = null;
-            oldFeeStructure.value = null;
-            newFeeStructure.value = null;
-            if (school != null) {
-              schoolController.getAllClasses(school.id);
-            }
-          },
-        );
-      } else {
-        // Readonly for non-correspondent: auto-select silently
-        final userSchoolId = authController.user.value?.schoolId;
-        final userSchool = schoolController.schools.firstWhereOrNull(
-          (school) => school.id == userSchoolId,
-        );
-        if (userSchool != null && selectedSchool.value == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            selectedSchool.value = userSchool;
-            schoolController.getAllClasses(userSchool.id);
-          });
-        }
-        return const SizedBox.shrink();
-      }
-    });
-  }
-
-  Widget _buildClassDropdown() {
-    return Obx(() => DropdownButtonFormField<SchoolClass>(
-      decoration: InputDecoration(
-        labelText: 'Select Class',
-        prefixIcon: Icon(Icons.class_, color: const Color(0xFF2563EB)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
-      value: selectedClass.value,
-      selectedItemBuilder: (context) {
-        return schoolController.classes.map((cls) {
-          return Text(cls.name);
-        }).toList();
-      },
-      items: schoolController.classes.map((cls) {
-        return DropdownMenuItem<SchoolClass>(
-          value: cls,
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(Icons.class_, color: const Color(0xFF2563EB), size: 16),
-              ),
-              const SizedBox(width: 12),
-              Text(cls.name),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (cls) {
-        selectedClass.value = cls;
-        if (cls != null && selectedSchool.value != null) {
-          _loadFeeStructures();
-        }
-      },
-    ));
-  }
-
-  Widget _buildFeeStructureContainer({
+  // ── Fee structure card (collapsible) ──────────────────────────
+  Widget _buildFeeStructureCard({
     required String title,
     required IconData icon,
     required Color color,
-    required Rxn<Map<String, dynamic>> feeStructure,
+    required RxList<Map<String, dynamic>> feeHeads,
+    required RxBool isLoading,
     required ValueNotifier<bool> isExpanded,
     required bool isTablet,
   }) {
     return ValueListenableBuilder<bool>(
       valueListenable: isExpanded,
-      builder: (context, expanded, child) {
+      builder: (context, expanded, _) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
+          // collapsed: just the header bar (60px); expanded: full content
           height: expanded ? null : 60,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              boxShadow: _DS.shadow,
             ),
             child: expanded
-                ? _buildExpandedFeeStructure(title, icon, color, feeStructure, isExpanded, isTablet)
-                : _buildCompactFeeStructure(title, icon, color, feeStructure, isExpanded, isTablet),
+                ? _buildExpandedCard(title, icon, color, feeHeads, isLoading,
+                isExpanded, isTablet)
+                : _buildCollapsedCard(title, icon, color, feeHeads, isExpanded),
           ),
         );
       },
     );
   }
 
-  Widget _buildCompactFeeStructure(
-    String title,
-    IconData icon,
-    Color color,
-    Rxn<Map<String, dynamic>> feeStructure,
-    ValueNotifier<bool> isExpanded,
-    bool isTablet,
-  ) {
+  Widget _buildCollapsedCard(
+      String title,
+      IconData icon,
+      Color color,
+      RxList<Map<String, dynamic>> feeHeads,
+      ValueNotifier<bool> isExpanded,
+      ) {
     return InkWell(
       onTap: () => isExpanded.value = true,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: EdgeInsets.all(isTablet ? 20 : 16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                feeStructure.value != null ? '$title (Loaded)' : title,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            IconButton(
-              onPressed: () => isExpanded.value = true,
-              icon: const Icon(Icons.expand_more, size: 18),
-              tooltip: 'View Details',
-            ),
-          ],
-        ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Obx(() => Text(
+              feeHeads.isNotEmpty
+                  ? '$title  (${feeHeads.length} heads)'
+                  : title,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: _DS.textPrimary),
+              overflow: TextOverflow.ellipsis,
+            )),
+          ),
+          const Icon(Icons.expand_more_rounded,
+              size: 18, color: _DS.textMuted),
+        ]),
       ),
     );
   }
 
-  Widget _buildExpandedFeeStructure(
-    String title,
-    IconData icon,
-    Color color,
-    Rxn<Map<String, dynamic>> feeStructure,
-    ValueNotifier<bool> isExpanded,
-    bool isTablet,
-  ) {
+  Widget _buildExpandedCard(
+      String title,
+      IconData icon,
+      Color color,
+      RxList<Map<String, dynamic>> feeHeads,
+      RxBool isLoading,
+      ValueNotifier<bool> isExpanded,
+      bool isTablet,
+      ) {
     return Padding(
       padding: EdgeInsets.all(isTablet ? 20 : 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: isTablet ? 18 : 12,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => isExpanded.value = false,
-                icon: const Icon(Icons.expand_less, size: 20),
-                tooltip: 'Collapse',
-              ),
-            ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Card header
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    fontSize: isTablet ? 15 : 13,
+                    fontWeight: FontWeight.w700,
+                    color: color)),
+          ),
+          // Summary badge
           Obx(() {
-            if (feeController.isLoading.value) {
-              return Container(
-                padding: const EdgeInsets.all(24),
-                child: const Center(
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Loading fee structure...',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            if (feeStructure.value == null) {
-              return Container(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 56, height: 56,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.08),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.info_outline_rounded,
-                          size: 26, color: color.withOpacity(0.6)),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      selectedClass.value != null
-                          ? 'No fee structure set for ${selectedClass.value!.name}'
-                          : 'Select a class to view fee structure',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: color.withOpacity(0.7)),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      selectedClass.value != null
-                          ? 'Use the "Fee Structure" set tab to configure fees for this class'
-                          : '',
-                      style: const TextStyle(fontSize: 12, color: _DS.textMuted),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final feeHead = feeStructure.value!['feeHead'] as Map<String, dynamic>? ??
-                           feeStructure.value!['data']?['feeHead'] as Map<String, dynamic>? ?? {};
-
-            return Column(
-              children: [
-                _buildFeeItem('Admission Fee', feeHead['admissionFee'], color, isTablet),
-                _buildFeeItem('First Term Amount', feeHead['firstTermAmt'], color, isTablet),
-                _buildFeeItem('Second Term Amount', feeHead['secondTermAmt'], color, isTablet),
-                _buildFeeItem('Bus First Term', feeHead['busFirstTermAmt'], color, isTablet),
-                _buildFeeItem('Bus Second Term', feeHead['busSecondTermAmt'], color, isTablet),
-              ],
+            if (feeHeads.isEmpty) return const SizedBox.shrink();
+            final total = feeHeads.fold<double>(
+                0.0, (s, h) => s + ((h['feeAmount'] ?? h['amount'] ?? 0.0) as num).toDouble());
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                '₹${total % 1 == 0 ? total.toInt() : total.toStringAsFixed(2)}',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: color),
+              ),
             );
           }),
-        ],
-      ),
-    );
-  }
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => isExpanded.value = false,
+            child: const Icon(Icons.expand_less_rounded,
+                size: 20, color: _DS.textMuted),
+          ),
+        ]),
 
-  Widget _buildFeeItem(String label, dynamic amount, Color color, bool isTablet) {
-    final amountValue = amount?.toString() ?? '0';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.all(isTablet ? 12 : 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTablet ? 14 : 13,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
-          ),
-          Text(
-            '₹$amountValue',
-            style: TextStyle(
-              fontSize: isTablet ? 16 : 14,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
+        const SizedBox(height: 16),
+
+        // Body: loading / empty / list
+        Obx(() {
+          if (isLoading.value) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: CircularProgressIndicator(color: color, strokeWidth: 2),
+              ),
+            );
+          }
+
+          if (feeHeads.isEmpty) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.12)),
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.receipt_long_rounded,
+                      size: 22, color: color.withOpacity(0.6)),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  selectedClass.value != null
+                      ? 'No fee heads set for ${selectedClass.value!.name}'
+                      : 'Select a class above',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: color.withOpacity(0.7)),
+                  textAlign: TextAlign.center,
+                ),
+                if (selectedClass.value != null) ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Go to the "Fee Structure" set tab to add fee heads.',
+                    style: TextStyle(fontSize: 11, color: _DS.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ]),
+            );
+          }
+
+          // Fee head rows
+          return Column(
+            children: feeHeads.asMap().entries.map((entry) {
+              final i    = entry.key;
+              final head = entry.value;
+              // Friendly cycling accent colours
+              final colors = [
+                (_DS.accent,               const Color(0xFFEFF6FF)),
+                (_DS.success,              const Color(0xFFD1FAE5)),
+                (const Color(0xFFD97706), const Color(0xFFFEF3C7)),
+                (const Color(0xFF7C3AED), const Color(0xFFEDE9FE)),
+                (const Color(0xFF0891B2), const Color(0xFFCFFAFE)),
+                (const Color(0xFF9333EA), const Color(0xFFF3E8FF)),
+              ];
+              final c      = colors[i % colors.length];
+              final name   = (head['feeName'] ?? head['name'] ?? 'Fee Head').toString();
+              final amount = (head['feeAmount'] ?? head['amount'] ?? 0);
+              final amtStr = amount is double
+                  ? (amount % 1 == 0
+                  ? amount.toInt().toString()
+                  : amount.toStringAsFixed(2))
+                  : amount.toString();
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+                decoration: BoxDecoration(
+                  color: c.$2,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: c.$1.withOpacity(0.2)),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: c.$1.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.label_important_rounded,
+                        color: c.$1, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(name,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: c.$1)),
+                  ),
+                  Text(
+                    '₹ $amtStr',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _DS.textPrimary),
+                  ),
+                ]),
+              );
+            }).toList(),
+          );
+        }),
+      ]),
     );
   }
 }
-
 class _FeeStructureTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

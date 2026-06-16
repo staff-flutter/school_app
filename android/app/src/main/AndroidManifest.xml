@@ -10,7 +10,7 @@
         </intent>
     </queries>
     <application
-        android:label="BMB School App"
+        android:label="Daily Grades"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">

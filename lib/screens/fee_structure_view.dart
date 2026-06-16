@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:school_app/controllers/accounting_controller.dart';
 import 'package:school_app/controllers/fee_structure_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
@@ -8,6 +7,7 @@ import 'package:school_app/core/rbac/api_rbac.dart';
 import 'package:school_app/core/utils/class_utils.dart';
 import 'package:school_app/models/school_models.dart';
 
+// ── Design tokens ──────────────────────────────────────────────
 const _kBg         = Color(0xFFF0F5FF);
 const _kBlue       = Color(0xFF2563EB);
 const _kBlueDark   = Color(0xFF1A2A3A);
@@ -16,6 +16,21 @@ const _kBlueBorder = Color(0xFFDDE6F5);
 const _kSuccess    = Color(0xFF059669);
 const _kSuccessBg  = Color(0xFFD1FAE5);
 const _kDanger     = Color(0xFFDC2626);
+const _kDangerBg   = Color(0xFFFEE2E2);
+const _kWarning    = Color(0xFFD97706);
+const _kWarningBg  = Color(0xFFFEF3C7);
+
+// Cycling colors for fee head cards
+const _kFeeColors = [
+  (_kBlue,               Color(0xFFEFF6FF)),
+  (_kSuccess,            _kSuccessBg),
+  (Color(0xFFD97706),    Color(0xFFFEF3C7)),
+  (Color(0xFF7C3AED),    Color(0xFFEDE9FE)),
+  (Color(0xFF0891B2),    Color(0xFFCFFAFE)),
+  (Color(0xFF9333EA),    Color(0xFFF3E8FF)),
+  (Color(0xFFDB2777),    Color(0xFFFCE7F3)),
+  (Color(0xFF0D9488),    Color(0xFFCCFBF1)),
+];
 
 class FeeStructureView extends StatefulWidget {
   const FeeStructureView({super.key});
@@ -30,33 +45,35 @@ class _FeeStructureViewState extends State<FeeStructureView> {
   final schoolController = Get.find<SchoolController>();
   final authController   = Get.find<AuthController>();
 
-  // ── State ──────────────────────────────────────────────────────
-  SchoolClass? selectedClass;
-  String selectedStudentType = 'old'; // 'old' | 'new'
+  // ── State (Rx so Obx can safely observe them) ─────────────────
+  final _selectedClass       = Rxn<SchoolClass>();
+  final _selectedStudentType = 'old'.obs;
 
-  // ── Fee text controllers ───────────────────────────────────────
-  final _admissionFeeCtrl    = TextEditingController();
-  final _firstTermCtrl       = TextEditingController();
-  final _secondTermCtrl      = TextEditingController();
-  final _annualFeeCtrl       = TextEditingController();
-  final _busFirstTermCtrl    = TextEditingController();
-  final _busSecondTermCtrl   = TextEditingController();
+  SchoolClass? get selectedClass        => _selectedClass.value;
+  String       get selectedStudentType  => _selectedStudentType.value;
+
+  // ── Dynamic fee heads (all custom, no hardcoded fields) ───────
+  /// Each entry: { 'id': String?, 'name': String, 'amount': double }
+  /// 'id' is null for newly added (not yet saved) heads.
+  final RxList<Map<String, dynamic>> _feeHeads = <Map<String, dynamic>>[].obs;
 
   String get currentUserRole =>
       authController.user.value?.role?.toLowerCase() ?? '';
 
   bool get canSetFee =>
       ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/feestructure/set');
-
+  final _amountControllers = <String, TextEditingController>{};
+// 1. Inside _FeeStructureViewState, update your initState:
   @override
   void initState() {
     super.initState();
-
-    _firstTermCtrl.addListener(_calculateAndSetAnnualFee);
-    _secondTermCtrl.addListener(_calculateAndSetAnnualFee);
-    _busFirstTermCtrl.addListener(_calculateAndSetAnnualFee);
-    _busSecondTermCtrl.addListener(_calculateAndSetAnnualFee);
-
+    everAll([_selectedClass, _selectedStudentType], (_) {
+      final schoolId = schoolController.selectedSchool.value?.id
+          ?? authController.user.value?.schoolId;
+      if (schoolId != null && selectedClass != null) {
+        _loadFeeHeads(schoolId, selectedClass!.id);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final school = schoolController.selectedSchool.value;
       if (school != null) schoolController.getAllClasses(school.id);
@@ -65,58 +82,70 @@ class _FeeStructureViewState extends State<FeeStructureView> {
 
   @override
   void dispose() {
-    _admissionFeeCtrl.dispose();
-    _firstTermCtrl.dispose();
-    _secondTermCtrl.dispose();
-    _annualFeeCtrl.dispose();
-    _busFirstTermCtrl.dispose();
-    _busSecondTermCtrl.dispose();
+    for (final c in _amountControllers.values) c.dispose();
     super.dispose();
   }
 
-  // ── API: load existing fee structure ──────────────────────────
-  Future<void> _loadFeeStructure(String schoolId, String classId) async {
-    final data = await feeController.getFeeStructureByClass(
-      schoolId, classId,
-      type: selectedStudentType,
-    );
-    final feeHead = data?['feeHead'] ?? data?['data']?['feeHead'] ?? {};
-    setState(() {
-      _admissionFeeCtrl.text  = feeHead['admissionFee']?.toString()    ?? '';
-      _firstTermCtrl.text     = feeHead['firstTermAmt']?.toString()     ?? '';
-      _secondTermCtrl.text    = feeHead['secondTermAmt']?.toString()    ?? '';
-    //  _annualFeeCtrl.text     = feeHead['annualFee']?.toString()        ?? '';
-      _busFirstTermCtrl.text  = feeHead['busFirstTermAmt']?.toString()  ?? '';
-      _busSecondTermCtrl.text = feeHead['busSecondTermAmt']?.toString() ?? '';
-
-      _calculateAndSetAnnualFee();
-    });
-  }
-
-  void _clearForm() {
-    _admissionFeeCtrl.clear();
-    _firstTermCtrl.clear();
-    _secondTermCtrl.clear();
-    _annualFeeCtrl.clear();
-    _busFirstTermCtrl.clear();
-    _busSecondTermCtrl.clear();
-  }
-
+// 2. Clean up your callback handlers so they don't fight with the workers:
   void _onClassSelected(SchoolClass cls) {
-    setState(() { selectedClass = cls; });
-    final schoolId = schoolController.selectedSchool.value?.id;
-    if (schoolId != null) _loadFeeStructure(schoolId, cls.id);
+    _selectedClass.value = cls; // Worker will automatically fetch data now!
   }
 
   void _onStudentTypeSelected(String type) {
-    setState(() { selectedStudentType = type; });
-    final schoolId = schoolController.selectedSchool.value?.id;
-    if (schoolId != null && selectedClass != null)
-      _loadFeeStructure(schoolId, selectedClass!.id);
+    _selectedStudentType.value = type; // Worker will automatically fetch data now!
+  }
+  // ── API: load fee heads ────────────────────────────────────────
+// ── API: load fee heads (Fully Dynamic Setup) ─────────────────
+
+  Future<void> _loadFeeHeads(String schoolId, String classId) async {
+    feeController.isLoading.value = true;
+    // Dispose old controllers
+    for (final c in _amountControllers.values) c.dispose();
+    _amountControllers.clear();
+
+    try {
+      final heads = await feeController.getCustomFeeHeads(
+        schoolId: schoolId,
+        classId:  classId,
+        type:     selectedStudentType,
+      );
+
+      final List<Map<String, dynamic>> built = heads.map((h) {
+        final name   = (h['feeName'] ?? '').toString();
+        final amount = (h['feeAmount'] as num?)?.toDouble() ?? 0.0;
+        // Create stable controller with pre-filled value
+        _amountControllers[name] = TextEditingController(
+          text: amount == 0 ? '' : (amount % 1 == 0
+              ? amount.toInt().toString()
+              : amount.toStringAsFixed(2)),
+        );
+        return {'name': name, 'amount': amount, 'isStandard': false};
+      }).toList();
+
+      _feeHeads.assignAll(built);
+    } finally {
+      feeController.isLoading.value = false;
+    }
   }
 
-  // ── API: save ─────────────────────────────────────────────────
-  void _save() {
+  // void _onClassSelected(SchoolClass cls) {
+  //   _selectedClass.value = cls;
+  //   _feeHeads.clear();
+  //   final schoolId = schoolController.selectedSchool.value?.id;
+  //   if (schoolId != null) _loadFeeHeads(schoolId, cls.id);
+  // }
+  //
+  // void _onStudentTypeSelected(String type) {
+  //   _selectedStudentType.value = type;
+  //   _feeHeads.clear();
+  //   final schoolId = schoolController.selectedSchool.value?.id;
+  //   if (schoolId != null && selectedClass != null)
+  //     _loadFeeHeads(schoolId, selectedClass!.id);
+  // }
+
+  // ── Save all fee heads ─────────────────────────────────────────
+  // ── Save all fee heads (Fully Dynamic Setup) ─────────────────
+  Future<void> _saveAll() async {
     final schoolId = schoolController.selectedSchool.value?.id
         ?? authController.user.value?.schoolId;
     if (schoolId == null) {
@@ -129,40 +158,150 @@ class _FeeStructureViewState extends State<FeeStructureView> {
           backgroundColor: _kDanger, colorText: Colors.white);
       return;
     }
-    feeController.setFeeStructure(
-      schoolId:  schoolId,
-      classId:   selectedClass!.id,
-      type:      selectedStudentType,
-      feeHead: {
-        'admissionFee':    double.tryParse(_admissionFeeCtrl.text)  ?? 0,
-        'firstTermAmt':    double.tryParse(_firstTermCtrl.text)     ?? 0,
-        'secondTermAmt':   double.tryParse(_secondTermCtrl.text)    ?? 0,
-        'annualFee':       double.tryParse(_annualFeeCtrl.text)     ?? 0,
-        'busFirstTermAmt': double.tryParse(_busFirstTermCtrl.text)  ?? 0,
-        'busSecondTermAmt':double.tryParse(_busSecondTermCtrl.text) ?? 0,
-      },
+    if (_feeHeads.isEmpty) {
+      Get.snackbar('Error', 'No fee heads configured. Set them in Fee Configuration first.',
+          backgroundColor: _kDanger, colorText: Colors.white);
+      return;
+    }
+
+    try {
+      feeController.isLoading.value = true;
+
+      // Read amounts from stable controllers
+      final feeHeadsList = _feeHeads.map((h) {
+        final name   = h['name'].toString();
+        final ctrl   = _amountControllers[name];
+        final amount = double.tryParse(ctrl?.text.trim() ?? '') ?? 0.0;
+        return {'feeName': name, 'feeAmount': amount};
+      }).toList();
+
+      final ok = await feeController.saveAllCustomFeeHeads(
+        schoolId: schoolId,
+        classId:  selectedClass!.id,
+        type:     selectedStudentType,
+        feeHeads: feeHeadsList,
+      );
+
+      if (!ok) return;
+
+      Get.snackbar('Success', 'Fee structure saved successfully',
+          backgroundColor: _kSuccess, colorText: Colors.white);
+
+      await _loadFeeHeads(schoolId, selectedClass!.id);
+    } catch (e) {
+      debugPrint('❌ Save error: $e');
+      Get.snackbar('Error', 'Failed to save fee structure',
+          backgroundColor: _kDanger, colorText: Colors.white);
+    } finally {
+      feeController.isLoading.value = false;
+    }
+  }
+
+  // ── Delete a single fee head ───────────────────────────────────
+  void _deleteFeeHead(int index) {
+    final head = _feeHeads[index];
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _kDangerBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.delete_outline_rounded,
+                color: _kDanger, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Text('Delete Fee Head',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                  color: _kBlueDark)),
+        ]),
+        content: Text(
+          'Remove "${head['name']}" from the fee structure?',
+          style: const TextStyle(fontSize: 13, color: _kBlueMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel',
+                style: TextStyle(color: _kBlueMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _kDanger,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Get.back();
+              _feeHeads.removeAt(index);
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.white,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // BUILD
-  // ═══════════════════════════════════════════════════════════════
+  // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
+      floatingActionButton: canSetFee
+          ? FloatingActionButton(
+        onPressed: _showAddOrEditSheet,
+        backgroundColor: _kBlue,
+        tooltip: 'Add Fee Head',
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add_rounded,
+            color: Colors.white, size: 26),
+      )
+          : null,
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildFilterChipsRow(),
                   const SizedBox(height: 14),
-                  _buildFeeCard(),
+                  // Summary chip row (total categories + amount)
+                  Obx(() {
+                    if (_feeHeads.isEmpty) return const SizedBox.shrink();
+                    return _buildSummaryRow();
+                  }),
+                  const SizedBox(height: 10),
+                  // Fee heads list
+                  Obx(() {
+                    if (selectedClass == null) {
+                      return _buildEmptyState(
+                        icon: Icons.class_rounded,
+                        title: 'Select a Class',
+                        subtitle: 'Choose a class and student type to view or configure its fee structure.',
+                      );
+                    }
+                    if (feeController.isLoading.value) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40),
+                          child: CircularProgressIndicator(color: _kBlue),
+                        ),
+                      );
+                    }
+                    if (_feeHeads.isEmpty) {
+                      return _buildEmptyFeeHeads();
+                    }
+                    return _buildFeeHeadsList();
+                  }),
                   const SizedBox(height: 16),
                   if (canSetFee) _buildSaveButton(),
                 ],
@@ -206,341 +345,753 @@ class _FeeStructureViewState extends State<FeeStructureView> {
             Text('Fee Structure',
                 style: TextStyle(color: _kBlueDark, fontSize: 15,
                     fontWeight: FontWeight.w700)),
-            Text('Configure class-wise fee heads',
+            Text('Add & manage fee heads per class',
                 style: TextStyle(color: _kBlueMuted, fontSize: 11)),
           ]),
         ),
+        if (canSetFee)
+          GestureDetector(
+            onTap: _showAddOrEditSheet,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: _kBlue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _kBlue.withOpacity(0.3)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                Icon(Icons.add_rounded, color: _kBlue, size: 14),
+                SizedBox(width: 4),
+                Text('Add Fee Head',
+                    style: TextStyle(
+                        color: _kBlue,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
       ]),
     );
   }
 
-  // ── Filter chips row: Class + Student Type ─────────────────────
+  // ── Filter chips ───────────────────────────────────────────────
   Widget _buildFilterChipsRow() {
-    return Row(children: [
-      // Class chip
-      GestureDetector(
-        onTap: _showClassSheet,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: selectedClass != null
-                ? _kBlue.withOpacity(0.08) : Colors.white,
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: selectedClass != null ? _kBlue : _kBlueBorder,
-              width: selectedClass != null ? 1.5 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kBlueBorder.withOpacity(0.4),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              )
-            ],
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.class_rounded,
-                size: 14,
-                color: selectedClass != null ? _kBlue : _kBlueMuted),
-            const SizedBox(width: 6),
-            Text(
-              selectedClass?.name ?? 'Select Class',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selectedClass != null ? _kBlue : _kBlueMuted,
+    return Obx(() {
+      final cls  = _selectedClass.value;
+      final type = _selectedStudentType.value;
+      return Row(children: [
+        GestureDetector(
+          onTap: _showClassSheet,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: cls != null ? _kBlue.withOpacity(0.08) : Colors.white,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: cls != null ? _kBlue : _kBlueBorder,
+                width: cls != null ? 1.5 : 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: _kBlueBorder.withOpacity(0.4),
+                  blurRadius: 4, offset: const Offset(0, 1),
+                )
+              ],
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down_rounded,
-                size: 14,
-                color: selectedClass != null ? _kBlue : _kBlueMuted),
-          ]),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.class_rounded,
+                  size: 14,
+                  color: cls != null ? _kBlue : _kBlueMuted),
+              const SizedBox(width: 6),
+              Text(
+                cls?.name ?? 'Select Class',
+                style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600,
+                  color: cls != null ? _kBlue : _kBlueMuted,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: cls != null ? _kBlue : _kBlueMuted),
+            ]),
+          ),
         ),
-      ),
-      const SizedBox(width: 8),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: _showStudentTypeSheet,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: type == 'new' ? _kSuccessBg : _kBlue.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: type == 'new' ? _kSuccess : _kBlue,
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _kBlueBorder.withOpacity(0.4),
+                  blurRadius: 4, offset: const Offset(0, 1),
+                )
+              ],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                type == 'new' ? Icons.person_add_rounded : Icons.school_rounded,
+                size: 14,
+                color: type == 'new' ? _kSuccess : _kBlue,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                type == 'new' ? 'New Students' : 'Old Students',
+                style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600,
+                  color: type == 'new' ? _kSuccess : _kBlue,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: type == 'new' ? _kSuccess : _kBlue),
+            ]),
+          ),
+        ),
+      ]);
+    });
+  }
 
-      // Student type chip
-      GestureDetector(
-        onTap: _showStudentTypeSheet,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: selectedStudentType == 'new'
-                ? _kSuccessBg : _kBlue.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: selectedStudentType == 'new' ? _kSuccess : _kBlue,
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kBlueBorder.withOpacity(0.4),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              )
-            ],
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(
-              selectedStudentType == 'new'
-                  ? Icons.person_add_rounded : Icons.school_rounded,
-              size: 14,
-              color: selectedStudentType == 'new' ? _kSuccess : _kBlue,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              selectedStudentType == 'new' ? 'New Students' : 'Old Students',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selectedStudentType == 'new' ? _kSuccess : _kBlue,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down_rounded,
-                size: 14,
-                color: selectedStudentType == 'new' ? _kSuccess : _kBlue),
-          ]),
-        ),
-      ),
+  // ── Summary row ────────────────────────────────────────────────
+  Widget _buildSummaryRow() {
+    final total = _feeHeads.fold<double>(
+        0.0, (sum, h) => sum + ((h['amount'] ?? 0.0) as double));
+    final count = _feeHeads.length;
+
+    return Row(children: [
+      _summaryChip(Icons.category_rounded, '$count Fee Heads', _kBlue),
+      const SizedBox(width: 8),
+      _summaryChip(Icons.currency_rupee_rounded,
+          total % 1 == 0
+              ? total.toInt().toString()
+              : total.toStringAsFixed(2),
+          _kSuccess),
     ]);
   }
 
-  // ── Fee fields card ────────────────────────────────────────────
-  Widget _buildFeeCard() {
-    final fields = [
-      ('Admission Fee',       _admissionFeeCtrl,  Icons.login_rounded,                   _kSuccess,            _kSuccessBg,                  'One-time admission charge',true),
-      ('First Term',          _firstTermCtrl,     Icons.looks_one_rounded,               _kBlue,               _kBlue.withOpacity(0.08),     'Tuition fee for first term',true),
-      ('Second Term',         _secondTermCtrl,    Icons.looks_two_rounded,               const Color(0xFFD97706), const Color(0xFFFEF3C7),   'Tuition fee for second term',true),
-      ('Annual Fee',          _annualFeeCtrl,     Icons.calendar_today_rounded,          const Color(0xFF7C3AED), const Color(0xFFEDE9FE),   'Calculated automatically from terms',false),
-      ('Bus First Term',      _busFirstTermCtrl,  Icons.directions_bus_rounded,          const Color(0xFF0891B2), const Color(0xFFCFFAFE),   'Transport fee for first term',true),
-      ('Bus Second Term',     _busSecondTermCtrl, Icons.directions_bus_filled_rounded,   const Color(0xFF9333EA), const Color(0xFFF3E8FF),   'Transport fee for second term',true),
-    ];
+  Widget _summaryChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 5),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+      ]),
+    );
+  }
+
+  // ── Fee heads list ─────────────────────────────────────────────
+  Widget _buildFeeHeadsList() {
+    // ✅ Plain Column — NOT Obx — so TextField controllers stay stable
+    return Column(
+      children: List.generate(_feeHeads.length, (i) {
+        final head = _feeHeads[i];
+        final name = head['name'] as String;
+        final c    = _kFeeColors[i % _kFeeColors.length];
+        final ctrl = _amountControllers.putIfAbsent(
+            name, () => TextEditingController());
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: c.$1.withOpacity(0.2)),
+            boxShadow: [BoxShadow(
+                color: c.$1.withOpacity(0.06),
+                blurRadius: 6,
+                offset: const Offset(0, 2))],
+          ),
+          child: Row(children: [
+            Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(
+                  color: c.$1.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Icon(Icons.label_important_rounded,
+                  color: c.$1, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: c.$1)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: ctrl,         // ✅ stable
+                    enabled: canSetFee,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _kBlueDark),
+                    decoration: InputDecoration(
+                      hintText: '0',
+                      prefixText: '₹ ',
+                      prefixStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: _kBlueMuted),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      filled: true,
+                      fillColor: c.$2,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                          BorderSide(color: c.$1.withOpacity(0.3))),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                          BorderSide(color: c.$1.withOpacity(0.3))),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                          BorderSide(color: c.$1, width: 1.5)),
+                    ),
+                    // ✅ No onChanged — read from controller on save only
+                  ),
+                ],
+              ),
+            ),
+          ]),
+        );
+      }),
+    );
+  }
+
+  Widget _buildFeeHeadCard(
+      int index, Map<String, dynamic> head, Color fg, Color bg) {
+    final name   = (head['name'] ?? 'Fee Head').toString();
+    final amount = (head['amount'] ?? 0.0) as double;
+    final isStd  = head['isStandard'] == true;
 
     return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fg.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: fg.withOpacity(0.08),
+            blurRadius: 6, offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      child: Row(children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: fg.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            isStd ? Icons.receipt_long_rounded : Icons.label_important_rounded,
+            color: fg, size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(name,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: fg)),
+              if (isStd) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: fg.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text('Standard',
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: fg)),
+                ),
+              ],
+            ]),
+            const SizedBox(height: 3),
+            Text(
+              '₹ ${amount % 1 == 0 ? amount.toInt() : amount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: _kBlueDark),
+            ),
+          ]),
+        ),
+        // Edit + Delete buttons (only if canSetFee)
+        if (canSetFee) ...[
+          GestureDetector(
+            onTap: () => _showAddOrEditSheet(
+                editIndex: index, existing: head),
+            child: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: _kBlue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.edit_rounded,
+                  color: _kBlue, size: 15),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => _deleteFeeHead(index),
+            child: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: _kDangerBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: _kDanger, size: 15),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  // ── Empty states ───────────────────────────────────────────────
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _kBlueBorder),
-        boxShadow: [
-          BoxShadow(
-            color: _kBlueBorder.withOpacity(0.5),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          )
-        ],
       ),
-      child: Column(children: [
-        // Card header
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          width: 56, height: 56,
           decoration: BoxDecoration(
-            color: _kBlue.withOpacity(0.05),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border(bottom: BorderSide(color: _kBlueBorder)),
+            color: _kBlue.withOpacity(0.08),
+            shape: BoxShape.circle,
           ),
-          child: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: _kBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.receipt_long_rounded,
-                  color: _kBlue, size: 16),
-            ),
-            const SizedBox(width: 10),
-            const Text('Fee Configuration',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                    color: _kBlueDark)),
-            const Spacer(),
-            if (selectedClass != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _kBlue.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  '${selectedClass!.name} · ${selectedStudentType == 'new' ? 'New' : 'Old'}',
-                  style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: _kBlue),
-                ),
-              ),
-          ]),
+          child: Icon(icon, color: _kBlue, size: 26),
         ),
-
-        // Fee rows
-        Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            children: fields.map((f) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _feeField(
-                label:      f.$1,
-                ctrl:       f.$2,
-                icon:       f.$3,
-                fg:         f.$4,
-                bg:         f.$5,
-                helperText: f.$6,
-                enabled:    canSetFee && f.$7,
-              ),
-            )).toList(),
-          ),
-        ),
+        const SizedBox(height: 12),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w700, color: _kBlueDark)),
+        const SizedBox(height: 6),
+        Text(subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: _kBlueMuted)),
       ]),
     );
   }
 
-  Widget _feeField({
-    required String label,
-    required TextEditingController ctrl,
-    required IconData icon,
-    required Color fg,
-    required Color bg,
-    required String helperText,
-    bool enabled = true,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: fg.withOpacity(0.2)),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: Row(children: [
-        Icon(icon, color: fg, size: 18),
-        const SizedBox(width: 10),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: fg)),
-            const SizedBox(height: 5),
-            TextFormField(
-              controller: ctrl,
-              enabled: enabled,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                  fontSize: 14, color: _kBlueDark),
-              decoration: InputDecoration(
-                prefixText: '₹ ',
-                hintText: '0',
-                helperText: helperText,
-                helperStyle: TextStyle(
-                    fontSize: 10,
-                    color: fg.withOpacity(0.6)),
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide:
-                    BorderSide(color: fg.withOpacity(0.3))),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide:
-                    BorderSide(color: fg.withOpacity(0.3))),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: fg, width: 1.5)),
-                disabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                        color: fg.withOpacity(0.15))),
-              ),
-            ),
-          ],
-        )),
-      ]),
+  Widget _buildEmptyFeeHeads() {
+    return _buildEmptyState(
+      icon: Icons.receipt_long_rounded,
+      title: 'No Fee Heads Configured',
+      subtitle:
+      'Go to Fee Configuration first to add fee head names for ${selectedClass?.name ?? 'this class'}, then come back here to set amounts.',
     );
   }
 
   // ── Save button ────────────────────────────────────────────────
   Widget _buildSaveButton() {
-    return Obx(() => SizedBox(
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: (selectedClass == null || feeController.isLoading.value)
-              ? LinearGradient(
-              colors: [Colors.grey.shade300, Colors.grey.shade300])
-              : const LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: (selectedClass == null || feeController.isLoading.value)
-              ? []
-              : [
-            BoxShadow(
-              color: _kBlue.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+    return Obx(() {
+      final disabled = selectedClass == null ||
+          feeController.isLoading.value || _feeHeads.isEmpty;
+      return SizedBox(
+        width: double.infinity,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: disabled
+                ? LinearGradient(
+                colors: [Colors.grey.shade300, Colors.grey.shade300])
+                : const LinearGradient(
+                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: disabled
+                ? []
+                : [
+              BoxShadow(
+                color: _kBlue.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              )
+            ],
           ),
-          onPressed: (selectedClass == null || feeController.isLoading.value)
-              ? null
-              : _save,
-          icon: feeController.isLoading.value
-              ? const SizedBox(
-              width: 18, height: 18,
-              child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2))
-              : const Icon(Icons.save_rounded,
-              color: Colors.white, size: 18),
-          label: Text(
-            feeController.isLoading.value
-                ? 'Saving…'
-                : 'Save Fee Structure',
-            style: TextStyle(
-              color: (selectedClass == null ||
-                  feeController.isLoading.value)
-                  ? Colors.grey.shade500
-                  : Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: disabled ? null : _saveAll,
+            icon: feeController.isLoading.value
+                ? const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.save_rounded,
+                color: Colors.white, size: 18),
+            label: Text(
+              feeController.isLoading.value ? 'Saving…' : 'Save Fee Structure',
+              style: TextStyle(
+                color: disabled ? Colors.grey.shade500 : Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
           ),
         ),
+      );
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ADD / EDIT FEE HEAD BOTTOM SHEET
+  // ═══════════════════════════════════════════════════════════════
+  void _showAddOrEditSheet({int? editIndex, Map<String, dynamic>? existing}) {
+    if (selectedClass == null) {
+      Get.snackbar(
+          'Select a Class', 'Please select a class before adding fee heads.',
+          backgroundColor: _kDanger, colorText: Colors.white);
+      return;
+    }
+
+    final isEdit = editIndex != null && existing != null;
+    final nameCtrl =
+    TextEditingController(text: isEdit ? existing['name'] : '');
+    final amountCtrl = TextEditingController(
+        text: isEdit
+            ? ((existing['amount'] as double?) ?? 0.0)
+            .toStringAsFixed(
+            ((existing['amount'] as double?) ?? 0.0) % 1 == 0 ? 0 : 2)
+            : '');
+    final formKey = GlobalKey<FormState>();
+
+    Get.bottomSheet(
+      isScrollControlled: true,
+      Container(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(Get.context!).viewInsets.bottom),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+          child: Form(
+            key: formKey,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: _kBlueBorder,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+
+              // Title row
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _kBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isEdit
+                        ? Icons.edit_rounded
+                        : Icons.add_circle_outline_rounded,
+                    color: _kBlue, size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(isEdit ? 'Edit Fee Head' : 'Add Fee Head',
+                            style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: _kBlueDark)),
+                        Text(
+                          isEdit
+                              ? 'Update this fee category'
+                              : 'Create a new fee category',
+                          style: const TextStyle(
+                              fontSize: 11, color: _kBlueMuted),
+                        ),
+                      ]),
+                ),
+                GestureDetector(
+                  onTap: () => Get.back(),
+                  child: const Icon(Icons.close_rounded,
+                      color: _kBlueMuted, size: 22),
+                ),
+              ]),
+
+              const SizedBox(height: 8),
+              Divider(color: _kBlueBorder),
+              const SizedBox(height: 16),
+
+              // Context pill
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _kBlue.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: _kBlue.withOpacity(0.2)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.info_outline_rounded,
+                      color: _kBlueMuted, size: 13),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${selectedClass!.name} · '
+                        '${selectedStudentType == 'new' ? 'New Students' : 'Old Students'}',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: _kBlueMuted,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ]),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Name field
+              TextFormField(
+                controller: nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                style: const TextStyle(fontSize: 14, color: _kBlueDark),
+                decoration: InputDecoration(
+                  labelText: 'Fee Head Name',
+                  hintText: 'e.g. Admission Fee, Lab Fee, Sports Fee…',
+                  prefixIcon: const Icon(Icons.label_outline_rounded,
+                      color: _kBlueMuted, size: 20),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _kBlueBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _kBlueBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kBlue, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kDanger),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 14),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty)
+                    return 'Fee head name is required';
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 14),
+
+              // Amount field
+              TextFormField(
+                controller: amountCtrl,
+                keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(fontSize: 14, color: _kBlueDark),
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  hintText: '0',
+                  prefixText: '₹ ',
+                  prefixIcon: const Icon(Icons.currency_rupee_rounded,
+                      color: _kBlueMuted, size: 20),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _kBlueBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _kBlueBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kBlue, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kDanger),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 14),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Amount is required';
+                  if (double.tryParse(v) == null) return 'Enter a valid number';
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 24),
+
+              // Action buttons
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Get.back(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(color: _kBlueBorder),
+                    ),
+                    child: const Text('Cancel',
+                        style: TextStyle(
+                            color: _kBlueMuted, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kBlue.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _submitFeeHead(
+                          formKey, nameCtrl, amountCtrl,
+                          editIndex: editIndex, existing: existing),
+                      icon: Icon(
+                        isEdit ? Icons.check_rounded : Icons.add_rounded,
+                        color: Colors.white, size: 18,
+                      ),
+                      label: Text(
+                        isEdit ? 'Update Fee Head' : 'Add Fee Head',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            ]),
+          ),
+        ),
       ),
-    ));
+    );
   }
-  void _calculateAndSetAnnualFee() {
-    // Parse numbers safely. If empty or invalid string, defaults to 0.0
-    final double admission   = double.tryParse(_admissionFeeCtrl.text)   ?? 0.0;
-    final double firstTerm   = double.tryParse(_firstTermCtrl.text)   ?? 0.0;
-    final double secondTerm  = double.tryParse(_secondTermCtrl.text)  ?? 0.0;
-    final double busFirst    = double.tryParse(_busFirstTermCtrl.text) ?? 0.0;
-    final double busSecond   = double.tryParse(_busSecondTermCtrl.text) ?? 0.0;
 
-    final double totalSum = admission + firstTerm + secondTerm + busFirst + busSecond;
+  void _submitFeeHead(
+      GlobalKey<FormState> formKey,
+      TextEditingController nameCtrl,
+      TextEditingController amountCtrl, {
+        int? editIndex,
+        Map<String, dynamic>? existing,
+      }) {
+    if (!formKey.currentState!.validate()) return;
 
-    // Update the Annual Fee controller.
-    // If the total ends in .0, we can display it cleaner as an integer format.
-    _annualFeeCtrl.text = totalSum % 1 == 0
-        ? totalSum.toInt().toString()
-        : totalSum.toStringAsFixed(2);
+    final name   = nameCtrl.text.trim();
+    final amount = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+    final isEdit = editIndex != null && existing != null;
+
+    if (isEdit) {
+      // Update in place
+      _feeHeads[editIndex] = {
+        ...existing,
+        'name':   name,
+        'amount': amount,
+      };
+    } else {
+      // Add new (not yet persisted; saved when user taps Save)
+      _feeHeads.add({
+        'id':         null,
+        'name':       name,
+        'amount':     amount,
+        'isStandard': false,
+      });
+    }
+
+    Get.back();
+    Get.snackbar(
+      isEdit ? 'Updated' : 'Added',
+      isEdit
+          ? '"$name" updated. Tap Save to persist.'
+          : '"$name" added. Tap Save to persist.',
+      backgroundColor: _kSuccess,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+    );
   }
-  // ── Bottom sheet: class picker ─────────────────────────────────
+
+  // ── Class bottom sheet ─────────────────────────────────────────
   void _showClassSheet() {
     Get.bottomSheet(
       Container(
@@ -549,7 +1100,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Handle
           Container(
             margin: const EdgeInsets.only(top: 12),
             width: 40, height: 4,
@@ -575,22 +1125,18 @@ class _FeeStructureViewState extends State<FeeStructureView> {
             ]),
           ),
           Divider(height: 1, color: _kBlueBorder),
-
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 380),
             child: Obx(() {
-              final sorted =
-              ClassUtils.sortClasses(schoolController.classes);
+              final sorted = ClassUtils.sortClasses(schoolController.classes);
               if (sorted.isEmpty)
                 return const Padding(
                   padding: EdgeInsets.all(32),
                   child: Center(
                     child: Text('No classes available',
-                        style: TextStyle(
-                            color: _kBlueMuted, fontSize: 14)),
+                        style: TextStyle(color: _kBlueMuted, fontSize: 14)),
                   ),
                 );
-
               return ListView.builder(
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(
@@ -623,22 +1169,15 @@ class _FeeStructureViewState extends State<FeeStructureView> {
                         Container(
                           width: 34, height: 34,
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? _kBlue
-                                : Colors.white,
-                            borderRadius:
-                            BorderRadius.circular(8),
+                            color: isSelected ? _kBlue : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: isSelected
-                                    ? _kBlue
-                                    : _kBlueBorder),
+                                color: isSelected ? _kBlue : _kBlueBorder),
                           ),
                           child: Icon(
                             ClassUtils.getClassIcon(c.name),
                             size: 16,
-                            color: isSelected
-                                ? Colors.white
-                                : _kBlue,
+                            color: isSelected ? Colors.white : _kBlue,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -649,9 +1188,7 @@ class _FeeStructureViewState extends State<FeeStructureView> {
                                 fontWeight: isSelected
                                     ? FontWeight.w700
                                     : FontWeight.w500,
-                                color: isSelected
-                                    ? _kBlue
-                                    : _kBlueDark,
+                                color: isSelected ? _kBlue : _kBlueDark,
                               )),
                         ),
                         if (isSelected)
@@ -671,7 +1208,7 @@ class _FeeStructureViewState extends State<FeeStructureView> {
     );
   }
 
-  // ── Bottom sheet: student type picker ─────────────────────────
+  // ── Student type bottom sheet ──────────────────────────────────
   void _showStudentTypeSheet() {
     final options = [
       (
@@ -763,21 +1300,19 @@ class _FeeStructureViewState extends State<FeeStructureView> {
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(o.$2,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected ? o.$5 : _kBlueDark,
-                                )),
-                            const SizedBox(height: 2),
-                            Text(o.$3,
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: _kBlueMuted)),
-                          ],
-                        ),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(o.$2,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected ? o.$5 : _kBlueDark,
+                                  )),
+                              const SizedBox(height: 2),
+                              Text(o.$3,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: _kBlueMuted)),
+                            ]),
                       ),
                       if (isSelected)
                         Icon(Icons.check_circle_rounded,

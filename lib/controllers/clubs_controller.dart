@@ -66,12 +66,20 @@ class ClubsController extends GetxController {
   bool _isLoadingClasses = false;
 
   Future<void> loadSchools() async {
-    
+
+
     try {
       final authController = Get.find<AuthController>();
+      final schoolController = Get.find<SchoolController>();
+      final schoolId;
+      //final schoolId = authController.user.value?.schoolId;
+      if(authController.user.value?.role == 'correspondent'){
+        schoolId = schoolController.selectedSchool.value?.id;
 
-      final schoolId = authController.user.value?.schoolId;
+      }else{
+        schoolId =  authController.user.value?.schoolId;
 
+      }
       if (schoolId != null) {
 
         // Create school object with user's schoolId

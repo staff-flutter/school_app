@@ -10,75 +10,75 @@ import 'package:school_app/controllers/parent_attendance_controller.dart';
 import 'package:school_app/bindings/old_attendance_binding.dart';
 import 'package:school_app/screens/simple_communications_view.dart';
 import 'package:school_app/bindings/communications_binding.dart';
-// ✅ Import the new Clubs & Activities page
 import 'package:school_app/screens/campus_management_view.dart';
 
 class AppRoutes {
-  static const String TIMETABLE_MANAGEMENT = '/timetable-management';
+  static const String TIMETABLE_MANAGEMENT  = '/timetable-management';
   static const String TIMETABLE_MANAGEMENT1 = '/timetable-management';
 
-  static const String MARKS_UPLOAD = '/marks-upload';
+  static const String MARKS_UPLOAD        = '/marks-upload';
   static const String HOMEWORK_MANAGEMENT = '/homework-management';
-  static const String SPLASH = '/splash';
-  static const String LOGIN = '/login';
-  static const String CREATE_SCHOOL = '/create-school';
-  static const String SCHOOL_MANAGEMENT = '/school-management';
-  static const String DASHBOARD = '/accounting-dashboard';
+  static const String SPLASH              = '/splash';
+  static const String LOGIN               = '/login';
+  static const String CREATE_SCHOOL       = '/create-school';
+  static const String SCHOOL_MANAGEMENT   = '/school-management';
+  static const String DASHBOARD           = '/accounting-dashboard';
   static const String ACCOUNTING_DASHBOARD = '/accounting-dashboard';
-  static const String FEE_COLLECTION = '/fee-collection';
-  static const String EXPENSES = '/expenses';
-  static const String FEE_STRUCTURE = '/fee-structure';
-  static const String REPORTS = '/reports';
-  static const String STUDENT_MANAGEMENT = '/student-management';
-  static const String ACADEMICS = '/academics';
-  static const String COMMUNICATIONS = '/communications';
-  static const String CLUBS_ACTIVITIES = '/clubs-activities';
-//<<<<<<< Updated upstream
+  static const String FEE_COLLECTION      = '/fee-collection';
+  static const String EXPENSES            = '/expenses';
+  static const String FEE_STRUCTURE       = '/fee-structure';
+  static const String FEE_CONFIGURATION   = '/fee-configuration';
+
+  static const String REPORTS             = '/reports';
+  static const String STUDENT_MANAGEMENT  = '/student-management';
+  static const String ACADEMICS           = '/academics';
+  static const String COMMUNICATIONS      = '/communications';
+  static const String CLUBS_ACTIVITIES    = '/clubs-activities';
   static const String CAMPUS_MANAGEMENT_PAGE = '/campus-management-page';
-  static const String CLUB_DETAIL = '/club-detail';
-  static const String ATTENDANCE = '/attendance';
-  static const String TEACHER_ATTENDANCE = '/teacher-attendance';
-  static const String STUDENT_MARKS_LIST = '/student_marks_list';
+  static const String CLUB_DETAIL         = '/club-detail';
+  static const String ATTENDANCE          = '/attendance';
+  static const String TEACHER_ATTENDANCE  = '/teacher-attendance';
+  static const String STUDENT_MARKS_LIST  = '/student_marks_list';
 
-
-  static const String STUDENT_RECORDS = '/student-records';
-  static const String STUDENT_PROFILE_CREATION = '/student-profile-creation';
+  static const String STUDENT_RECORDS             = '/student-records';
+  static const String STUDENT_PROFILE_CREATION    = '/student-profile-creation';
+  // ── NEW ──────────────────────────────────────────────────────────────────
+  static const String STUDENT_PROFILE_MANAGEMENT  = '/student-profile-management';
+  // ─────────────────────────────────────────────────────────────────────────
   static const String STUDENT_PROFILE_VERIFICATION = '/student-profile-verification';
-  static const String SUBSCRIPTION_MANAGEMENT = '/subscription-management';
-  static const String teacherClasses = '/my-classes';
-  // Backward compatibility
-  static const String timetableManagement = TIMETABLE_MANAGEMENT;
-  static const String homeworkManagement = HOMEWORK_MANAGEMENT;
-  static const String splash = SPLASH;
-  static const String login = LOGIN;
-  static const String createSchool = CREATE_SCHOOL;
-  static const String schoolManagement = SCHOOL_MANAGEMENT;
-  static const String dashboard = DASHBOARD;
-  static const String accountingDashboard = ACCOUNTING_DASHBOARD;
-  static const String feeCollection = FEE_COLLECTION;
-  static const String expenses = EXPENSES;
-  static const String feeStructure = FEE_STRUCTURE;
-  static const String reports = REPORTS;
-  static const String studentManagement = STUDENT_MANAGEMENT;
-  static const String academics = ACADEMICS;
-  static const String communications = COMMUNICATIONS;
-  static const String clubsActivities = CLUBS_ACTIVITIES;
-  static const String campusManagementPage = CAMPUS_MANAGEMENT_PAGE;
-  static const String clubDetail = CLUB_DETAIL;
-  static const String attendance = ATTENDANCE;
-  static const String studentRecords = STUDENT_RECORDS;
+  static const String SUBSCRIPTION_MANAGEMENT     = '/subscription-management';
+  static const String teacherClasses              = '/my-classes';
+
+  // Backward compatibility aliases
+  static const String timetableManagement   = TIMETABLE_MANAGEMENT;
+  static const String homeworkManagement    = HOMEWORK_MANAGEMENT;
+  static const String splash                = SPLASH;
+  static const String login                 = LOGIN;
+  static const String createSchool          = CREATE_SCHOOL;
+  static const String schoolManagement      = SCHOOL_MANAGEMENT;
+  static const String dashboard             = DASHBOARD;
+  static const String accountingDashboard   = ACCOUNTING_DASHBOARD;
+  static const String feeCollection         = FEE_COLLECTION;
+  static const String expenses              = EXPENSES;
+  static const String feeStructure          = FEE_STRUCTURE;
+  static const String reports               = REPORTS;
+  static const String studentManagement     = STUDENT_MANAGEMENT;
+  static const String academics             = ACADEMICS;
+  static const String communications        = COMMUNICATIONS;
+  static const String clubsActivities       = CLUBS_ACTIVITIES;
+  static const String campusManagementPage  = CAMPUS_MANAGEMENT_PAGE;
+  static const String clubDetail            = CLUB_DETAIL;
+  static const String attendance            = ATTENDANCE;
+  static const String studentRecords        = STUDENT_RECORDS;
   static const String subscriptionManagement = SUBSCRIPTION_MANAGEMENT;
-  static const String transactiondetail = transactionDetail;
-  static const String students = '/students';
-  static const String announcements = '/announcements';
-  static const String transactionDetail = '/transaction_detail';
-  static const String receiptDetail = '/receipt_detail';
+  static const String transactiondetail     = transactionDetail;
+  static const String students              = '/students';
+  static const String announcements         = '/announcements';
+  static const String transactionDetail     = '/transaction_detail';
+  static const String receiptDetail         = '/receipt_detail';
 
   static List<GetPage> routes = [
-    GetPage(
-      name: login,
-      page: () => LoginView(),
-    ),
+    GetPage(name: login,     page: () => LoginView()),
     GetPage(
       name: dashboard,
       page: () => const DashboardView(),
