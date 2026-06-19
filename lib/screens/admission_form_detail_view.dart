@@ -22,21 +22,26 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
   Map<String, dynamic>? _formData;
   bool _loading = true;
   bool _editMode = false;
-  bool _changed = false; // tracks whether the list screen should refresh on pop
+  bool _changed = false;
 
-  static const List<String> _statusOptions = ['pending', 'approved', 'rejected'];
+  // Matches the IAdmissionForm schema's status enum exactly.
+  static const List<String> _statusOptions = ['Pending', 'Approved', 'Rejected'];
 
   // Editable field controllers - populated once the form data is available.
   final _studentNameController = TextEditingController();
   final _dobController = TextEditingController();
-  final _ageGenderController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _genderController = TextEditingController();
   final _motherTongueController = TextEditingController();
-  final _religionCommunityController = TextEditingController();
+  final _religionController = TextEditingController();
+  final _communityController = TextEditingController();
+  final _emisNumberController = TextEditingController();
   final _academicYearController = TextEditingController();
-  final _soughtForController = TextEditingController();
-  final _previousExamController = TextEditingController();
+  final _admissionSoughtForController = TextEditingController();
+  final _examinationPassedController = TextEditingController();
   final _mobileNumberController = TextEditingController();
   final _currentAddressController = TextEditingController();
+  final _permanentAddressController = TextEditingController();
   final _fatherNameController = TextEditingController();
   final _fatherEducationController = TextEditingController();
   final _fatherOccupationController = TextEditingController();
@@ -60,14 +65,18 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
   void dispose() {
     _studentNameController.dispose();
     _dobController.dispose();
-    _ageGenderController.dispose();
+    _ageController.dispose();
+    _genderController.dispose();
     _motherTongueController.dispose();
-    _religionCommunityController.dispose();
+    _religionController.dispose();
+    _communityController.dispose();
+    _emisNumberController.dispose();
     _academicYearController.dispose();
-    _soughtForController.dispose();
-    _previousExamController.dispose();
+    _admissionSoughtForController.dispose();
+    _examinationPassedController.dispose();
     _mobileNumberController.dispose();
     _currentAddressController.dispose();
+    _permanentAddressController.dispose();
     _fatherNameController.dispose();
     _fatherEducationController.dispose();
     _fatherOccupationController.dispose();
@@ -80,22 +89,26 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
 
   void _populateControllers(Map<String, dynamic> data) {
     _studentNameController.text = data['studentName']?.toString() ?? '';
-    _dobController.text = data['dateOfBirth']?.toString() ?? '';
-    _ageGenderController.text = data['ageGender']?.toString() ?? '';
+    _dobController.text = data['dob']?.toString() ?? '';
+    _ageController.text = data['age']?.toString() ?? '';
+    _genderController.text = data['gender']?.toString() ?? '';
     _motherTongueController.text = data['motherTongue']?.toString() ?? '';
-    _religionCommunityController.text = data['religionCommunity']?.toString() ?? '';
+    _religionController.text = data['religion']?.toString() ?? '';
+    _communityController.text = data['community']?.toString() ?? '';
+    _emisNumberController.text = data['emisNumber']?.toString() ?? '';
     _academicYearController.text = data['academicYear']?.toString() ?? '';
-    _soughtForController.text = data['soughtForClass']?.toString() ?? '';
-    _previousExamController.text = data['previousExam']?.toString() ?? '';
+    _admissionSoughtForController.text = data['admissionSoughtFor']?.toString() ?? '';
+    _examinationPassedController.text = data['examinationPassed']?.toString() ?? '';
     _mobileNumberController.text = data['mobileNumber']?.toString() ?? '';
     _currentAddressController.text = data['currentAddress']?.toString() ?? '';
+    _permanentAddressController.text = data['permanentAddress']?.toString() ?? '';
     _fatherNameController.text = data['fatherName']?.toString() ?? '';
     _fatherEducationController.text = data['fatherEducation']?.toString() ?? '';
     _fatherOccupationController.text = data['fatherOccupation']?.toString() ?? '';
     _motherNameController.text = data['motherName']?.toString() ?? '';
     _motherEducationController.text = data['motherEducation']?.toString() ?? '';
     _motherOccupationController.text = data['motherOccupation']?.toString() ?? '';
-    _studentIdController.text = (data['studentId'] ?? data['linkedStudentId'] ?? '').toString();
+    _studentIdController.text = (data['studentId'] ?? '').toString();
   }
 
   Future<void> _loadForm() async {
@@ -111,15 +124,19 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
 
   Map<String, dynamic> get _editedPayload => {
     'studentName': _studentNameController.text.trim(),
-    'dateOfBirth': _dobController.text.trim(),
-    'ageGender': _ageGenderController.text.trim(),
+    'dob': _dobController.text.trim(),
+    'age': int.tryParse(_ageController.text.trim()) ?? 0,
+    'gender': _genderController.text.trim(),
     'motherTongue': _motherTongueController.text.trim(),
-    'religionCommunity': _religionCommunityController.text.trim(),
+    'religion': _religionController.text.trim(),
+    'community': _communityController.text.trim(),
+    if (_emisNumberController.text.trim().isNotEmpty) 'emisNumber': _emisNumberController.text.trim(),
     'academicYear': _academicYearController.text.trim(),
-    'soughtForClass': _soughtForController.text.trim(),
-    'previousExam': _previousExamController.text.trim(),
+    'admissionSoughtFor': _admissionSoughtForController.text.trim(),
+    'examinationPassed': _examinationPassedController.text.trim(),
     'mobileNumber': _mobileNumberController.text.trim(),
     'currentAddress': _currentAddressController.text.trim(),
+    'permanentAddress': _permanentAddressController.text.trim(),
     'fatherName': _fatherNameController.text.trim(),
     'fatherEducation': _fatherEducationController.text.trim(),
     'fatherOccupation': _fatherOccupationController.text.trim(),
@@ -170,7 +187,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
     if (confirmed == true) {
       final success = await _controller.deleteAdmissionForm(admissionFormId: widget.admissionFormId);
       if (success && mounted) {
-        Get.back(result: true); // tell the list screen to refresh
+        Get.back(result: true);
       }
     }
   }
@@ -231,10 +248,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
                 onPressed: () => setState(() => _editMode = !_editMode),
               ),
             if (!_loading && _formData != null)
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
-                onPressed: _confirmDelete,
-              ),
+              IconButton(icon: const Icon(Icons.delete_outline_rounded), onPressed: _confirmDelete),
           ],
         ),
         body: Obx(() {
@@ -248,8 +262,8 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
             return const Center(child: Text('Admission form not found.'));
           }
 
-          final status = _formData?['status']?.toString() ?? 'pending';
-          final formNumber = (_formData?['formNumber'] ?? _formData?['sequence'] ?? widget.admissionFormId).toString();
+          final status = _formData?['status']?.toString() ?? 'Pending';
+          final formNumber = (_formData?['formNumber'] ?? widget.admissionFormId).toString();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -262,17 +276,21 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
                 const SizedBox(height: 12),
                 _buildField(_studentNameController, 'Student Name'),
                 _buildField(_dobController, 'Date of Birth'),
-                _buildField(_ageGenderController, 'Age / Gender'),
+                _buildField(_ageController, 'Age'),
+                _buildField(_genderController, 'Gender'),
                 _buildField(_motherTongueController, 'Mother Tongue'),
-                _buildField(_religionCommunityController, 'Religion / Community'),
+                _buildField(_religionController, 'Religion'),
+                _buildField(_communityController, 'Community'),
+                _buildField(_emisNumberController, 'EMIS Number'),
                 const SizedBox(height: 20),
                 _buildSectionBanner('II. ACADEMIC & CONTACT'),
                 const SizedBox(height: 12),
                 _buildField(_academicYearController, 'Academic Year'),
-                _buildField(_soughtForController, 'Sought For (Class/Grade)'),
-                _buildField(_previousExamController, 'Previous Exam / Last Class Passed'),
+                _buildField(_admissionSoughtForController, 'Admission Sought For (Class/Grade)'),
+                _buildField(_examinationPassedController, 'Previous Exam / Last Class Passed'),
                 _buildField(_mobileNumberController, 'Mobile Number'),
                 _buildField(_currentAddressController, 'Current Address'),
+                _buildField(_permanentAddressController, 'Permanent Address'),
                 const SizedBox(height: 20),
                 _buildSectionBanner('III. PARENT INFORMATION'),
                 const SizedBox(height: 12),
@@ -327,19 +345,14 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text('Form No. $formNumber', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
+              Expanded(child: Text('Form No. $formNumber', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _statusColor(status).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  status,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status)),
-                ),
+                child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status))),
               ),
             ],
           ),
@@ -351,10 +364,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
               final isCurrent = s.toLowerCase() == status.toLowerCase();
               return OutlinedButton(
                 onPressed: (saving || isCurrent) ? null : () => _updateStatus(s),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _statusColor(s),
-                  side: BorderSide(color: _statusColor(s)),
-                ),
+                style: OutlinedButton.styleFrom(foregroundColor: _statusColor(s), side: BorderSide(color: _statusColor(s))),
                 child: Text(s),
               );
             }).toList(),
@@ -369,10 +379,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       color: const Color(0xFF0F2042),
-      child: Text(
-        title,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
-      ),
+      child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
     );
   }
 
@@ -383,10 +390,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 160,
-              child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
-            ),
+            SizedBox(width: 160, child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500))),
             Expanded(
               child: Text(
                 controller.text.isEmpty ? '—' : controller.text,
@@ -427,10 +431,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
               Icon(Icons.link_rounded, color: Color(0xFF1E3A8A)),
               SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  'STUDENT PROFILE LINK',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
-                ),
+                child: Text('STUDENT PROFILE LINK', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
               ),
             ],
           ),
@@ -459,11 +460,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
                 child: saving
-                    ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Link'),
               ),
             ],

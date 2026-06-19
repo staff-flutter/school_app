@@ -32,6 +32,7 @@ class AppRoutes {
   static const String FEE_CONFIGURATION   = '/fee-configuration';
   static const String BILL_BOOK           = '/bill-book';
   static const String ADMISSION_FORMS_VIEW = '/admission-forms-view';
+  static const String ADMISSION_BOOK       = '/admission-book';
 
   static const String REPORTS             = '/reports';
   static const String STUDENT_MANAGEMENT  = '/student-management';

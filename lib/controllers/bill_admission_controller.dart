@@ -58,20 +58,25 @@ class BillAdmissionController extends GetxController {
   // Bill Book Endpoints
   // ---------------------------------------------------------------------
 
-  // api no: 162 - Create New Bill Book
+  // api no: 162 - POST /api/school-config/bill-book/
+  // Creates the bill book as active; automatically deactivates other
+  // active bill books for the same school + academic year.
   Future<bool> createNewBillBook({
     required String schoolId,
-    required Map<String, dynamic> billBookData,
+    required String bookName,
+    required int billNumber,
   }) async {
     try {
       isLoading.value = true;
 
-      final data = {
-        'schoolId': schoolId,
-        ...billBookData,
-      };
-
-      final response = await _apiService.post(ApiConstants.createNewBillBook, data: data);
+      final response = await _apiService.post(
+        ApiConstants.createNewBillBook,
+        data: {
+          'schoolId': schoolId,
+          'bookName': bookName,
+          'billNumber': billNumber,
+        },
+      );
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Bill book created successfully', AppTheme.successGreen);
@@ -88,15 +93,12 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 163 - Get All Bill Books
+  // api no: 163 - GET /api/school-config/bill-book/:schoolId
   Future<List<Map<String, dynamic>>> getAllBillBooks({required String schoolId}) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.get(
-        ApiConstants.getAllBillBooks,
-        queryParameters: {'schoolId': schoolId},
-      );
+      final response = await _apiService.get('${ApiConstants.getAllBillBooks}/$schoolId');
 
       if (response.data['ok'] == true) {
         final list = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
@@ -114,19 +116,22 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 164 - Update Bill Book
+  // api no: 164 - PATCH /api/school-config/bill-book/:id
+  // Activating a book auto-deactivates others; cannot deactivate the only active book.
   Future<bool> updateBillBook({
     required String billBookId,
-    required Map<String, dynamic> updatedData,
+    String? bookName,
+    bool? isActive,
   }) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.put(
-        ApiConstants.updateBillBook,
-        queryParameters: {'BillBookId': billBookId},
-        data: updatedData,
-      );
+      final data = {
+        if (bookName != null) 'bookName': bookName,
+        if (isActive != null) 'isActive': isActive,
+      };
+
+      final response = await _apiService.patch('${ApiConstants.updateBillBook}/$billBookId', data: data);
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Bill book updated successfully', AppTheme.successGreen);
@@ -143,21 +148,17 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 165 - Manually Update Bill Number (sequence)
+  // api no: 165 - PATCH /api/school-config/bill-book/:id/sequence
   Future<bool> manuallyUpdateBillNumber({
     required String billBookId,
-    required int newSequence,
+    required int newBillNumber,
   }) async {
     try {
       isLoading.value = true;
 
       final url = ApiConstants.manuallyUpdateBillNumber.replaceFirst(':id', billBookId);
 
-      final response = await _apiService.put(
-        url,
-        queryParameters: {'BillBookId': billBookId},
-        data: {'sequence': newSequence},
-      );
+      final response = await _apiService.patch(url, data: {'newBillNumber': newBillNumber});
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Bill number updated successfully', AppTheme.successGreen);
@@ -174,15 +175,13 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 166 - Delete Inactive Bill Book
+  // api no: 166 - DELETE /api/school-config/bill-book/:id
+  // Active bill books cannot be deleted.
   Future<bool> deleteInactiveBillBook({required String billBookId}) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.delete(
-        ApiConstants.deleteInactiveBillBook,
-        queryParameters: {'BillBookId': billBookId},
-      );
+      final response = await _apiService.delete('${ApiConstants.deleteInactiveBillBook}/$billBookId');
 
       if (response.statusCode == 200 && (response.data['ok'] == true)) {
         _showSnackbar('Success', response.data['message'] ?? 'Bill book deleted successfully', AppTheme.successGreen);
@@ -203,20 +202,24 @@ class BillAdmissionController extends GetxController {
   // Admission Book Endpoints
   // ---------------------------------------------------------------------
 
-  // api no: 167 - Create New Admission Book
+  // api no: 167 - POST /api/school-config/admission-book/
+  // startingFormNumber is a formatted string, e.g. "ADM-001".
   Future<bool> createNewAdmissionBook({
     required String schoolId,
-    required Map<String, dynamic> admissionBookData,
+    required String bookName,
+    required String startingFormNumber,
   }) async {
     try {
       isLoading.value = true;
 
-      final data = {
-        'schoolId': schoolId,
-        ...admissionBookData,
-      };
-
-      final response = await _apiService.post(ApiConstants.createNewBookAdmissionForSchool, data: data);
+      final response = await _apiService.post(
+        ApiConstants.createNewBookAdmissionForSchool,
+        data: {
+          'schoolId': schoolId,
+          'bookName': bookName,
+          'startingFormNumber': startingFormNumber,
+        },
+      );
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission book created successfully', AppTheme.successGreen);
@@ -233,15 +236,12 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 168 - Get All Admission Books
+  // api no: 168 - GET /api/school-config/admission-book/:schoolId
   Future<List<Map<String, dynamic>>> getAllAdmissionBooks({required String schoolId}) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.get(
-        ApiConstants.getAllAdmissionBooks,
-        queryParameters: {'schoolId': schoolId},
-      );
+      final response = await _apiService.get('${ApiConstants.getAllAdmissionBooks}/$schoolId');
 
       if (response.data['ok'] == true) {
         final list = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
@@ -259,19 +259,21 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 169 - Update Admission Book
+  // api no: 169 - PATCH /api/school-config/admission-book/:id
   Future<bool> updateAdmissionBook({
     required String admissionBookId,
-    required Map<String, dynamic> updatedData,
+    String? bookName,
+    bool? isActive,
   }) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.put(
-        ApiConstants.updateAdmissionBook,
-        queryParameters: {'AdmissionBookId': admissionBookId},
-        data: updatedData,
-      );
+      final data = {
+        if (bookName != null) 'bookName': bookName,
+        if (isActive != null) 'isActive': isActive,
+      };
+
+      final response = await _apiService.patch('${ApiConstants.updateAdmissionBook}/$admissionBookId', data: data);
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission book updated successfully', AppTheme.successGreen);
@@ -288,23 +290,18 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 170 - Manually Update Admission Form Number (sequence)
+  // api no: 170 - PATCH /api/school-config/admission-book/:id/sequence
+  // newFormNumber is a formatted string, e.g. "ADM-100".
   Future<bool> manuallyUpdateAdmissionFormNumber({
     required String admissionBookId,
-    required int newSequence,
+    required String newFormNumber,
   }) async {
     try {
       isLoading.value = true;
-      final queryParams = {
-        'AdmissionBookId': admissionBookId
-      };
+
       final url = ApiConstants.manuallyUpdateAdmissionFormNumber.replaceFirst(':id', admissionBookId);
 
-      final response = await _apiService.put(
-        url,
-        queryParameters: queryParams,
-        data: {'sequence': newSequence},
-      );
+      final response = await _apiService.patch(url, data: {'newFormNumber': newFormNumber});
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission form number updated successfully', AppTheme.successGreen);
@@ -321,15 +318,12 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 171 - Delete Inactive Admission Book
+  // api no: 171 - DELETE /api/school-config/admission-book/:id
   Future<bool> deleteInactiveAdmissionBook({required String admissionBookId}) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.delete(
-        ApiConstants.deleteInactiveAdmissionBook,
-        queryParameters: {'AdmissionBookId': admissionBookId},
-      );
+      final response = await _apiService.delete('${ApiConstants.deleteInactiveAdmissionBook}/$admissionBookId');
 
       if (response.statusCode == 200 && (response.data['ok'] == true)) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission book deleted successfully', AppTheme.successGreen);
@@ -350,14 +344,16 @@ class BillAdmissionController extends GetxController {
   // Admission Form Endpoints
   // ---------------------------------------------------------------------
 
-  // api no: 172 - Generate New Admission Form Link
-  Future<Map<String, dynamic>?> generateNewAdmissionFormLink({
-    required Map<String, dynamic> linkData,
-  }) async {
+  // api no: 172 - POST /api/school/admission-form/generate-link
+  // Body is just schoolId. Returns the new admission form id + assigned form number.
+  Future<Map<String, dynamic>?> generateNewAdmissionFormLink({required String schoolId}) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.post(ApiConstants.generateNewAdmissionFormLink, data: linkData);
+      final response = await _apiService.post(
+        ApiConstants.generateNewAdmissionFormLink,
+        data: {'schoolId': schoolId},
+      );
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission form link generated successfully', AppTheme.successGreen);
@@ -374,7 +370,14 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 173 - Submit Admission Form
+  // api no: 173 - PUT /api/school/admission-form/admissions/submit/:id
+  // Public endpoint - no auth header is required by the backend, but calling
+  // it through the authenticated ApiService is fine for staff-entered forms.
+  // formData keys should match the IAdmissionForm schema, e.g.:
+  // academicYear, studentName, mobileNumber, dob, age, gender, motherTongue,
+  // religion, community, emisNumber, currentAddress, permanentAddress,
+  // fatherName, fatherEducation, fatherOccupation, motherName,
+  // motherEducation, motherOccupation, examinationPassed, admissionSoughtFor.
   Future<bool> submitAdmissionForm({
     required String admissionFormId,
     required Map<String, dynamic> formData,
@@ -382,9 +385,8 @@ class BillAdmissionController extends GetxController {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.post(
-        ApiConstants.submitAdmissionForm,
-        queryParameters: {'AdmissionFormId': admissionFormId},
+      final response = await _apiService.put(
+        '${ApiConstants.submitAdmissionForm}/$admissionFormId',
         data: formData,
       );
 
@@ -403,9 +405,9 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 174 - Get Admission Form Dropdown
-  Future<List<Map<String, dynamic>>> getAdmissionForm({
-    required String admissionFormId,
+  // api no: 174 - GET /api/school/admission-form/dropdown
+  Future<List<Map<String, dynamic>>> getAdmissionFormDropdown({
+    required String schoolId,
     required String academicYear,
     String? search,
   }) async {
@@ -413,7 +415,7 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final queryParams = {
-        'AdmissionFormId': admissionFormId,
+        'schoolId': schoolId,
         'academicYear': academicYear,
         if (search != null) 'search': search,
       };
@@ -436,7 +438,8 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 175 - Get Single Admission Form
+  // api no: 175 - GET /api/school/admission-form/form
+  // Either id or studentId must be provided.
   Future<Map<String, dynamic>?> getSingleAdmissionForm({
     String? admissionFormId,
     String? studentId,
@@ -445,7 +448,7 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final queryParams = {
-        if (admissionFormId != null) 'AdmissionFormId': admissionFormId,
+        if (admissionFormId != null) 'id': admissionFormId,
         if (studentId != null) 'studentId': studentId,
       };
 
@@ -466,8 +469,9 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 176 - Get All Admission Forms
-  Future<List<Map<String, dynamic>>> getAllAdmissionForms({
+  // api no: 176 - GET /api/school/admission-form/:schoolId
+  // Returns paginated forms with total count / total pages / hasNextPage.
+  Future<Map<String, dynamic>> getAllAdmissionForms({
     required String schoolId,
     String? academicYear,
     String? status,
@@ -481,7 +485,6 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final queryParams = {
-        'SchoolId': schoolId,
         if (academicYear != null) 'academicYear': academicYear,
         if (status != null) 'status': status,
         if (search != null) 'search': search,
@@ -491,33 +494,38 @@ class BillAdmissionController extends GetxController {
         if (limit != null) 'limit': limit.toString(),
       };
 
-      final response = await _apiService.get(ApiConstants.getAllAdmissionForms, queryParameters: queryParams);
+      final response = await _apiService.get(
+        '${ApiConstants.getAllAdmissionForms}/$schoolId',
+        queryParameters: queryParams,
+      );
 
       if (response.data['ok'] == true) {
         final list = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
         admissionForms.value = list;
-        return list;
+        return {
+          'data': list,
+          'totalCount': response.data['totalCount'],
+          'totalPages': response.data['totalPages'],
+          'hasNextPage': response.data['hasNextPage'],
+        };
       } else {
         _showSnackbar('Error', response.data['message'] ?? 'Failed to load admission forms', AppTheme.errorRed);
-        return [];
+        return {'data': <Map<String, dynamic>>[]};
       }
     } catch (e) {
       _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission forms'), AppTheme.errorRed);
-      return [];
+      return {'data': <Map<String, dynamic>>[]};
     } finally {
       isLoading.value = false;
     }
   }
 
-  // api no: 177 - Delete Admission Form
+  // api no: 177 - DELETE /api/school/admission-form/:id
   Future<bool> deleteAdmissionForm({required String admissionFormId}) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.delete(
-        ApiConstants.deleteAdmissionForm,
-        queryParameters: {'AdmissionFormId': admissionFormId},
-      );
+      final response = await _apiService.delete('${ApiConstants.deleteAdmissionForm}/$admissionFormId');
 
       if (response.statusCode == 200 && (response.data['ok'] == true)) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission form deleted successfully', AppTheme.successGreen);
@@ -534,17 +542,28 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 179 - Update Admission Form Status
+  // api no: 179 - PATCH /api/school/admission-form/status
+  // Either admissionFormId or studentId must be provided.
+  // status must be exactly 'Pending', 'Approved', or 'Rejected'.
   Future<bool> updateAdmissionFormStatus({
-    required String admissionFormId,
+    String? admissionFormId,
+    String? studentId,
     required String status,
   }) async {
+    assert(admissionFormId != null || studentId != null,
+    'Either admissionFormId or studentId must be provided');
+
     try {
       isLoading.value = true;
 
-      final response = await _apiService.put(
+      final queryParams = {
+        if (admissionFormId != null) 'id': admissionFormId,
+        if (studentId != null) 'studentId': studentId,
+      };
+
+      final response = await _apiService.patch(
         ApiConstants.updateAdmissionFormStatus,
-        queryParameters: {'AdmissionFormId': admissionFormId},
+        queryParameters: queryParams,
         data: {'status': status},
       );
 
@@ -563,7 +582,7 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 180 - Update Admission Form After Submission
+  // api no: 180 - PUT /api/school/admission-form/details
   // Either admissionFormId or studentId must be provided.
   Future<bool> updateAdmissionFormAfterSubmission({
     String? admissionFormId,
@@ -577,8 +596,8 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final queryParams = {
-        if (admissionFormId != null) 'AdmissionFormId': admissionFormId,
-        if (studentId != null) 'StudentId': studentId,
+        if (admissionFormId != null) 'id': admissionFormId,
+        if (studentId != null) 'studentId': studentId,
       };
 
       final response = await _apiService.put(
@@ -602,7 +621,7 @@ class BillAdmissionController extends GetxController {
     }
   }
 
-  // api no: 181 - Link Admission Form To Student
+  // api no: 181 - PATCH /api/school/admission-form/:id/linkstudent
   Future<bool> linkAdmissionFormToStudent({
     required String admissionFormId,
     required String studentId,
@@ -612,11 +631,7 @@ class BillAdmissionController extends GetxController {
 
       final url = ApiConstants.linkAdmissionFormToStudent.replaceFirst(':id', admissionFormId);
 
-      final response = await _apiService.put(
-        url,
-        queryParameters: {'AdmissionFormId': admissionFormId},
-        data: {'studentId': studentId},
-      );
+      final response = await _apiService.patch(url, data: {'studentId': studentId});
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission form linked to student successfully', AppTheme.successGreen);

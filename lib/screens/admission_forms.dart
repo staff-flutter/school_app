@@ -20,8 +20,8 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
   final _searchController = TextEditingController();
   final _academicYearController = TextEditingController();
 
-  // Adjust this list to whatever status values your backend actually uses.
-  static const List<String> _statusOptions = ['All', 'pending', 'approved', 'rejected'];
+  // Matches the IAdmissionForm schema's status enum exactly.
+  static const List<String> _statusOptions = ['All', 'Pending', 'Approved', 'Rejected'];
   String _selectedStatus = 'All';
 
   int _page = 1;
@@ -72,7 +72,6 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
       initialData: form,
     ));
 
-    // Refresh the list if the detail screen made a change (status update, edit, delete, link).
     if (result == true) {
       _fetchForms(resetPage: false);
     }
@@ -83,7 +82,6 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
     if (result == true) {
       _fetchForms();
     } else {
-      // Always refresh on return in case a record was saved without an explicit result.
       _fetchForms(resetPage: false);
     }
   }
@@ -131,14 +129,10 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
 
                 if (forms.isEmpty) {
                   return ListView(
-                    // Wrapped in a ListView so pull-to-refresh still works on an empty state.
                     children: const [
                       SizedBox(height: 120),
                       Center(
-                        child: Text(
-                          'No admission forms found.',
-                          style: TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
+                        child: Text('No admission forms found.', style: TextStyle(color: Colors.grey, fontSize: 14)),
                       ),
                     ],
                   );
@@ -205,9 +199,7 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  items: _statusOptions
-                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
+                  items: _statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _selectedStatus = value);
@@ -234,9 +226,9 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
 
   Widget _buildFormCard(Map<String, dynamic> form) {
     final studentName = form['studentName']?.toString() ?? 'Unnamed Applicant';
-    final formNumber = (form['formNumber'] ?? form['sequence'] ?? form['_id'] ?? '').toString();
-    final soughtFor = form['soughtForClass']?.toString();
-    final status = form['status']?.toString() ?? 'pending';
+    final formNumber = (form['formNumber'] ?? form['_id'] ?? '').toString();
+    final soughtFor = form['admissionSoughtFor']?.toString();
+    final status = form['status']?.toString() ?? 'Pending';
     final academicYear = form['academicYear']?.toString();
 
     return Card(
@@ -281,10 +273,7 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
                   color: _statusColor(status).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  status,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status)),
-                ),
+                child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status))),
               ),
             ],
           ),

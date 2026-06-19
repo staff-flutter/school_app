@@ -14,28 +14,30 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   final BillAdmissionController _controller = Get.find<BillAdmissionController>();
   final AuthController _authController = Get.find<AuthController>();
 
-  // Mock tracking variable - overwritten with the real value returned by the
-  // server once a record has actually been saved.
-  int _currentFormNumber = 101;
-
-  // Set once the record is generated + submitted on the backend.
-  // The "Assign Student ID Profile" linking action needs this id.
+  // Displayed in the header badge - replaced with the server-assigned
+  // formNumber once a record has actually been saved.
+  String _formNumberLabel = '—';
   String? _admissionFormId;
 
-  // --- Form Field Controllers ---
+  // --- Form Field Controllers (mapped to the IAdmissionForm schema) ---
   // 1. Student Details
   final _studentNameController = TextEditingController();
   final _dobController = TextEditingController();
-  final _ageGenderController = TextEditingController();
+  final _ageController = TextEditingController();
+  String _gender = 'Male';
   final _motherTongueController = TextEditingController();
-  final _religionCommunityController = TextEditingController();
+  final _religionController = TextEditingController();
+  final _communityController = TextEditingController();
+  final _emisNumberController = TextEditingController(); // optional
 
   // 2. Academic & Contact
   final _academicYearController = TextEditingController(text: _defaultAcademicYear());
-  final _soughtForController = TextEditingController();
-  final _previousExamController = TextEditingController();
+  final _admissionSoughtForController = TextEditingController();
+  final _examinationPassedController = TextEditingController();
   final _mobileNumberController = TextEditingController();
   final _currentAddressController = TextEditingController();
+  final _permanentAddressController = TextEditingController();
+  bool _permanentSameAsCurrent = false;
 
   // 3. Parent Information
   final _fatherNameController = TextEditingController();
@@ -50,8 +52,6 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
 
   static String _defaultAcademicYear() {
     final now = DateTime.now();
-    // School years generally start mid-year (~June/July). Adjust if your
-    // school's academic year starts on a different month.
     final startYear = now.month >= 6 ? now.year : now.year - 1;
     return '$startYear-${startYear + 1}';
   }
@@ -60,14 +60,17 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   void dispose() {
     _studentNameController.dispose();
     _dobController.dispose();
-    _ageGenderController.dispose();
+    _ageController.dispose();
     _motherTongueController.dispose();
-    _religionCommunityController.dispose();
+    _religionController.dispose();
+    _communityController.dispose();
+    _emisNumberController.dispose();
     _academicYearController.dispose();
-    _soughtForController.dispose();
-    _previousExamController.dispose();
+    _admissionSoughtForController.dispose();
+    _examinationPassedController.dispose();
     _mobileNumberController.dispose();
     _currentAddressController.dispose();
+    _permanentAddressController.dispose();
     _fatherNameController.dispose();
     _fatherEducationController.dispose();
     _fatherOccupationController.dispose();
@@ -78,32 +81,36 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     super.dispose();
   }
 
-  // Format form integer dynamically as a padded string (e.g., 000101)
-  String get _formattedFormNumber => _currentFormNumber.toString().padLeft(6, '0');
-
   Map<String, dynamic> get _formPayload => {
-    'studentName': _studentNameController.text.trim(),
-    'dateOfBirth': _dobController.text.trim(),
-    'ageGender': _ageGenderController.text.trim(),
-    'motherTongue': _motherTongueController.text.trim(),
-    'religionCommunity': _religionCommunityController.text.trim(),
     'academicYear': _academicYearController.text.trim(),
-    'soughtForClass': _soughtForController.text.trim(),
-    'previousExam': _previousExamController.text.trim(),
+    'studentName': _studentNameController.text.trim(),
     'mobileNumber': _mobileNumberController.text.trim(),
+    'dob': _dobController.text.trim(),
+    'age': int.tryParse(_ageController.text.trim()) ?? 0,
+    'gender': _gender,
+    'motherTongue': _motherTongueController.text.trim(),
+    'religion': _religionController.text.trim(),
+    'community': _communityController.text.trim(),
+    if (_emisNumberController.text.trim().isNotEmpty) 'emisNumber': _emisNumberController.text.trim(),
     'currentAddress': _currentAddressController.text.trim(),
+    'permanentAddress': _permanentSameAsCurrent
+        ? _currentAddressController.text.trim()
+        : _permanentAddressController.text.trim(),
     'fatherName': _fatherNameController.text.trim(),
     'fatherEducation': _fatherEducationController.text.trim(),
     'fatherOccupation': _fatherOccupationController.text.trim(),
     'motherName': _motherNameController.text.trim(),
     'motherEducation': _motherEducationController.text.trim(),
     'motherOccupation': _motherOccupationController.text.trim(),
+    'examinationPassed': _examinationPassedController.text.trim(),
+    'admissionSoughtFor': _admissionSoughtForController.text.trim(),
   };
 
   bool _validateRequiredFields() {
     final missing = <String>[];
     if (_studentNameController.text.trim().isEmpty) missing.add('Student Name');
     if (_dobController.text.trim().isEmpty) missing.add('Date of Birth');
+    if (_ageController.text.trim().isEmpty) missing.add('Age');
     if (_mobileNumberController.text.trim().isEmpty) missing.add('Mobile Number');
     if (_academicYearController.text.trim().isEmpty) missing.add('Academic Year');
     if (_fatherNameController.text.trim().isEmpty) missing.add("Father's Name");
@@ -129,23 +136,12 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       return;
     }
 
-    // Step 1: register the entry against the school's admission book. This
-    // assigns the next form number/sequence from the book and returns an
-    // admissionFormId we then attach the filled-in details to.
-    final linkResult = await _controller.generateNewAdmissionFormLink(
-      linkData: {
-        'schoolId': schoolId,
-        'academicYear': _academicYearController.text.trim(),
-      },
-    );
+    // Step 1: ask the active Admission Book for a new blank form + form number.
+    final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: schoolId);
+    if (linkResult == null) return; // controller already showed the error
 
-    if (linkResult == null) {
-      // Controller already showed an error snackbar.
-      return;
-    }
-
-    final newAdmissionFormId = linkResult['admissionFormId'] ?? linkResult['_id'] ?? linkResult['id'];
-    final newFormNumber = linkResult['formNumber'] ?? linkResult['sequence'];
+    final newAdmissionFormId = linkResult['_id'] ?? linkResult['id'] ?? linkResult['admissionFormId'];
+    final newFormNumber = linkResult['formNumber'];
 
     if (newAdmissionFormId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +150,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       return;
     }
 
-    // Step 2: submit the actual filled-in details against that form id.
+    // Step 2: submit the filled-in details against that form id.
     final submitted = await _controller.submitAdmissionForm(
       admissionFormId: newAdmissionFormId.toString(),
       formData: _formPayload,
@@ -164,16 +160,12 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
 
     setState(() {
       _admissionFormId = newAdmissionFormId.toString();
-      if (newFormNumber != null) {
-        _currentFormNumber = int.tryParse(newFormNumber.toString()) ?? _currentFormNumber;
-      } else {
-        _currentFormNumber++;
-      }
+      _formNumberLabel = newFormNumber?.toString() ?? newAdmissionFormId.toString();
     });
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Form Generated! Linked to Form No. $_formattedFormNumber')),
+      SnackBar(content: Text('Form Saved! Form No. $_formNumberLabel')),
     );
   }
 
@@ -202,16 +194,13 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFDCC2A8), // Warm realistic desk-wood background tint
+      backgroundColor: const Color(0xFFDCC2A8),
       appBar: AppBar(
         title: const Text('Admission Book Registrar'),
         backgroundColor: const Color(0xFF0F2042),
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.print_rounded),
-            onPressed: () {}, // Printer integration stub
-          )
+          IconButton(icon: const Icon(Icons.print_rounded), onPressed: () {}),
         ],
       ),
       body: Center(
@@ -224,16 +213,11 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFF1E3A8A).withOpacity(0.3), width: 2),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                )
+                BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10)),
               ],
             ),
             child: Column(
               children: [
-                // Inner Book Layout Padding Frame
                 Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
@@ -241,29 +225,23 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
                     children: [
                       _buildBookHeader(),
                       const SizedBox(height: 24),
-
-                      // Section 1
                       _buildStudentDetailsSection(),
                       const SizedBox(height: 24),
-
-                      // Section 2
                       _buildAcademicContactSection(),
                       const SizedBox(height: 24),
-
-                      // Section 3
                       _buildParentInformationSection(),
                       const SizedBox(height: 28),
-
-                      // Perforated Tear Line Separator Mock
                       Row(
-                        children: List.generate(40, (index) => Expanded(
-                          child: Container(
-                            color: index % 2 == 0 ? Colors.transparent : Colors.grey.withOpacity(0.6),
-                            height: 1.5,
+                        children: List.generate(
+                          40,
+                              (index) => Expanded(
+                            child: Container(
+                              color: index % 2 == 0 ? Colors.transparent : Colors.grey.withOpacity(0.6),
+                              height: 1.5,
+                            ),
                           ),
-                        )),
+                        ),
                       ),
-
                       const SizedBox(height: 20),
                       _buildStudentIDLinkingSection(),
                     ],
@@ -278,16 +256,10 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     );
   }
 
-  // --- HEADER SECTION (School Crest & Incremented Form Label) ---
   Widget _buildBookHeader() {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            _buildFormNumberBadge(),
-          ],
-        ),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [_buildFormNumberBadge()]),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -304,19 +276,13 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'ABC INTERNATIONAL SCHOOL',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F2042), letterSpacing: 0.5),
-                  ),
-                  Text(
-                    'A21 Basic Road, New Delhi, India | Contact: +91 9876543210',
-                    style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
-                  ),
+                  Text('ABC INTERNATIONAL SCHOOL',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F2042), letterSpacing: 0.5)),
+                  Text('A21 Basic Road, New Delhi, India | Contact: +91 9876543210',
+                      style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
                   SizedBox(height: 6),
-                  Text(
-                    'REGISTRATION & ADMISSION MASTER RECORD',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A)),
-                  ),
+                  Text('REGISTRATION & ADMISSION MASTER RECORD',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A))),
                 ],
               ),
             ),
@@ -337,16 +303,13 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       child: Column(
         children: [
           const Text('Form No.', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-          Text(
-            _formattedFormNumber,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.redAccent, letterSpacing: 1),
-          ),
+          Text(_formNumberLabel,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.redAccent, letterSpacing: 1)),
         ],
       ),
     );
   }
 
-  // --- PART 1: STUDENT DETAILS ---
   Widget _buildStudentDetailsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,18 +326,49 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _buildUnderlinedField(_ageGenderController, 'Age / Gender')),
+            Expanded(child: _buildUnderlinedField(_ageController, 'Age', keyboardType: TextInputType.number)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildGenderDropdown()),
             const SizedBox(width: 16),
             Expanded(child: _buildUnderlinedField(_motherTongueController, 'Mother Tongue')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildUnderlinedField(_religionController, 'Religion')),
             const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_religionCommunityController, 'Religion / Community')),
+            Expanded(child: _buildUnderlinedField(_communityController, 'Community')),
+            const SizedBox(width: 16),
+            Expanded(child: _buildUnderlinedField(_emisNumberController, 'EMIS Number (optional)')),
           ],
         ),
       ],
     );
   }
 
-  // --- PART 2: ACADEMIC & CONTACT ---
+  Widget _buildGenderDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: _gender,
+      decoration: InputDecoration(
+        labelText: 'Gender',
+        labelStyle: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.normal),
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38, width: 1)),
+        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E3A8A), width: 1.8)),
+        contentPadding: const EdgeInsets.only(top: 10, bottom: 4),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'Male', child: Text('Male')),
+        DropdownMenuItem(value: 'Female', child: Text('Female')),
+        DropdownMenuItem(value: 'Other', child: Text('Other')),
+      ],
+      onChanged: (value) {
+        if (value != null) setState(() => _gender = value);
+      },
+    );
+  }
+
   Widget _buildAcademicContactSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,27 +379,36 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
           children: [
             Expanded(child: _buildUnderlinedField(_academicYearController, 'Academic Year (e.g. 2025-2026)')),
             const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_soughtForController, 'Sought For (Class/Grade)')),
+            Expanded(child: _buildUnderlinedField(_admissionSoughtForController, 'Admission Sought For (Class/Grade)')),
             const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_previousExamController, 'Previous Exam / Last Class Passed')),
+            Expanded(child: _buildUnderlinedField(_examinationPassedController, 'Previous Exam / Last Class Passed')),
           ],
         ),
         const SizedBox(height: 12),
         _buildUnderlinedField(_mobileNumberController, 'Mobile Number'),
         const SizedBox(height: 12),
         _buildUnderlinedField(_currentAddressController, 'Current Address'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Checkbox(
+              value: _permanentSameAsCurrent,
+              onChanged: (value) => setState(() => _permanentSameAsCurrent = value ?? false),
+            ),
+            const Text('Permanent address same as current', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        if (!_permanentSameAsCurrent) _buildUnderlinedField(_permanentAddressController, 'Permanent Address'),
       ],
     );
   }
 
-  // --- PART 3: PARENT INFORMATION ---
   Widget _buildParentInformationSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionBanner('III. PARENT INFORMATION'),
         const SizedBox(height: 12),
-        // Father Rows
         Row(
           children: [
             Expanded(flex: 2, child: _buildUnderlinedField(_fatherNameController, "Father's Name")),
@@ -416,7 +419,6 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
           ],
         ),
         const SizedBox(height: 12),
-        // Mother Rows
         Row(
           children: [
             Expanded(flex: 2, child: _buildUnderlinedField(_motherNameController, "Mother's Name")),
@@ -430,7 +432,6 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     );
   }
 
-  // --- SYSTEM PROFILE LINKING SEGMENT ---
   Widget _buildStudentIDLinkingSection() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -449,14 +450,14 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
                 child: Text(
                   _admissionFormId == null
                       ? 'OFFICE DISPATCH ASSIGNMENT\nSave the record first, then link it to a Student profile.'
-                      : 'OFFICE DISPATCH ASSIGNMENT\nLinked Registry Form Association Reference: #$_formattedFormNumber',
+                      : 'OFFICE DISPATCH ASSIGNMENT\nLinked Registry Form Association Reference: #$_formNumberLabel',
                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1E3A8A)),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Column(
+          Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               SizedBox(
@@ -474,7 +475,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 10),
               Obx(() {
                 final loading = _controller.isLoading.value;
                 return SizedBox(
@@ -503,22 +504,23 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     );
   }
 
-  // --- REUSABLE UTILITY ELEMENT BUILDERS ---
   Widget _buildSectionBanner(String title) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       color: const Color(0xFF0F2042),
-      child: Text(
-        title,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
-      ),
+      child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
     );
   }
 
-  Widget _buildUnderlinedField(TextEditingController controller, String hint) {
+  Widget _buildUnderlinedField(
+      TextEditingController controller,
+      String hint, {
+        TextInputType? keyboardType,
+      }) {
     return TextField(
       controller: controller,
+      keyboardType: keyboardType,
       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: hint,
@@ -546,11 +548,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
             return ElevatedButton.icon(
               onPressed: loading ? null : _saveRecord,
               icon: loading
-                  ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.add_task_rounded),
               label: Text(loading ? 'Saving...' : 'Save Record '),
               style: ElevatedButton.styleFrom(

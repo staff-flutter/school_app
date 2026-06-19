@@ -9,6 +9,7 @@ import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
 import '../screens/accounting_dashboard_with_api_integration.dart';
 import '../screens/admin_attendance.dart';
+import '../screens/admission_book.dart';
 import '../screens/admission_forms.dart';
 import '../screens/bill_book_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
@@ -150,6 +151,11 @@ class AppPages {
     GetPage(
       name: AppRoutes.ADMISSION_FORMS_VIEW,
       page: () => RoleAwareWrapper(child: AdmissionFormListView()),
+      binding: BillAdmissionBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.ADMISSION_BOOK,
+      page: () => RoleAwareWrapper(child: AdmissionBookSetupView()),
     ),
     GetPage(
       name: AppRoutes.FEE_COLLECTION,
