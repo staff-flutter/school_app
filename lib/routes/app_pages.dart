@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/bindings/bill_admission_binding.dart';
 import 'package:school_app/bindings/marks_upload_binding.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_controller.dart';
@@ -8,6 +9,7 @@ import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
 import '../screens/accounting_dashboard_with_api_integration.dart';
 import '../screens/admin_attendance.dart';
+import '../screens/admission_forms.dart';
 import '../screens/bill_book_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
 import '../screens/create_student_profile_page.dart';
@@ -142,7 +144,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.BILL_BOOK,
-      page: () => const AdmissionBillBookView(),
+      page: () => RoleAwareWrapper(child: const AdmissionBillBookView()),
+      binding: BillAdmissionBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.ADMISSION_FORMS_VIEW,
+      page: () => RoleAwareWrapper(child: AdmissionFormListView()),
     ),
     GetPage(
       name: AppRoutes.FEE_COLLECTION,

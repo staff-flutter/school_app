@@ -602,7 +602,7 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Finance', [
           _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
-
+          _Item('Admission Forms', Icons.receipt, AppRoutes.ADMISSION_FORMS_VIEW),
           if (RoleModules.hasModule(role, 'feeCollection'))
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           if (RoleModules.hasModule(role, 'feeStructure'))
