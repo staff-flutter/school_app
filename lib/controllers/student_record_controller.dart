@@ -41,8 +41,8 @@ class StudentRecordController extends GetxController {
     required double concessionValue,
     required String remark,
     File? proofFile,
-    String? busPoint,
-    bool? isBusApplicable,
+   // String? busPoint,
+    //bool? isBusApplicable,
     required String newOld,
   }) async {
     try {
@@ -58,8 +58,8 @@ class StudentRecordController extends GetxController {
         'remark': remark,
         'newOld': newOld, // Required parameter
         if (studentName != null) 'studentName': studentName,
-        if (busPoint != null) 'busPoint': busPoint,
-        if (isBusApplicable != null) 'isBusApplicable': isBusApplicable,
+       // if (busPoint != null) 'busPoint': busPoint,
+        //if (isBusApplicable != null) 'isBusApplicable': isBusApplicable,
       });
 
       // Add proof file if provided
@@ -174,6 +174,7 @@ class StudentRecordController extends GetxController {
   Future<bool> collectFee({
     required String schoolId,
     required String studentId,
+    required String studentName,
     required String classId,
     required String sectionId,
     required double amount,
@@ -184,8 +185,8 @@ class StudentRecordController extends GetxController {
     String? referenceNumber,
     String? bankName,
     String? chequeDate,
-    bool? isBusApplicable,
-    String? busPoint,
+ //   bool? isBusApplicable,
+  //  String? busPoint,
     String? remarks,
     String? newOld,
   }) async {
@@ -195,20 +196,21 @@ class StudentRecordController extends GetxController {
       final data = {
         'schoolId': schoolId,
         'studentId': studentId,
+        'studentName':studentName,
         'classId': classId,
         'sectionId': sectionId,
         'amount': amount,
         'paymentMode': paymentMode,
         if (manualDueAllocation != null) 'manualDueAllocation': manualDueAllocation,
-        if (paidHeads != null) 'paidHeads': paidHeads,
+       // if (paidHeads != null) 'paidHeads': paidHeads,
         if (cashDenominations != null) 'cashDenominations': cashDenominations,
         if (referenceNumber != null) 'referenceNumber': referenceNumber,
         if (bankName != null) 'bankName': bankName,
         if (chequeDate != null) 'chequeDate': chequeDate,
-        if (isBusApplicable != null) 'isBusApplicable': isBusApplicable,
-        if (busPoint != null) 'busPoint': busPoint,
+       // if (isBusApplicable != null) 'isBusApplicable': isBusApplicable,
+       // if (busPoint != null) 'busPoint': busPoint,
         if (remarks != null) 'remarks': remarks,
-        if (newOld != null) 'newOld': newOld,
+       // if (newOld != null) 'newOld': newOld,
       };
 
       final response = await _apiService.post(ApiConstants.collectFee, data: data);

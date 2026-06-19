@@ -601,6 +601,8 @@ class _MenuBody extends StatelessWidget {
             _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
         ]),
         _Section('Finance', [
+          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
+
           if (RoleModules.hasModule(role, 'feeCollection'))
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           if (RoleModules.hasModule(role, 'feeStructure'))

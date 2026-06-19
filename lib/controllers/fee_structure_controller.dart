@@ -28,44 +28,76 @@ class FeeStructureController extends GetxController {
     try {
       isLoading.value = true;
 
+      debugPrint('🔵 getCustomFeeHeads called: schoolId=$schoolId classId=$classId type=$type');
+
       final response = await _apiService.get(
         '/api/feestructure/v1/getbyclass',
-        queryParameters: {
-          'schoolId': schoolId,
-          'classId':  classId,
-        },
+        queryParameters: {'schoolId': schoolId, 'classId': classId},
       );
 
-      debugPrint('📥 getCustomFeeHeads response: ${response.data}');
+      debugPrint('📥 raw response: ${response.data}');
 
       final List<Map<String, dynamic>> processedHeads = [];
 
       if (response.data != null && response.data['ok'] == true) {
         final dynamic rawData = response.data['data'];
+        debugPrint('📥 data field type: ${rawData.runtimeType}');
 
         if (rawData is List) {
+          debugPrint('📥 data list length: ${rawData.length}');
+
           final dynamic matchedRecord = rawData.firstWhere(
                 (element) => element != null && element['type']?.toString() == type,
             orElse: () => null,
           );
 
+          debugPrint('📥 matchedRecord for type="$type": $matchedRecord');
+
           if (matchedRecord != null && matchedRecord is Map) {
-            // ✅ ONLY read from 'feeHeads' (custom) — skip 'feeHead' (standard) entirely
-            if (matchedRecord['feeHeads'] != null && matchedRecord['feeHeads'] is Map) {
+            debugPrint('📥 feeHead field: ${matchedRecord['feeHead']}');
+            debugPrint('📥 feeHeads field: ${matchedRecord['feeHeads']}');
+
+            if (matchedRecord['feeHeads'] != null &&
+                matchedRecord['feeHeads'] is Map) {
               final Map customMap = matchedRecord['feeHeads'];
+              debugPrint('📥 feeHeads map entries: ${customMap.entries.map((e) => "${e.key}:${e.value}(${e.value.runtimeType})").toList()}');
+
               customMap.forEach((key, value) {
+                // ✅ Parse value safely regardless of type from backend
+                double amount;
+                if (value is double) {
+                  amount = value;
+                } else if (value is int) {
+                  amount = value.toDouble();
+                } else if (value is String) {
+                  amount = double.tryParse(value) ?? 0.0;
+                  debugPrint('⚠️ feeHeads value for "$key" was String "$value" — parsed to $amount');
+                } else {
+                  amount = 0.0;
+                  debugPrint('⚠️ feeHeads value for "$key" unexpected type ${value.runtimeType}');
+                }
+
                 processedHeads.add({
                   'id':         key.toString(),
                   'feeName':    key.toString(),
-                  'feeAmount':  double.tryParse(value.toString()) ?? 0.0,
-                  'isStandard': false, // everything is custom now
+                  'feeAmount':  amount,
+                  'isStandard': false,
                 });
+
+                debugPrint('   processed: feeName="${key}" feeAmount=$amount');
               });
+            } else {
+              debugPrint('⚠️ feeHeads is null or not a Map');
             }
+          } else {
+            debugPrint('⚠️ No record matched type="$type" in data list');
           }
         }
+      } else {
+        debugPrint('⚠️ response ok=false or data null');
       }
 
+      debugPrint('📥 processedHeads final: $processedHeads');
       activeCustomHeads.assignAll(processedHeads);
       return processedHeads;
     } catch (e, stack) {
@@ -112,23 +144,35 @@ class FeeStructureController extends GetxController {
   Future<bool> saveAllCustomFeeHeads({
     required String schoolId,
     required String classId,
-    required List<Map<String, dynamic>> feeHeads, // [{feeName, feeAmount}, ...]
+    required List<Map<String, dynamic>> feeHeads,
     String type = 'old',
   }) async {
     try {
       isLoading.value = true;
 
+      debugPrint('🔵 saveAllCustomFeeHeads called');
+      debugPrint('   schoolId: $schoolId');
+      debugPrint('   classId:  $classId');
+      debugPrint('   type:     $type');
+      debugPrint('   feeHeads: $feeHeads');
+
+      // Check types explicitly
+      for (final h in feeHeads) {
+        debugPrint('   → feeName: "${h['feeName']}" (${h['feeName'].runtimeType})');
+        debugPrint('   → feeAmount: ${h['feeAmount']} (${h['feeAmount'].runtimeType})');
+      }
+
       if (type != 'old' && type != 'new') {
-        _showSnackbar('Error',
-            'Invalid student type. Must be "old" or "new"', AppTheme.errorRed);
+        _showSnackbar('Error', 'Invalid student type', AppTheme.errorRed);
         return false;
       }
 
-      // ── Step 1: Register ALL fee head names in fee-config ─────
       final feeHeadNames = feeHeads
           .map((h) => h['feeName']?.toString() ?? '')
           .where((n) => n.isNotEmpty)
           .toList();
+
+      debugPrint('🔵 ensureFeeConfig with names: $feeHeadNames');
 
       if (feeHeadNames.isNotEmpty) {
         final configOk = await ensureFeeConfig(
@@ -136,29 +180,42 @@ class FeeStructureController extends GetxController {
           feeHeads: feeHeadNames,
           isActive: true,
         );
+        debugPrint('🔵 ensureFeeConfig result: $configOk');
         if (!configOk) return false;
       }
 
-      // ── Step 2: Build the feeHeads map {name: amount} ─────────
+      // Build feeHeads map — ensure amounts are doubles not strings
       final feeHeadsMap = <String, dynamic>{};
       for (final h in feeHeads) {
         final name = h['feeName']?.toString() ?? '';
         if (name.isNotEmpty) {
-          feeHeadsMap[name] = h['feeAmount'] ?? 0.0;
+          // ✅ Force to double regardless of what was passed in
+          final rawAmount = h['feeAmount'];
+          double amount;
+          if (rawAmount is double) {
+            amount = rawAmount;
+          } else if (rawAmount is int) {
+            amount = rawAmount.toDouble();
+          } else if (rawAmount is String) {
+            amount = double.tryParse(rawAmount) ?? 0.0;
+            debugPrint('⚠️ feeAmount was a String "$rawAmount" — converted to $amount');
+          } else {
+            amount = 0.0;
+            debugPrint('⚠️ feeAmount was unexpected type ${rawAmount.runtimeType} — defaulted to 0.0');
+          }
+          feeHeadsMap[name] = amount;
+          debugPrint('   mapped: "$name" → $amount (${amount.runtimeType})');
         }
       }
 
-      // ── Step 3: Send ONE request with ALL heads + empty feeHead
-      //           to clear standard heads completely ──────────────
       final payload = {
         'schoolId': schoolId,
         'classId':  classId,
         'type':     type.toLowerCase(),
-        'feeHead':  {},           // ✅ empty map clears all standard heads
-        'feeHeads': feeHeadsMap,  // ✅ all custom heads in one shot
+        'feeHead': feeHeadsMap,
       };
 
-      debugPrint('📤 saveAllCustomFeeHeads payload: $payload');
+      debugPrint('📤 Final payload: $payload');
 
       final response = await _apiService.post(
         '/api/feestructure/v1/set',
@@ -168,8 +225,10 @@ class FeeStructureController extends GetxController {
       debugPrint('📥 saveAllCustomFeeHeads response: ${response.data}');
 
       if (response.data['ok'] == true) {
+        debugPrint('✅ Save successful');
         return true;
       } else {
+        debugPrint('❌ Save failed: ${response.data['message']}');
         _showSnackbar('Error',
             response.data['message'] ?? 'Failed to save fee heads',
             AppTheme.errorRed);
@@ -179,19 +238,22 @@ class FeeStructureController extends GetxController {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['message'] ?? e.response?.data.toString())
           : e.response?.data?.toString();
-      debugPrint('❌ saveAllCustomFeeHeads 400 body: ${e.response?.data}');
+      debugPrint('❌ DioException: ${e.response?.statusCode}');
+      debugPrint('❌ Body: ${e.response?.data}');
       _showSnackbar('Error',
-          serverMessage ?? 'Failed to save fee heads (${e.response?.statusCode})',
+          serverMessage ?? 'Failed to save fee heads',
           AppTheme.errorRed);
       return false;
     } catch (e, stack) {
-      debugPrint('❌ saveAllCustomFeeHeads error: $e\n$stack');
+      debugPrint('❌ Unexpected error: $e');
+      debugPrint('❌ Stack: $stack');
       _showSnackbar('Error', e.toString(), AppTheme.errorRed);
       return false;
     } finally {
       isLoading.value = false;
     }
   }
+
   // ── Set fee structure ─────────────────────────────────────────
   // NOTE: Removed ApiGuard.enforcePermission — it was throwing and
   // causing every save to silently fail with "An error occurred".

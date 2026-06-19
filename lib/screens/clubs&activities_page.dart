@@ -34,7 +34,8 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   List<ClubsAndActivitiesStrings> apiClubs = [];
   bool isLoading = true;
-  final session = Get.find<UserSession>();
+//  final session = Get.find<UserSession>();
+    final auth_ctrl =Get.find<AuthController>();
 
   late VideoPlayerController _controller ;
   late Future<void> _initializeVideoPlayerFuture;
@@ -48,7 +49,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   Future<void> fetchClubsAndActivities() async {
     String baseUrl = ApiConstants.baseUrl;
-    final String? token = session.token;
+    final String? token = auth_ctrl.storage.read('token');
 
     // Always get schoolId from selected school in controller
     String? schoolId;
@@ -57,7 +58,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     if (role == 'correspondent') {
       schoolId = _school?.selectedSchool.value?.id;
     } else {
-      schoolId = session.schoolId ?? _authController.user.value?.schoolId;
+      schoolId = auth_ctrl.user.value?.schoolId ?? _authController.user.value?.schoolId;
     }
 
     if (schoolId == null || schoolId.isEmpty) {
@@ -267,7 +268,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       final role = _authController.user.value?.role?.toLowerCase() ?? '';
       final schoolName = role == 'correspondent'
           ? (_school?.selectedSchool.value?.name ?? '')
-          : (session.schoolName ?? _authController.user.value?.schoolName ?? '');
+          : (auth_ctrl.user.value?.schoolName ?? _authController.user.value?.schoolName ?? '');
 
       return Row(
         children: [

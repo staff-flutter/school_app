@@ -82,7 +82,15 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
   DateTime     selectedDate       = DateTime.now();
   final        subjectCtrl        = TextEditingController();
   final        descriptionCtrl    = TextEditingController();
-  final        academicYearCtrl   = TextEditingController(text: '2024-2025');
+ // final        academicYearCtrl   = TextEditingController(text: '2025-2026');
+  static String _currentAcademicYear() {
+    final now = DateTime.now();
+    // Academic year starts in June — adjust month threshold to match your school
+    final startYear = now.month >= 6 ? now.year : now.year - 1;
+    return '$startYear-${startYear + 1}';
+  }
+
+  final academicYearCtrl = TextEditingController(text: _currentAcademicYear());
   List<PlatformFile> selectedFiles = [];
 
   @override
@@ -453,6 +461,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                         schoolController.getAllSections(classId: c.id, schoolId: schoolController.selectedSchool.value!.id);
                       }
                       Get.back();
+                      _applyFilter();
                     },
                   );
                 },
@@ -513,7 +522,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                         child: Icon(Icons.group_rounded, size: 18, color: isSelected ? _kPrimary : _kTextMuted)),
                     title: Text(s.name, style: TextStyle(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, fontSize: 14, color: isSelected ? _kPrimary : _kText)),
                     trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: _kPrimary, size: 20) : null,
-                    onTap: () { setState(() => selectedSection = s); Get.back(); },
+                    onTap: () { setState(() => selectedSection = s); Get.back();_applyFilter();  },
                   );
                 },
               );
@@ -554,7 +563,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                 child: Icon(Icons.school_outlined, size: 18, color: academicYearCtrl.text == y ? _kPrimary : _kTextMuted)),
             title: Text(y, style: TextStyle(fontWeight: academicYearCtrl.text == y ? FontWeight.w700 : FontWeight.w500, fontSize: 14, color: academicYearCtrl.text == y ? _kPrimary : _kText)),
             trailing: academicYearCtrl.text == y ? const Icon(Icons.check_circle_rounded, color: _kPrimary, size: 20) : null,
-            onTap: () { setState(() => academicYearCtrl.text = y); Get.back(); },
+            onTap: () { setState(() => academicYearCtrl.text = y); Get.back(); _applyFilter(); },
           )),
           const SizedBox(height: 20),
         ]),

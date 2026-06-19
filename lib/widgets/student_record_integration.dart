@@ -120,8 +120,10 @@ class StudentRecordIntegration extends StatelessWidget {
 
   void _collectFee(StudentRecordController controller, AuthController authController) async {
     final schoolId = authController.user.value?.schoolId ?? '';
+    //final studentName= controller.studentRecords.
     if (schoolId.isNotEmpty) {
       await controller.collectFee(
+        studentName: 'demo-studentName',
         schoolId: schoolId,
         studentId: 'demo_student',
         classId: 'demo_class',

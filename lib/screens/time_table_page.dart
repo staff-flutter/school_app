@@ -24,7 +24,8 @@ class _MyHomePageState extends State<TimeTablePage> {
   static const double _chipMargin = 6.0;
   late final MyChildrenController controller;
 
-  final session = Get.find<UserSession>();
+ // final session = Get.find<UserSession>();
+  final auth_ctrl = Get.find<AuthController>();
   final PageController _pageController = PageController();
   final ScrollController _textScrollController = ScrollController();
   int _currentPageIndex = 0;
@@ -115,8 +116,11 @@ class _MyHomePageState extends State<TimeTablePage> {
     final String baseUrl = ApiConstants.baseUrl;
     final selectedStudent = controller.selectedChild;
 
-    final String? token = session.token;
-    final String? schoolId = session.schoolId;
+   // final String? token = session.token;
+    //final String? schoolId = session.schoolId;
+
+    final String? token = auth_ctrl.storage.read('token');
+    final String? schoolId = auth_ctrl.user.value?.schoolId;
     final String? classId = controller.selectedChild['classId'] ?? 'null';
     final String? sectionId = selectedStudent['sectionId'] ?? 'null';
 

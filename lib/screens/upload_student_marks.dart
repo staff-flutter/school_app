@@ -40,7 +40,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   // ── Filter state ──────────────────────────────────────────────────────────
   SchoolClass? _class;
   Section?     _section;
-  String       _academicYear = '2025-2026';
+  String       _academicYear = '2026-2027';
   bool         _showFilters  = true;
 
   // ── Config state ──────────────────────────────────────────────────────────
@@ -162,11 +162,13 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
     if (_class == null || _schoolId == null) return;
     setState(() => _configLoading = true);
     try {
+      // Map<String,dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
+      // if (cfg == null) {
+      //   debugPrint('[CONFIG] First attempt (with academicYear) returned no data, trying without...');
+      //   cfg = await _fetchConfig(withAcademicYear: false);
+      // }
+
       Map<String,dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
-      if (cfg == null) {
-        debugPrint('[CONFIG] First attempt (with academicYear) returned no data, trying without...');
-        cfg = await _fetchConfig(withAcademicYear: false);
-      }
 
       if (cfg != null) {
         final extractedId = _extractConfigId(cfg);
@@ -275,6 +277,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
     });
     try {
       await _loadConfig();
+      debugPrint('[DEBUG] configId=$_configId subjects=${_cfgSubjects.length} exams=${_cfgExams.length}');
       final sResp = await _api.get(ApiConstants.getAllStudents, queryParameters: {
         'schoolId': _schoolId!,
         'classId': _class!.id,
@@ -729,7 +732,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
                   child: Row(children: [
                     Icon(Icons.info_outline_rounded, size: 15, color: Colors.red[700]),
                     const SizedBox(width: 8),
-                    Text('Student marked as absent for this exam.',
+                    Text('Student is absent for this exam.',
                         style: TextStyle(fontSize: 12, color: Colors.red[700])),
                   ]),
                 ),

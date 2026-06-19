@@ -19,6 +19,8 @@ class AppRoutes {
   static const String MARKS_UPLOAD        = '/marks-upload';
   static const String HOMEWORK_MANAGEMENT = '/homework-management';
   static const String SPLASH              = '/splash';
+  static const String ONBOARDING              = '/onboarding';
+
   static const String LOGIN               = '/login';
   static const String CREATE_SCHOOL       = '/create-school';
   static const String SCHOOL_MANAGEMENT   = '/school-management';
@@ -28,6 +30,7 @@ class AppRoutes {
   static const String EXPENSES            = '/expenses';
   static const String FEE_STRUCTURE       = '/fee-structure';
   static const String FEE_CONFIGURATION   = '/fee-configuration';
+  static const String BILL_BOOK           = '/bill-book';
 
   static const String REPORTS             = '/reports';
   static const String STUDENT_MANAGEMENT  = '/student-management';

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/bindings/marks_upload_binding.dart';
+import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_controller.dart';
 import '../bindings/feestructure_binding.dart';
 import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
 import '../screens/accounting_dashboard_with_api_integration.dart';
 import '../screens/admin_attendance.dart';
+import '../screens/bill_book_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
 import '../screens/create_student_profile_page.dart';
 import '../screens/enhanced_profile_view.dart';
@@ -13,7 +16,9 @@ import '../screens/finance_dashboard_view.dart';
 import '../screens/home_page.dart';
 import '../controllers/attendance_controller.dart';
 import '../screens/attendance_view.dart';
+import '../screens/login_page_for_daily_grades.dart';
 import '../screens/login_view.dart';
+import '../screens/onboarding screen1.dart';
 import '../screens/set_fee_configuration_page.dart';
 import '../screens/simple_communications_view.dart';
 import '../screens/Assignments_page.dart';
@@ -24,6 +29,7 @@ import '../screens/fee_details_page.dart';
 import '../screens/marks_list_page.dart';
 import '../screens/parent_profile_page.dart';
 import '../screens/profile_selection_page.dart';
+import '../screens/spash_screen.dart';
 import '../screens/splash_screen1.dart';
 import '../screens/student_form_dialog.dart';
 import '../screens/student_form_page.dart';
@@ -88,8 +94,13 @@ class AppPages {
   static final routes = [
     GetPage(
       name: AppRoutes.SPLASH,
-      page: () => const SplashScreen(),
+      page: () => const SplashScreen1(),
       binding: AuthBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.ONBOARDING,
+      page: () => OnboardingScreen(),
+
     ),
     GetPage(
       name: AppRoutes.LOGIN,
@@ -108,6 +119,9 @@ class AppPages {
     GetPage(
       name: AppRoutes.SCHOOL_MANAGEMENT,
       page: () => RoleAwareWrapper(child: SchoolManagementView()),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => SchoolController());
+      }),
     ),
     GetPage(
       name: AppRoutes.DASHBOARD,
@@ -125,6 +139,10 @@ class AppPages {
       name: AppRoutes.ACCOUNTING_DASHBOARD,
       page: () => RoleAwareWrapper(child: AccountingDashboardView1()),
       binding: AccountingBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.BILL_BOOK,
+      page: () => const AdmissionBillBookView(),
     ),
     GetPage(
       name: AppRoutes.FEE_COLLECTION,
@@ -171,6 +189,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.MARKS_UPLOAD,
       page: () => RoleAwareWrapper(child: StudentMarksUploadPage()),
+      binding: MarksUploadBinding(),
     ),
     GetPage(
       name: AppRoutes.ACADEMICS,

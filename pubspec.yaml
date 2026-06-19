@@ -37,6 +37,7 @@ dependencies:
   # this one is for to check with all screen sizes
   device_preview: ^1.2.0
   flutter_secure_storage: ^9.2.2
+  flutter_native_splash: ^2.4.7
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -59,4 +60,3 @@ flutter:
     - assets/icons/facebook.svg
     - assets/icons/linkedin.svg
     - assets/icons/youtube.svg
-

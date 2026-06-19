@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
@@ -100,7 +101,8 @@ class FeeDetailsFirstPage extends StatefulWidget {
 
 class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     with SingleTickerProviderStateMixin {
-  final session = Get.find<UserSession>();
+ // final session = Get.find<UserSession>();
+  final auth_ctrl = Get.find<AuthController>();
   late TabController _tabController;
   late Future<FeeRecord?> _feeFuture;
 
@@ -134,19 +136,21 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
 
   Future<FeeRecord?> _fetchFeeRecord() async {
     final controller = Get.find<MyChildrenController>();
-    final String token = session.token ?? '';
-    final String schoolId = session.schoolId ?? '';
+    final String token = auth_ctrl.storage.read('token');
+    final String schoolId = auth_ctrl.user.value?.schoolId;
     final String studentId = controller.selectedChild['_id'] ?? '';
 
     final uri = Uri.parse(
-        '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/$schoolId/$studentId');
+        '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
 
     try {
       final response = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
+      print('Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
+        print('Response Data: ${response.body}');
         final body = jsonDecode(response.body);
         final data = body['data'];
         if (data != null) return FeeRecord.fromJson(data as Map<String, dynamic>);
@@ -154,6 +158,7 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     } catch (e) {
       debugPrint("API Error: $e");
     }
+    print('fetchrecord');
     return null;
   }
 

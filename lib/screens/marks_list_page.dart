@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/auth_controller.dart';
 import '../core/utils/responsive_helper.dart';
 
 import '../controllers/my_children_controller.dart';
@@ -122,8 +123,8 @@ class _MarksListState extends State<MarksList> {
 
   String _studentName = '';
 
-  final _session = Get.find<UserSession>();
-
+  //final _session = Get.find<UserSession>();
+ final auth_ctrl = Get.find<AuthController>();
   // ── Derived from selected exam ─────────────────────────────────────────────
 
   /// The subjects to show in the table — either from a specific examRecord
@@ -179,17 +180,21 @@ class _MarksListState extends State<MarksList> {
     try {
       final baseUrl    = ApiConstants.baseUrl;
       final controller = Get.find<MyChildrenController>();
-      final token      = _session.token;
-      final schoolId   = _session.schoolId;
+      final token      = auth_ctrl.storage.read('token');
+      final schoolId   = auth_ctrl.user.value?.schoolId;
       final studentId  = controller.selectedChild['_id']?.toString() ?? '';
-
+      if (studentId.isEmpty) {
+        debugPrint('❌ studentId is empty — cannot fetch marks');
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
       _studentName =
           controller.selectedChild['name']?.toString() ??
               controller.selectedChild['studentName']?.toString() ??
               '';
 
       final uri = Uri.parse(
-        '$baseUrl/api/markreport/v1/v1/get/student/$studentId',
+        '$baseUrl/api/markreport/v1/get/student/$studentId',
       ).replace(queryParameters: {
         'schoolId':     '$schoolId',
         'academicYear': '2025-2026',
@@ -204,7 +209,15 @@ class _MarksListState extends State<MarksList> {
       debugPrint('👍 MarksReport ${response.statusCode}: ${response.body}');
 
       if (response.statusCode == 200) {
+        debugPrint('👍 MarksReport ${response.statusCode}: ${response.body}');
         final decoded  = jsonDecode(response.body);
+        debugPrint('DECODED TYPE: ${decoded.runtimeType}');
+        debugPrint('DECODED: $decoded');
+
+        debugPrint('studentId: $studentId');
+        debugPrint('URL: $uri');
+        debugPrint('Status: ${response.statusCode}');
+        debugPrint('Body: ${response.body}');
         // API returns { ok, data: <markReportDoc or list> }
         final rawData  = decoded is Map ? decoded['data'] : decoded;
 
@@ -219,7 +232,7 @@ class _MarksListState extends State<MarksList> {
           final report = MarkReport.fromJson(doc);
           // Auto-select first examRecord if top-level subjects are empty
           String defaultExam = '';
-          if (report.subjects.isEmpty && report.examRecords.isNotEmpty) {
+          if (report.examRecords.isNotEmpty) {
             defaultExam = report.examRecords.first.examName;
           }
           setState(() {

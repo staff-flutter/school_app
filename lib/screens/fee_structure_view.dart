@@ -80,9 +80,15 @@ class _FeeStructureViewState extends State<FeeStructureView> {
     });
   }
 
+
+  void _disposeAmountControllers() {
+    for (final c in _amountControllers.values) c.dispose();
+    _amountControllers.clear();
+  }
+
   @override
   void dispose() {
-    for (final c in _amountControllers.values) c.dispose();
+    _disposeAmountControllers();
     super.dispose();
   }
 
@@ -98,10 +104,9 @@ class _FeeStructureViewState extends State<FeeStructureView> {
 // ── API: load fee heads (Fully Dynamic Setup) ─────────────────
 
   Future<void> _loadFeeHeads(String schoolId, String classId) async {
+    debugPrint('🔵 _loadFeeHeads: schoolId=$schoolId classId=$classId type=$selectedStudentType');
     feeController.isLoading.value = true;
-    // Dispose old controllers
-    for (final c in _amountControllers.values) c.dispose();
-    _amountControllers.clear();
+    _disposeAmountControllers();
 
     try {
       final heads = await feeController.getCustomFeeHeads(
@@ -110,23 +115,38 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         type:     selectedStudentType,
       );
 
-      final List<Map<String, dynamic>> built = heads.map((h) {
+      debugPrint('🔵 _loadFeeHeads got ${heads.length} heads: $heads');
+
+      final List<Map<String, dynamic>> built = [];
+
+      for (final h in heads) {
         final name   = (h['feeName'] ?? '').toString();
         final amount = (h['feeAmount'] as num?)?.toDouble() ?? 0.0;
-        // Create stable controller with pre-filled value
-        _amountControllers[name] = TextEditingController(
-          text: amount == 0 ? '' : (amount % 1 == 0
-              ? amount.toInt().toString()
-              : amount.toStringAsFixed(2)),
-        );
-        return {'name': name, 'amount': amount, 'isStandard': false};
-      }).toList();
+
+        debugPrint('   building: name="$name" amount=$amount (${amount.runtimeType})');
+
+        final text = amount == 0.0
+            ? ''
+            : (amount % 1 == 0
+            ? amount.toInt().toString()
+            : amount.toStringAsFixed(2));
+
+        debugPrint('controller text will be: "$text"');
+
+        _amountControllers[name] = TextEditingController(text: text);
+
+        built.add({'id': h['id']?.toString(), 'name': name, 'amount': amount});
+      }
+
+      debugPrint('🔵 _feeHeads built: $built');
+      debugPrint('🔵 controllers: ${_amountControllers.map((k, v) => MapEntry(k, v.text))}');
 
       _feeHeads.assignAll(built);
     } finally {
       feeController.isLoading.value = false;
     }
   }
+
 
   // void _onClassSelected(SchoolClass cls) {
   //   _selectedClass.value = cls;
@@ -148,6 +168,13 @@ class _FeeStructureViewState extends State<FeeStructureView> {
   Future<void> _saveAll() async {
     final schoolId = schoolController.selectedSchool.value?.id
         ?? authController.user.value?.schoolId;
+
+    debugPrint('🔵 _saveAll called');
+    debugPrint('   schoolId: $schoolId');
+    debugPrint('   selectedClass: ${selectedClass?.name}');
+    debugPrint('   _feeHeads count: ${_feeHeads.length}');
+    debugPrint('   controllers: ${_amountControllers.map((k, v) => MapEntry(k, v.text))}');
+
     if (schoolId == null) {
       Get.snackbar('Error', 'School not found',
           backgroundColor: _kDanger, colorText: Colors.white);
@@ -159,7 +186,7 @@ class _FeeStructureViewState extends State<FeeStructureView> {
       return;
     }
     if (_feeHeads.isEmpty) {
-      Get.snackbar('Error', 'No fee heads configured. Set them in Fee Configuration first.',
+      Get.snackbar('Error', 'No fee heads to save',
           backgroundColor: _kDanger, colorText: Colors.white);
       return;
     }
@@ -167,13 +194,20 @@ class _FeeStructureViewState extends State<FeeStructureView> {
     try {
       feeController.isLoading.value = true;
 
-      // Read amounts from stable controllers
-      final feeHeadsList = _feeHeads.map((h) {
+      final feeHeadsList = <Map<String, dynamic>>[];
+
+      for (final h in _feeHeads) {
         final name   = h['name'].toString();
         final ctrl   = _amountControllers[name];
-        final amount = double.tryParse(ctrl?.text.trim() ?? '') ?? 0.0;
-        return {'feeName': name, 'feeAmount': amount};
-      }).toList();
+        final text   = ctrl?.text.trim() ?? '';
+        final amount = double.tryParse(text) ?? 0.0;
+
+        debugPrint('   → name="$name" ctrlText="$text" parsed=$amount');
+
+        feeHeadsList.add({'feeName': name, 'feeAmount': amount});
+      }
+
+      debugPrint('🔵 feeHeadsList to save: $feeHeadsList');
 
       final ok = await feeController.saveAllCustomFeeHeads(
         schoolId: schoolId,
@@ -182,15 +216,18 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         feeHeads: feeHeadsList,
       );
 
+      debugPrint('🔵 saveAllCustomFeeHeads returned: $ok');
+
       if (!ok) return;
 
-      Get.snackbar('Success', 'Fee structure saved successfully',
+      Get.snackbar('Success', 'Fee amounts saved successfully',
           backgroundColor: _kSuccess, colorText: Colors.white);
 
+      // ✅ Reload to confirm what backend actually stored
       await _loadFeeHeads(schoolId, selectedClass!.id);
-    } catch (e) {
-      debugPrint('❌ Save error: $e');
-      Get.snackbar('Error', 'Failed to save fee structure',
+    } catch (e, stack) {
+      debugPrint('❌ _saveAll error: $e\n$stack');
+      Get.snackbar('Error', 'Failed to save',
           backgroundColor: _kDanger, colorText: Colors.white);
     } finally {
       feeController.isLoading.value = false;
@@ -300,7 +337,99 @@ class _FeeStructureViewState extends State<FeeStructureView> {
                     if (_feeHeads.isEmpty) {
                       return _buildEmptyFeeHeads();
                     }
-                    return _buildFeeHeadsList();
+                    return Column(
+                      key: ValueKey(_feeHeads.length),
+                      children: List.generate(_feeHeads.length, (i) {
+                        final head = _feeHeads[i];
+                        final name = head['name'] as String;
+                        final c    = _kFeeColors[i % _kFeeColors.length];
+                        final ctrl = _amountControllers.putIfAbsent(
+                          name, () => TextEditingController(
+                          text: () {
+                            final amt = (head['amount'] as num?)?.toDouble() ?? 0.0;
+                            return amt == 0.0 ? '' : (amt % 1 == 0
+                                ? amt.toInt().toString()
+                                : amt.toStringAsFixed(2));
+                          }(),
+                        ),
+                        );
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: c.$1.withOpacity(0.2)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: c.$1.withOpacity(0.06),
+                                blurRadius: 6, offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: Row(children: [
+                            Container(
+                              width: 34, height: 34,
+                              decoration: BoxDecoration(
+                                color: c.$1.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.label_important_rounded,
+                                  color: c.$1, size: 16),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: c.$1)),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: ctrl,
+                                    enabled: canSetFee,
+                                    keyboardType: const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                    style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: _kBlueDark),
+                                    decoration: InputDecoration(
+                                      hintText: '0',
+                                      prefixText: '₹ ',
+                                      prefixStyle: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: _kBlueMuted),
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 8),
+                                      filled: true,
+                                      fillColor: c.$2,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: c.$1.withOpacity(0.3)),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: c.$1.withOpacity(0.3)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: c.$1, width: 1.5),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ]),
+                        );
+                      }),
+                    );
                   }),
                   const SizedBox(height: 16),
                   if (canSetFee) _buildSaveButton(),
