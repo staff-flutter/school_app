@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/bill_admission_controller.dart';
 
+import '../controllers/school_controller.dart';
+
 class AdmissionBookSetupView extends StatefulWidget {
   const AdmissionBookSetupView({super.key});
 
@@ -13,9 +15,20 @@ class AdmissionBookSetupView extends StatefulWidget {
 class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
   final BillAdmissionController _controller = Get.find<BillAdmissionController>();
   final AuthController _authController = Get.find<AuthController>();
+  final SchoolController _schoolController = Get.find<SchoolController>();
 
-  String? get _schoolId => _authController.user.value?.schoolId;
+ // String? get _schoolId => _authController.user.value?.schoolId;
+  String? get schoolId {
+    // 1. Get the current user's role
+    final String role = _authController.user.value?.role?.toLowerCase() ?? '';
 
+    // 2. Conditionally return the correct school ID
+    if (role == 'correspondent') {
+      return _schoolController.selectedSchool.value?.id;
+    } else {
+      return _authController.user.value?.schoolId;
+    }
+  }
   @override
   void initState() {
     super.initState();
@@ -23,14 +36,17 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
   }
 
   Future<void> _fetchBooks() async {
-    final schoolId = _schoolId;
-    if (schoolId == null) {
+    //final schoolId = schoolId;
+    final String? resolvedSchoolId  = schoolId;
+    if (resolvedSchoolId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('School ID not found. Please login again.')),
       );
       return;
     }
-    await _controller.getAllAdmissionBooks(schoolId: schoolId);
+    //await _controller.getAllAdmissionBooks(schoolId: schoolId);
+      await _controller.getAllAdmissionBooks(schoolId: resolvedSchoolId);
+
   }
 
   String _bookId(Map<String, dynamic> book) => (book['_id'] ?? book['id'] ?? '').toString();
@@ -190,8 +206,8 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
                           onPressed: saving
                               ? null
                               : () async {
-                            final schoolId = _schoolId;
-                            if (schoolId == null) return;
+                            final String? resolvedSchoolId = schoolId;
+                            if (resolvedSchoolId == null) return;
 
                             if (nameController.text.trim().isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -209,7 +225,7 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
                                 return;
                               }
                               success = await _controller.createNewAdmissionBook(
-                                schoolId: schoolId,
+                                schoolId: resolvedSchoolId,
                                 bookName: nameController.text.trim(),
                                 startingFormNumber: startingFormNumberController.text.trim(),
                               );
@@ -348,21 +364,21 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
               ],
             ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 TextButton.icon(
                   onPressed: () => _openSequenceDialog(book),
-                  icon: const Icon(Icons.format_list_numbered_rounded, size: 18),
+                  icon: const Icon(Icons.format_list_numbered_rounded, size: 15),
                   label: const Text('Sequence'),
                 ),
                 TextButton.icon(
                   onPressed: () => _openCreateOrEditSheet(existing: book),
-                  icon: const Icon(Icons.edit_rounded, size: 18),
+                  icon: const Icon(Icons.edit_rounded, size: 15),
                   label: const Text('Edit'),
                 ),
                 TextButton.icon(
                   onPressed: () => _confirmDelete(book),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Colors.red),
                   label: const Text('Delete', style: TextStyle(color: Colors.red)),
                 ),
               ],

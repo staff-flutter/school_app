@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/bill_admission_controller.dart';
 
+import '../controllers/school_controller.dart';
 import 'admission_form_detail_view.dart';
 import 'bill_book_page.dart';
 
@@ -16,6 +17,7 @@ class AdmissionFormListView extends StatefulWidget {
 class _AdmissionFormListViewState extends State<AdmissionFormListView> {
   final BillAdmissionController _controller = Get.find<BillAdmissionController>();
   final AuthController _authController = Get.find<AuthController>();
+  final SchoolController _schoolController = Get.find<SchoolController>();
 
   final _searchController = TextEditingController();
   final _academicYearController = TextEditingController();
@@ -31,6 +33,11 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
   void initState() {
     super.initState();
     _fetchForms();
+    ever(_schoolController.selectedSchool, (_) {
+      if (mounted) {
+        _fetchForms();
+      }
+    });
   }
 
   @override
@@ -40,11 +47,22 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
     super.dispose();
   }
 
-  String? get _schoolId => _authController.user.value?.schoolId;
+ // String? get _schoolId => _authController.user.value?.schoolId;
+  String? get schoolId {
+    // 1. Get the current user's role
+    final String role = _authController.user.value?.role?.toLowerCase() ?? '';
+
+    // 2. Conditionally return the correct school ID
+    if (role == 'correspondent') {
+      return _schoolController.selectedSchool.value?.id;
+    } else {
+      return _authController.user.value?.schoolId;
+    }
+  }
 
   Future<void> _fetchForms({bool resetPage = true}) async {
-    final schoolId = _schoolId;
-    if (schoolId == null) {
+    final String? resolveSchoolId = schoolId;
+    if (resolveSchoolId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('School ID not found. Please login again.')),
       );
@@ -54,7 +72,7 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
     if (resetPage) _page = 1;
 
     await _controller.getAllAdmissionForms(
-      schoolId: schoolId,
+      schoolId: resolveSchoolId,
       academicYear: _academicYearController.text.trim().isEmpty ? null : _academicYearController.text.trim(),
       status: _selectedStatus == 'All' ? null : _selectedStatus,
       search: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),

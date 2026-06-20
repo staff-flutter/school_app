@@ -156,6 +156,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.ADMISSION_BOOK,
       page: () => RoleAwareWrapper(child: AdmissionBookSetupView()),
+      binding: BillAdmissionBinding(),
     ),
     GetPage(
       name: AppRoutes.FEE_COLLECTION,

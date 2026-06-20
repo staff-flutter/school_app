@@ -242,6 +242,7 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final response = await _apiService.get('${ApiConstants.getAllAdmissionBooks}/$schoolId');
+      print('schoolId:$schoolId');
 
       if (response.data['ok'] == true) {
         final list = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
@@ -451,6 +452,8 @@ class BillAdmissionController extends GetxController {
         if (admissionFormId != null) 'id': admissionFormId,
         if (studentId != null) 'studentId': studentId,
       };
+         print('studentId:$studentId');
+      print('admissionFormId:$admissionFormId');
 
       final response = await _apiService.get(ApiConstants.getSingleAdmissionForm, queryParameters: queryParams);
 
@@ -462,7 +465,9 @@ class BillAdmissionController extends GetxController {
         return null;
       }
     } catch (e) {
-      _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission form'), AppTheme.errorRed);
+      print("DEBUG ERROR: $e");
+      //_showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission form'), AppTheme.errorRed);
+      _showSnackbar('Error', e.toString(), AppTheme.errorRed);
       return null;
     } finally {
       isLoading.value = false;
@@ -498,13 +503,15 @@ class BillAdmissionController extends GetxController {
         '${ApiConstants.getAllAdmissionForms}/$schoolId',
         queryParameters: queryParams,
       );
-
+      print("ACTUAL BACKEND DATA: ${response.data['data']}");
+       print('getAllAdmissionForms schoolId :$schoolId');
       if (response.data['ok'] == true) {
-        final list = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+        final backendData = response.data['data'] ?? {};
+        final list = List<Map<String, dynamic>>.from(backendData['forms'] ?? []);
         admissionForms.value = list;
         return {
           'data': list,
-          'totalCount': response.data['totalCount'],
+          'totalCount': backendData['totalForms'],
           'totalPages': response.data['totalPages'],
           'hasNextPage': response.data['hasNextPage'],
         };
@@ -513,6 +520,8 @@ class BillAdmissionController extends GetxController {
         return {'data': <Map<String, dynamic>>[]};
       }
     } catch (e) {
+
+      print("DEBUG ERROR: $e");
       _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission forms'), AppTheme.errorRed);
       return {'data': <Map<String, dynamic>>[]};
     } finally {

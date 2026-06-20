@@ -112,14 +112,22 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
   }
 
   Future<void> _loadForm() async {
-    final data = await _controller.getSingleAdmissionForm(admissionFormId: widget.admissionFormId);
-    if (data != null) {
-      setState(() {
-        _formData = data;
-        _populateControllers(data);
-      });
-    }
-    if (mounted) setState(() => _loading = false);
+    // Wait until the current build frame is completely finished
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final data = await _controller.getSingleAdmissionForm(admissionFormId: widget.admissionFormId);
+
+      if (data != null && mounted) {
+        setState(() {
+          _formData = data;
+          _populateControllers(data);
+        });
+      }
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    });
   }
 
   Map<String, dynamic> get _editedPayload => {

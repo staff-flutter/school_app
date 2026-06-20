@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/bill_admission_controller.dart';
 
+import '../controllers/school_controller.dart';
+
 class AdmissionBillBookView extends StatefulWidget {
   const AdmissionBillBookView({super.key});
 
@@ -13,12 +15,24 @@ class AdmissionBillBookView extends StatefulWidget {
 class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   final BillAdmissionController _controller = Get.find<BillAdmissionController>();
   final AuthController _authController = Get.find<AuthController>();
+  final SchoolController _schoolController = Get.find<SchoolController>();
 
   // Displayed in the header badge - replaced with the server-assigned
   // formNumber once a record has actually been saved.
   String _formNumberLabel = '—';
   String? _admissionFormId;
+// Syntax: ReturnType get getterName => expression;
+  String? get schoolId {
+    // 1. Get the current user's role
+    final String role = _authController.user.value?.role?.toLowerCase() ?? '';
 
+    // 2. Conditionally return the correct school ID
+    if (role == 'correspondent') {
+      return _schoolController.selectedSchool.value?.id;
+    } else {
+      return _authController.user.value?.schoolId;
+    }
+  }
   // --- Form Field Controllers (mapped to the IAdmissionForm schema) ---
   // 1. Student Details
   final _studentNameController = TextEditingController();
@@ -128,8 +142,10 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   Future<void> _saveRecord() async {
     if (!_validateRequiredFields()) return;
 
-    final schoolId = _authController.user.value?.schoolId;
-    if (schoolId == null) {
+    //final schoolId = _authController.user.value?.schoolId;
+   // if (schoolId == null) {
+      final String? resolvedSchoolId = schoolId;
+        if (resolvedSchoolId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('School ID not found. Please login again.')),
       );
@@ -137,7 +153,8 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     }
 
     // Step 1: ask the active Admission Book for a new blank form + form number.
-    final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: schoolId);
+   // final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: schoolId);
+    final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: resolvedSchoolId);
     if (linkResult == null) return; // controller already showed the error
 
     final newAdmissionFormId = linkResult['_id'] ?? linkResult['id'] ?? linkResult['admissionFormId'];
