@@ -14,6 +14,7 @@ import '../models/student_model.dart';
 import '../services/api_service.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:file_picker/file_picker.dart';
+import 'package:school_app/controllers/student_management_controller.dart';
 
 // =============================================================================
 // DESIGN TOKENS
@@ -970,7 +971,32 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                 duration: const Duration(seconds: 4));
           }
         }
+        if (studentId != null && _pickedClassId != null) {
+          try {
+            final mgmtCtrl = Get.isRegistered<StudentManagementController>()
+                ? Get.find<StudentManagementController>()
+                : Get.put(StudentManagementController());
 
+            final assigned = await mgmtCtrl.assignStudentToClass({
+              'schoolId': schoolId,
+              'studentId': studentId,
+              'classId': _pickedClassId,
+              'sectionId': _pickedSectionId,
+              'newOld': widget.isEdit ? 'old' : 'new',
+              'rollNumber': _rollNoCtrl.text.trim(),
+              'className': _pickedClassName ?? '',
+              'sectionName': _pickedSectionName ?? '',
+              'isBusApplicable': false,
+              'studentName': payload.studentName,
+              // 'academicYear': omitted — API docs say it defaults to current
+              // academic year if not provided; pass one explicitly if you collect it.
+            });
+
+            debugPrint('[STUDENT] class assignment ${assigned ? "succeeded" : "failed"}');
+          } catch (e) {
+            debugPrint('[STUDENT] class assignment error: $e');
+          }
+        }
         final action = widget.isEdit ? 'Updated' : 'Created';
         Get.snackbar(
           '✅ Student $action',
@@ -1419,24 +1445,22 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           _FormCard(
               child: Column(children: [
                 _dropRow('Gender', _selGender, _genders,
-                        (v) => setState(() => _selGender = v), Icons.wc_rounded,
-                    required: true),
+                        (v) => setState(() => _selGender = v), Icons.wc_rounded),
                 _divider(),
-                _dateFieldRow(_dobCtrl, 'Date of Birth', required: true),
+                _dateFieldRow(_dobCtrl, 'Date of Birth'),
                 _divider(),
                 _field(_motherCtrl, "Mother's Name",
-                    icon: Icons.person_2_outlined, required: true),
+                    icon: Icons.person_2_outlined),
                 _divider(),
                 _field(_fatherCtrl, "Father's Name",
-                    icon: Icons.person_outlined, required: true),
+                    icon: Icons.person_outlined),
                 _divider(),
                 _field(_guardianCtrl, "Guardian's Name",
-                    icon: Icons.supervisor_account_outlined, required: true),
+                    icon: Icons.supervisor_account_outlined),
                 _divider(),
                 _dropRow('Blood Group', _selBlood, _bloods,
                         (v) => setState(() => _selBlood = v),
-                    Icons.bloodtype_outlined,
-                    required: true),
+                    Icons.bloodtype_outlined),
               ])),
           const SizedBox(height: 20),
           _secHeader(Icons.phone_outlined, 'Contact Details'),
@@ -1445,21 +1469,18 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               child: Column(children: [
                 _field(_mobileCtrl, 'Mobile Number',
                     keyboard: TextInputType.phone,
-                    icon: Icons.phone_rounded,
-                    required: true),
+                    icon: Icons.phone_rounded),
                 _divider(),
                 _field(_altMobileCtrl, 'Alternate Mobile',
                     keyboard: TextInputType.phone,
-                    icon: Icons.phone_callback_outlined,
-                    required: true),
+                    icon: Icons.phone_callback_outlined),
                 _divider(),
                 _field(_emailCtrl, 'Email',
                     keyboard: TextInputType.emailAddress,
-                    icon: Icons.mail_outline_rounded,
-                    required: true),
+                    icon: Icons.mail_outline_rounded),
                 _divider(),
                 _field(_motherTongueCtrl, 'Mother Tongue',
-                    icon: Icons.language_rounded, required: true),
+                    icon: Icons.language_rounded),
               ])),
           const SizedBox(height: 20),
           _secHeader(Icons.location_on_outlined, 'Address & ID'),
@@ -1467,31 +1488,29 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           _FormCard(
               child: Column(children: [
                 _field(_addressCtrl, 'Address',
-                    maxLines: 3, icon: Icons.home_outlined, required: true),
+                    maxLines: 3, icon: Icons.home_outlined),
                 _divider(),
                 _field(_pincodeCtrl, 'Pincode',
                     keyboard: TextInputType.number,
                     icon: Icons.pin_drop_outlined,
-                    required: true,
                     formatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(6),
                     ]),
                 _divider(),
                 _field(_eduNoCtrl, 'Education Number',
-                    icon: Icons.numbers_rounded, required: true),
+                    icon: Icons.numbers_rounded),
                 _divider(),
                 _field(_aadhaarNoCtrl, 'Aadhaar Number',
                     keyboard: TextInputType.number,
                     icon: Icons.credit_card_outlined,
-                    required: true,
                     formatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(12),
                     ]),
                 _divider(),
                 _field(_aadhaarNameCtrl, 'Name on Aadhaar',
-                    icon: Icons.person_pin_outlined, required: true),
+                    icon: Icons.person_pin_outlined),
               ])),
           const SizedBox(height: 20),
           _secHeader(Icons.checklist_rounded, 'Social & Welfare'),
@@ -1500,64 +1519,55 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               child: Column(children: [
                 _dropRow('Social Category', _selSocialCat, _socCats,
                         (v) => setState(() => _selSocialCat = v),
-                    Icons.group_outlined,
-                    required: true),
+                    Icons.group_outlined),
                 _divider(),
                 _field(_minorityCtrl, 'Minority Group',
-                    icon: Icons.people_outline, required: true),
+                    icon: Icons.people_outline),
                 _divider(),
                 Row(children: [
                   Expanded(
                       child: _dropCompact('BPL', _selBpl, _yesNo,
-                              (v) => setState(() => _selBpl = v),
-                          required: true)),
+                              (v) => setState(() => _selBpl = v))),
                   const SizedBox(width: 12),
                   Expanded(
                       child: _dropCompact('AAY', _selAay, _yesNo,
-                              (v) => setState(() => _selAay = v),
-                          required: true)),
+                              (v) => setState(() => _selAay = v))),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(
                       child: _dropCompact('EWS', _selEws, _yesNo,
-                              (v) => setState(() => _selEws = v),
-                          required: true)),
+                              (v) => setState(() => _selEws = v))),
                   const SizedBox(width: 12),
                   Expanded(
                       child: _dropCompact('CWSN', _selCwsn, _yesNo,
-                              (v) => setState(() => _selCwsn = v),
-                          required: true)),
+                              (v) => setState(() => _selCwsn = v))),
                 ]),
                 _divider(),
                 _field(_impairmentsCtrl, 'Impairments',
-                    icon: Icons.accessibility_new_outlined, required: true),
+                    icon: Icons.accessibility_new_outlined),
                 _divider(),
                 Row(children: [
                   Expanded(
                       child: _dropCompact('Indian National', _selIndian, _yesNo,
-                              (v) => setState(() => _selIndian = v),
-                          required: true)),
+                              (v) => setState(() => _selIndian = v))),
                   const SizedBox(width: 12),
                   Expanded(
                       child: _dropCompact('Out of School', _selOos, _yesNo,
-                              (v) => setState(() => _selOos = v),
-                          required: true)),
+                              (v) => setState(() => _selOos = v))),
                 ]),
                 _divider(),
-                _dateFieldRow(_mainstreamedDateCtrl, 'Mainstreamed Date',
-                    required: true),
+                _dateFieldRow(_mainstreamedDateCtrl, 'Mainstreamed Date'),
                 _divider(),
                 Row(children: [
                   Expanded(
                       child: _dropCompact(
                           'Disability Cert', _selDisCert, _yesNo,
-                              (v) => setState(() => _selDisCert = v),
-                          required: true)),
+                              (v) => setState(() => _selDisCert = v))),
                   const SizedBox(width: 12),
                   Expanded(
                       child: _field(_disabilityPctCtrl, 'Disability %',
-                          keyboard: TextInputType.number, required: true)),
+                          keyboard: TextInputType.number)),
                 ]),
               ])),
         ]),

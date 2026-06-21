@@ -246,7 +246,7 @@ class StudentManagementController extends GetxController {
   Future<bool> assignStudentToClass(Map<String, dynamic> data) async {
     try {
       isLoading.value = true;
-      final response = await _apiService.put('/api/studentrecord/assign', data: data);
+      final response = await _apiService.put('/api/studentrecord/v1/assign', data: data);
 
       if (response.statusCode == 200 && response.data['ok'] == true) {
         ErrorHandler.showSuccess('Student assigned to class successfully');

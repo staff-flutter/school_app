@@ -41,13 +41,23 @@ class FeeRecord {
     final student = json['studentId'] as Map<String, dynamic>? ?? {};
     final imgObj = student['studentImage'] as Map<String, dynamic>? ?? {};
 
+    // Prefer the v1 custom-fee-head maps (where dynamic fee heads like
+    // "Lab Fee"/"Sports Fee" actually live); fall back to the legacy
+    // static-field maps for any older records that predate this.
+    final feeStructureRaw = (json['feeStructurev1'] as Map<String, dynamic>?)
+        ?? (json['feeStructure'] as Map<String, dynamic>?);
+    final feePaidRaw = (json['feePaidv1'] as Map<String, dynamic>?)
+        ?? (json['feePaid'] as Map<String, dynamic>?);
+    final duesRaw = (json['duesv1'] as Map<String, dynamic>?)
+        ?? (json['dues'] as Map<String, dynamic>?);
+
     return FeeRecord(
       id: json['_id'] ?? '',
       studentName: student['studentName'] ?? 'Student',
       studentImage: imgObj['url'] ?? '',
-      feeStructure: _toIntMap(json['feeStructure'] as Map<String, dynamic>?),
-      feePaid: _toIntMap(json['feePaid'] as Map<String, dynamic>?),
-      dues: _toIntMap(json['dues'] as Map<String, dynamic>?),
+      feeStructure: _toIntMap(feeStructureRaw),
+      feePaid: _toIntMap(feePaidRaw),
+      dues: _toIntMap(duesRaw),
       concession: ConcessionModel.fromJson(
           json['concession'] as Map<String, dynamic>? ?? {}),
     );
@@ -141,7 +151,8 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     final String studentId = controller.selectedChild['_id'] ?? '';
 
     final uri = Uri.parse(
-        '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
+        //'${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
+    '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/$schoolId/$studentId');
 
     try {
       final response = await http.get(uri, headers: {
@@ -333,31 +344,20 @@ class _StudentSummaryCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 1 – FEE STRUCTURE
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _FeeStructureTab extends StatelessWidget {
   final FeeRecord record;
   const _FeeStructureTab({required this.record});
-
-  static const _labels = {
-    'admissionFee': 'Admission Fee',
-    'firstTermAmt': 'Term 1 Fee',
-    'secondTermAmt': 'Term 2 Fee',
-    'busFirstTermAmt': 'Bus Fee (Term 1)',
-    'busSecondTermAmt': 'Bus Fee (Term 2)',
-  };
 
   @override
   Widget build(BuildContext context) {
     return _TabScaffold(
       headerColor: const Color(0xff4A90E2),
       headerIcon: Icons.receipt_long_outlined,
-      headerTitle: 'Fee Structure',  // full label in content header
+      headerTitle: 'Fee Structure',
       headerSubtitle: 'Total: ₹ ${record.totalFeeStructure}',
       child: _FeeTable(
-        rows: _labels.entries
-            .where((e) => record.feeStructure.containsKey(e.key))
-            .map((e) =>
-            _FeeRow(label: e.value, amount: record.feeStructure[e.key]!))
+        rows: record.feeStructure.entries
+            .map((e) => _FeeRow(label: _prettify(e.key), amount: e.value))
             .toList(),
         totalLabel: 'Grand Total',
         totalAmount: record.totalFeeStructure,
@@ -365,23 +365,39 @@ class _FeeStructureTab extends StatelessWidget {
       ),
     );
   }
-}
 
+  // Optional: keep friendly labels for legacy keys, fall back to raw name for custom heads
+  String _prettify(String key) {
+    const legacyLabels = {
+      'admissionFee': 'Admission Fee',
+      'firstTermAmt': 'Term 1 Fee',
+      'secondTermAmt': 'Term 2 Fee',
+      'busFirstTermAmt': 'Bus Fee (Term 1)',
+      'busSecondTermAmt': 'Bus Fee (Term 2)',
+    };
+    return legacyLabels[key] ?? key; // custom fee head names show as-is
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 2 – DUES
 // ─────────────────────────────────────────────────────────────────────────────
+
 
 class _DuesTab extends StatelessWidget {
   final FeeRecord record;
   const _DuesTab({required this.record});
 
-  static const _labels = {
+  // Legacy keys still get a friendly label; custom fee heads show their
+  // own name as-is (no filtering against a fixed key set anymore).
+  static const _legacyLabels = {
     'admissionDues': 'Admission Dues',
     'firstTermDues': 'Term 1 Dues',
     'secondTermDues': 'Term 2 Dues',
     'busfirstTermDues': 'Bus Dues (Term 1)',
     'busSecondTermDues': 'Bus Dues (Term 2)',
   };
+
+  String _prettify(String key) => _legacyLabels[key] ?? key;
 
   @override
   Widget build(BuildContext context) {
@@ -391,10 +407,8 @@ class _DuesTab extends StatelessWidget {
       headerTitle: 'Outstanding Dues',
       headerSubtitle: 'Pending: ₹ ${record.totalDues}',
       child: _FeeTable(
-        rows: _labels.entries
-            .where((e) => record.dues.containsKey(e.key))
-            .map((e) =>
-            _FeeRow(label: e.value, amount: record.dues[e.key]!))
+        rows: record.dues.entries
+            .map((e) => _FeeRow(label: _prettify(e.key), amount: e.value))
             .toList(),
         totalLabel: 'Total Dues',
         totalAmount: record.totalDues,
@@ -412,13 +426,15 @@ class _PaidTab extends StatelessWidget {
   final FeeRecord record;
   const _PaidTab({required this.record});
 
-  static const _labels = {
+  static const _legacyLabels = {
     'admissionFee': 'Admission Fee',
     'firstTermAmt': 'Term 1 Fee',
     'secondTermAmt': 'Term 2 Fee',
     'busFirstTermAmt': 'Bus Fee (Term 1)',
     'busSecondTermAmt': 'Bus Fee (Term 2)',
   };
+
+  String _prettify(String key) => _legacyLabels[key] ?? key;
 
   @override
   Widget build(BuildContext context) {
@@ -428,10 +444,8 @@ class _PaidTab extends StatelessWidget {
       headerTitle: 'Amount Paid',
       headerSubtitle: 'Paid: ₹ ${record.totalPaid}',
       child: _FeeTable(
-        rows: _labels.entries
-            .where((e) => record.feePaid.containsKey(e.key))
-            .map((e) =>
-            _FeeRow(label: e.value, amount: record.feePaid[e.key]!))
+        rows: record.feePaid.entries
+            .map((e) => _FeeRow(label: _prettify(e.key), amount: e.value))
             .toList(),
         totalLabel: 'Total Paid',
         totalAmount: record.totalPaid,
