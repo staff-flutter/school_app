@@ -107,7 +107,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.LOGIN,
-      page: () => const LoginView(),
+      page: () => const DailyGradesLoginScreen(),
       binding: AuthBinding(),
     ),
     GetPage(

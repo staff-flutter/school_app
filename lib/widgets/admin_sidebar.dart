@@ -633,7 +633,7 @@ class _MenuBody extends StatelessWidget {
           if (RoleModules.hasModule(role, 'campusManagementPage'))
             _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
           _Item('Notifications', Icons.notifications, '/notifications'),
-          _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
+          //_Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
           _Item('Timetable', Icons.calendar_today_rounded, AppRoutes.TIMETABLE_MANAGEMENT),
           _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
           _Item('Profile Verification', Icons.perm_contact_calendar_outlined,

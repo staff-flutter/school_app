@@ -287,16 +287,31 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final workPhotoFiles = <PlatformFile>[].obs;
 
   String? get _resolvedSchoolId {
-    if (widget.schoolId != null && widget.schoolId!.isNotEmpty) {
-      return widget.schoolId;
-    }
+    final argSchoolId = Get.arguments?['schoolId'] as String?;
+    final id = widget.schoolId ?? argSchoolId;
+    if (id != null && id.isNotEmpty) return id;
     final role = _auth.user.value?.role?.toLowerCase() ?? '';
     if (role == 'correspondent') return _school.selectedSchool.value?.id;
     return _auth.user.value?.schoolId;
   }
 
+  Student? get _resolvedStudent =>
+      widget.student ?? Get.arguments?['student'] as Student?;
+
+  bool get _resolvedIsEdit =>
+      widget.isEdit || (Get.arguments?['isEdit'] as bool? ?? false);
+
+  String? get _resolvedExistingImageUrl =>
+      widget.existingImageUrl ?? Get.arguments?['existingImageUrl'] as String?;
+
+  List<Map<String, dynamic>>? get _resolvedExistingDocuments =>
+      widget.existingDocuments ??
+          (Get.arguments?['existingDocuments'] as List?)?.cast<Map<String, dynamic>>();
+
   bool get _isCorrespondent =>
       (_auth.user.value?.role?.toLowerCase() ?? '') == 'correspondent';
+
+
 
   /// Display label for the picked class/section. Handles the case where a
   /// student has no class/section assigned yet (currentClassId == null in
@@ -423,9 +438,9 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
     // Pre-fill existing profile photo + previously-uploaded documents, as
     // fetched via GET /api/studentrecord/v1/getrecord by the management page.
-    _existingImageUrl = resolveStudentFileUrl(widget.existingImageUrl);
-    if (widget.existingDocuments != null) {
-      for (final raw in widget.existingDocuments!) {
+    _existingImageUrl = resolveStudentFileUrl(_resolvedExistingImageUrl);
+    if (_resolvedExistingDocuments != null) {
+      for (final raw in _resolvedExistingDocuments!) {
         final doc = StudentDocument.fromJson(raw);
         if (doc != null) _documents.add(doc);
       }
@@ -435,18 +450,16 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       final sid = _resolvedSchoolId;
       if (sid != null) {
         _school.getAllClasses(sid).then((_) {
-          if (widget.isEdit && widget.student?.classId != null) {
-            _school
-                .getAllSections(
-              classId: widget.student!.classId,
+          if (_resolvedIsEdit && _resolvedStudent?.classId != null) {
+            _school.getAllSections(
+              classId: _resolvedStudent!.classId,
               schoolId: sid,
-            )
-                .then((_) => _applyEditPreFill());
+            ).then((_) => _applyEditPreFill());
           }
         });
       }
 
-      if (widget.isEdit && widget.student != null) {
+      if (_resolvedIsEdit  && _resolvedStudent != null) {
         _applyEditPreFill();
         // Don't auto-open the picker for edit mode — the form is shown
         // regardless of whether a class/section is assigned (see
@@ -482,7 +495,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   }
 
   void _applyEditPreFill() {
-    final s = widget.student;
+    final s = _resolvedStudent;
     if (s == null) return;
 
     _nameCtrl.text = s.name ?? '';
@@ -618,7 +631,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   void _showClassSectionPicker() {
     if (_isCorrespondent &&
         _school.selectedSchool.value == null &&
-        widget.schoolId == null) {
+        _resolvedSchoolId  == null) {
       Get.snackbar('No School Selected',
           'Please select a school from the sidebar first.',
           snackPosition: SnackPosition.BOTTOM,
@@ -637,7 +650,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       _ClassSectionPickerSheet(
         schoolController: _school,
         resolvedSchoolId: _resolvedSchoolId,
-        isEdit: widget.isEdit,
+        isEdit: _resolvedIsEdit,
         initialClassId: _pickedClassId,
         initialClassName: _pickedClassName,
         initialSectionId: _pickedSectionId,
@@ -879,14 +892,14 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             _isoDate(nonMandatoryMap['admissionDate'] as String);
       }
 
-      debugPrint('[STUDENT ${widget.isEdit ? "UPDATE" : "CREATE"}] '
+      debugPrint('[STUDENT ${_resolvedIsEdit  ? "UPDATE" : "CREATE"}] '
           'name=${payload.studentName} classId=${payload.currentClassId}');
 
       // Build flat FormData — mandatory & nonMandatory are JSON strings so the
       // server can call JSON.parse() on them directly (no bracket notation).
       final formData = dio.FormData.fromMap({
-        if (!widget.isEdit) 'schoolId': schoolId,
-        if (!widget.isEdit && payload.srId != null) 'srId': payload.srId,
+        if (!_resolvedIsEdit ) 'schoolId': schoolId,
+        if (!_resolvedIsEdit  && payload.srId != null) 'srId': payload.srId,
         'studentName': payload.studentName,
         if (payload.currentClassId != null)
           'currentClassId': payload.currentClassId,
@@ -922,8 +935,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
       Map<String, dynamic>? responseData;
 
-      if (widget.isEdit) {
-        final studentId = widget.student!.id!;
+      if (_resolvedIsEdit) {
+        final studentId = _resolvedStudent!.id!;
         debugPrint(
             '[STUDENT UPDATE] PUT ${ApiConstants.updateStudent}/$studentId');
         final res = await apiService.dio.put(
@@ -982,7 +995,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               'studentId': studentId,
               'classId': _pickedClassId,
               'sectionId': _pickedSectionId,
-              'newOld': widget.isEdit ? 'old' : 'new',
+              'newOld': _resolvedIsEdit  ? 'old' : 'new',
               'rollNumber': _rollNoCtrl.text.trim(),
               'className': _pickedClassName ?? '',
               'sectionName': _pickedSectionName ?? '',
@@ -997,7 +1010,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             debugPrint('[STUDENT] class assignment error: $e');
           }
         }
-        final action = widget.isEdit ? 'Updated' : 'Created';
+        final action = _resolvedIsEdit  ? 'Updated' : 'Created';
         Get.snackbar(
           '✅ Student $action',
           'Profile for ${_nameCtrl.text.trim()} has been $action successfully!',
@@ -1013,7 +1026,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         });
       } else {
         final msg = responseData?['message']?.toString() ??
-            'Failed to ${widget.isEdit ? 'update' : 'create'} student.';
+            'Failed to ${_resolvedIsEdit  ? 'update' : 'create'} student.';
         debugPrint('[STUDENT ERROR] $msg');
         _showError(msg);
       }
@@ -1093,7 +1106,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.isEdit ? 'Edit Student Profile' : 'Create Student Profile',
+            _resolvedIsEdit  ? 'Edit Student Profile' : 'Create Student Profile',
             style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -1235,7 +1248,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             Expanded(
               child: _NavButton(
                 label: isLast
-                    ? (widget.isEdit ? 'Update Student' : 'Create Student')
+                    ? (_resolvedIsEdit ? 'Update Student' : 'Create Student')
                     : 'Next Step',
                 icon: isLast
                     ? Icons.check_circle_outline_rounded
@@ -2198,8 +2211,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   // Returns {ok: true, data: ...}
   // ──────────────────────────────────────────────────────────────────────────
   Future<void> _deleteDocument(StudentDocument doc) async {
-    if (!widget.isEdit || widget.student?.id == null) return;
-    final studentId = widget.student!.id!;
+    if (!_resolvedIsEdit  || _resolvedStudent?.id == null) return;
+    final studentId = _resolvedStudent!.id!;
     final schoolId = _resolvedSchoolId;
     if (schoolId == null) return;
 

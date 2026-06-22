@@ -2361,6 +2361,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         'schoolId': targetSchoolId,
         'student': student,   // ← Student object passed here
         'isEdit': true,
+        'existingImageUrl': student.studentImage,
       },
     )?.then((_) {
       if (controller.selectedSchool.value != null)

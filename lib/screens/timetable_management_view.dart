@@ -1648,15 +1648,15 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         icon: Icons.calendar_today_outlined,
         title: 'Select class to manage',
         subtitle: 'Choose a class from the selectors above to view and edit the timetable',
-        action: _secondaryBtn(
-          context: context,
-          label: 'Refresh Classes',
-          onPressed: () {
-            if (schoolController.selectedSchool.value != null) {
-              schoolController.getAllClasses(schoolController.selectedSchool.value!.id);
-            }
-          },
-        ),
+        // action: _secondaryBtn(
+        //   context: context,
+        //   label: 'Refresh Classes',
+        //   onPressed: () {
+        //     if (schoolController.selectedSchool.value != null) {
+        //       schoolController.getAllClasses(schoolController.selectedSchool.value!.id);
+        //     }
+        //   },
+        // ),
       );
     }
 

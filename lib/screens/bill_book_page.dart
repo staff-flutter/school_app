@@ -344,22 +344,26 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
         Row(
           children: [
             Expanded(child: _buildUnderlinedField(_ageController, 'Age', keyboardType: TextInputType.number)),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
             Expanded(child: _buildGenderDropdown()),
-            const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_motherTongueController, 'Mother Tongue')),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
+            Expanded(child: _buildUnderlinedField(_motherTongueController, 'Mother Tongue')),
+            const SizedBox(width: 8),
             Expanded(child: _buildUnderlinedField(_religionController, 'Religion')),
             const SizedBox(width: 16),
             Expanded(child: _buildUnderlinedField(_communityController, 'Community')),
-            const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_emisNumberController, 'EMIS Number (optional)')),
           ],
         ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildUnderlinedField(_emisNumberController, 'EMIS Number (optional)')),
+          ],
+        )
       ],
     );
   }
@@ -412,7 +416,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
               value: _permanentSameAsCurrent,
               onChanged: (value) => setState(() => _permanentSameAsCurrent = value ?? false),
             ),
-            const Text('Permanent address same as current', style: TextStyle(fontSize: 12)),
+            const Text('Permanent address ', style: TextStyle(fontSize: 12)),
           ],
         ),
         if (!_permanentSameAsCurrent) _buildUnderlinedField(_permanentAddressController, 'Permanent Address'),
@@ -474,7 +478,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
+          Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               SizedBox(
