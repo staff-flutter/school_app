@@ -288,7 +288,9 @@ class TimetableController extends GetxController {
   }) async {
     try {
       
-      
+      print('schoolId:$schoolId');
+      print('classId:$classId');
+      print('sectionId:$sectionId');
       isLoading.value = true;
       
       final queryParams = <String, dynamic>{};

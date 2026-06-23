@@ -146,7 +146,9 @@ class _MyHomePageState extends State<TimeTablePage> {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
-
+      print('schoolId:$schoolId');
+      print('classId:$classId');
+      print('sectionId:$sectionId');
       if (response.statusCode == 200) {
         final decodedData = jsonDecode(response.body);
         final List<dynamic> scheduleList =

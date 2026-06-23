@@ -2389,7 +2389,38 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       ],
     ));
   }
-
+  /// Styled text field
+  Widget _field(TextEditingController ctrl, String label,
+      {TextInputType? keyboardType, bool obscure = false, String? prefix,
+        Widget? suffixIcon}) {
+    return TextField(
+      controller: ctrl,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 15, color: _DS.textPrimary),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixText: prefix,
+        suffixIcon: suffixIcon,
+        labelStyle: const TextStyle(color: _DS.textSecondary, fontSize: 14),
+        filled: true,
+        fillColor: _DS.surfaceAlt,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_DS.radiusSm),
+          borderSide: const BorderSide(color: _DS.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_DS.radiusSm),
+          borderSide: const BorderSide(color: _DS.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_DS.radiusSm),
+          borderSide: const BorderSide(color: _DS.accent, width: 1.5),
+        ),
+      ),
+    );
+  }
   void _showCreateUserDialog() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
@@ -2398,7 +2429,19 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     final userNameCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
+
+    bool obscurePassword = true;
+
+    const validRoles = [
+      'correspondent', 'teacher', 'principal', 'viceprincipal',
+      'administrator', 'accountant', 'parent'
+    ];
+    String? selectedRole;
+
+    // Track BOTH — the dropdown displays the human-readable code, but the
+    // actual API call needs the school's real id.
     String? selectedSchoolCode;
+    String? selectedSchoolId;
 
     controller.getAllSchools();
 
@@ -2407,64 +2450,104 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       title: const Text('Create User'),
       content: StatefulBuilder(
         builder: (context, setState) {
-          if (!isCorrespondent && selectedSchoolCode == null && controller.schools.isNotEmpty) {
-            final userSchoolId = authController.user.value?.schoolId;
-            final userSchool = controller.schools.firstWhereOrNull((s) => s.id == userSchoolId);
-            if (userSchool?.schoolCode != null) selectedSchoolCode = userSchool!.schoolCode;
-          }
-          return SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _field(emailCtrl, 'Email'),
-              const SizedBox(height: 12),
-              _field(userNameCtrl, 'User Name'),
-              const SizedBox(height: 12),
-              _field(passwordCtrl, 'Password', obscure: true),
-              const SizedBox(height: 12),
-              _field(phoneCtrl, 'Phone'),
-              const SizedBox(height: 12),
-              if (isCorrespondent)
+          return Obx(() {
+            if (!isCorrespondent && selectedSchoolId == null && controller.schools.isNotEmpty) {
+              final userSchoolId = authController.user.value?.schoolId;
+              final userSchool = controller.schools.firstWhereOrNull((s) => s.id == userSchoolId);
+              if (userSchool != null) {
+                selectedSchoolId = userSchool.id;
+                selectedSchoolCode = userSchool.schoolCode;
+              }
+            }
+            return SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _field(emailCtrl, 'Email'),
+                const SizedBox(height: 12),
+                _field(userNameCtrl, 'User Name'),
+                const SizedBox(height: 12),
+                _field(
+                  passwordCtrl,
+                  'Password',
+                  obscure: obscurePassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      color: _DS.textMuted,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => obscurePassword = !obscurePassword),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _field(phoneCtrl, 'Phone'),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
-                  value: selectedSchoolCode,
-                  decoration: const InputDecoration(labelText: 'School'),
-                  items: controller.schools.map((s) => DropdownMenuItem(
-                    value: s.schoolCode,
-                    child: Text('${s.name} (${s.schoolCode})'),
+                  value: selectedRole,
+                  decoration: const InputDecoration(labelText: 'Role'),
+                  items: validRoles.map((r) => DropdownMenuItem(
+                    value: r,
+                    child: Text(r.toUpperCase()),
                   )).toList(),
-                  onChanged: (v) => setState(() => selectedSchoolCode = v),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _DS.surfaceAlt,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _DS.border),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.school_rounded, color: _DS.accent, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(
-                        controller.schools.firstWhereOrNull(
-                                (s) => s.schoolCode == selectedSchoolCode)?.name ?? 'Loading...',
-                        style: const TextStyle(fontSize: 14))),
-                  ]),
+                  onChanged: (v) => setState(() => selectedRole = v),
                 ),
-            ]),
-          );
+                const SizedBox(height: 12),
+                if (isCorrespondent)
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: selectedSchoolId,
+                    decoration: const InputDecoration(labelText: 'School'),
+                    items: controller.schools.map((s) => DropdownMenuItem(
+                      value: s.id,
+                      child: Text('${s.name} (${s.schoolCode})'),
+                    )).toList(),
+                    onChanged: (v) => setState(() {
+                      selectedSchoolId = v;
+                      selectedSchoolCode = controller.schools
+                          .firstWhereOrNull((s) => s.id == v)?.schoolCode;
+                    }),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _DS.surfaceAlt,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _DS.border),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.school_rounded, color: _DS.accent, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(
+                          controller.schools.firstWhereOrNull(
+                                  (s) => s.id == selectedSchoolId)?.name ?? 'Loading...',
+                          style: const TextStyle(fontSize: 14))),
+                    ]),
+                  ),
+              ]),
+            );
+          });
         },
       ),
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
         Obx(() => ElevatedButton(
           onPressed: userController.isLoading.value ? null : () async {
-            if (selectedSchoolCode == null) {
+            if (selectedSchoolId == null) {
               Get.snackbar('Error', 'Please select a school'); return;
+            }
+            if (selectedRole == null) {
+              Get.snackbar('Error', 'Please select a role'); return;
             }
             await userController.createUser(
               email: emailCtrl.text, userName: userNameCtrl.text,
               password: passwordCtrl.text, phoneNo: phoneCtrl.text,
-              schoolCode: selectedSchoolCode!,
+              schoolId: selectedSchoolId!,
+              schoolCode: selectedSchoolCode,
+              role: selectedRole!,
             );
           },
           style: ElevatedButton.styleFrom(backgroundColor: _DS.accent, foregroundColor: Colors.white,
@@ -2477,7 +2560,6 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       ],
     ));
   }
-
   void _showAssignRoleDialog(Map<String, dynamic> user) {
     final validRoles = ['correspondent','teacher','principal','viceprincipal',
       'administrator','parent','accountant'];

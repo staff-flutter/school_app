@@ -7,6 +7,7 @@ import '../constants/api_constants.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../core/theme/app_theme.dart';
+import 'package:school_app/controllers/school_controller.dart';
 
 class AssignmentUI extends StatefulWidget {
   const AssignmentUI({super.key});
@@ -65,7 +66,26 @@ class _AssignmentUIState extends State<AssignmentUI> {
       curve: Curves.easeInOut,
     );
   }
+  Future<String> _resolveAcademicYear() async {
+    final schoolController = Get.find<SchoolController>();
 
+    // If we don't have a school loaded yet, try to load it.
+    // For non-correspondent roles this internally calls _loadUserSchool(),
+    // which fetches the user's own school by their schoolId.
+    if (schoolController.selectedSchool.value == null) {
+      await schoolController.getAllSchools();
+    }
+
+    final year = schoolController.selectedSchool.value?.currentAcademicYear;
+    if (year != null && year.trim().isNotEmpty) {
+      return year;
+    }
+
+    // Fallback only — shouldn't normally be hit.
+    final now = DateTime.now();
+    final startYear = now.month >= 6 ? now.year : now.year - 1;
+    return '$startYear-${startYear + 1}';
+  }
   Future<List<AssignmentListStrings>> fetchAssignments(int dayIndex) async {
     String baseUrl = ApiConstants.baseUrl;
     final controller = Get.find<MyChildrenController>();
@@ -75,12 +95,13 @@ class _AssignmentUIState extends State<AssignmentUI> {
     final String? schoolId = auth_ctrl.user.value?.schoolId;
     final String? classId = controller.selectedChild['classId'] ?? 'null';
     final String? sectionId = selectedStudent['sectionId'] ?? 'null';
+    final academicYear = await _resolveAcademicYear();
 
     final Map<String, String> queryParameters = {
       if (schoolId != null) "schoolId": '$schoolId',
       "classId": '$classId',
       "sectionId": '$sectionId',
-      "academicYear": _currentAcademicYear(),
+      "academicYear": academicYear,
       "page": "1",
       "limit": "100"
     };

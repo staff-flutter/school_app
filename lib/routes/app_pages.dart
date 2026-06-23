@@ -34,6 +34,7 @@ import '../screens/parent_profile_page.dart';
 import '../screens/profile_selection_page.dart';
 import '../screens/spash_screen.dart';
 import '../screens/splash_screen1.dart';
+import '../screens/student_complete_details_page.dart';
 import '../screens/student_form_dialog.dart';
 import '../screens/student_form_page.dart';
 import '../screens/student_management_module_view.dart';
@@ -130,6 +131,11 @@ class AppPages {
       name: AppRoutes.DASHBOARD,
       page: () => RoleAwareWrapper(child: AccountingDashboardView1()),
       binding: DashboardBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.STUDENT_DETAILS,
+      page: () => RoleAwareWrapper(child: StudentDetailView()),
+
     ),
     GetPage(
       name: '/teacher-classes',

@@ -658,7 +658,12 @@ class StudentIndividualDetailView extends StatelessWidget {
     final rollNumberController = TextEditingController();
     final academicYearController = TextEditingController(text: '2025-2026');
     bool isBusApplicable = false;
-    
+    bool isLoadingSections = false;
+
+    // Make sure we don't start out showing sections left over from a
+    // previous class/dialog before any class has been picked here.
+    schoolController.sections.clear();
+
     Get.dialog(
       AlertDialog(
         title: Text('Assign ${student.name} to Class'),
@@ -674,28 +679,57 @@ class StudentIndividualDetailView extends StatelessWidget {
                     items: schoolController.classes.map((cls) {
                       return DropdownMenuItem(value: cls, child: Text(cls.name));
                     }).toList(),
-                    onChanged: (cls) {
+                    onChanged: (cls) async {
+                      // Reset section + clear stale section list immediately,
+                      // then fetch only the sections that belong to this class.
                       setState(() {
                         selectedClass = cls;
                         selectedSection = null;
+                        schoolController.sections.clear();
+                        isLoadingSections = cls != null;
                       });
+
                       if (cls != null) {
-                        schoolController.getAllSections(schoolId: schoolId);
+                        await schoolController.getAllSections(
+                          classId: cls.id,
+                          schoolId: schoolId,
+                        );
+                        // Rebuild now that schoolController.sections has been
+                        // populated with this class's sections.
+                        setState(() {
+                          isLoadingSections = false;
+                        });
                       }
                     },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<Section>(
-                    decoration: const InputDecoration(labelText: 'Select Section'),
-                    value: schoolController.sections.contains(selectedSection) ? selectedSection : null,
-                    items: schoolController.sections.map((section) {
-                      return DropdownMenuItem(
-                        value: section, 
-                        child: Text('${section.name} (${section.id.substring(section.id.length - 4)})')
-                      );
-                    }).toList(),
-                    onChanged: (section) => setState(() => selectedSection = section),
-                  ),
+                  if (isLoadingSections)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else
+                    DropdownButtonFormField<Section>(
+                      decoration: InputDecoration(
+                        labelText: 'Select Section',
+                        hintText: selectedClass == null
+                            ? 'Select a class first'
+                            : (schoolController.sections.isEmpty
+                            ? 'No sections for this class'
+                            : null),
+                      ),
+                      value: schoolController.sections.contains(selectedSection) ? selectedSection : null,
+                      items: schoolController.sections.map((section) {
+                        return DropdownMenuItem(
+                          value: section,
+                          child: Text('${section.name} (${section.id.substring(section.id.length - 4)})'),
+                        );
+                      }).toList(),
+                      // Disabled until a class has been picked.
+                      onChanged: selectedClass == null
+                          ? null
+                          : (section) => setState(() => selectedSection = section),
+                    ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: rollNumberController,
@@ -749,7 +783,6 @@ class StudentIndividualDetailView extends StatelessWidget {
       ),
     );
   }
-
   void _showRemoveFromClassDialog(BuildContext context, Student student, StudentManagementController studentController) {
     final academicYearController = TextEditingController(text: '2025-2026');
     

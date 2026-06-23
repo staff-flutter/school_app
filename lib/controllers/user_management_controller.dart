@@ -55,45 +55,50 @@ class UserManagementController extends GetxController {
     required String userName,
     required String password,
     required String phoneNo,
-    required String schoolCode,
+    required String schoolId,
+    required String role,
+    String? schoolCode,
   }) async {
 
-      try {
-        isLoading.value = true;
+    try {
+      isLoading.value = true;
 
-        final requestData = <String, dynamic>{
-          'email': email.trim(),
-          'userName': userName.trim(),
-          'password': password,
-          'phoneNo': phoneNo.trim(),
+      final requestData = <String, dynamic>{
+        'email': email.trim(),
+        'userName': userName.trim(),
+        'password': password,
+        'phoneNo': phoneNo.trim(),
+        'schoolId': schoolId.trim(),
+        'role': role.trim(),
+        if (schoolCode != null && schoolCode.trim().isNotEmpty)
           'schoolCode': schoolCode.trim(),
-        };
+      };
 
-        final response = await _apiService.post(
-          ApiConstants.createUser,
-          data: requestData,
-        ).timeout(const Duration(seconds: 30));
+      final response = await _apiService.post(
+        ApiConstants.createUser,
+        data: requestData,
+      ).timeout(const Duration(seconds: 30));
 
-        if (response.statusCode == 200 || response.statusCode == 201 || response.data['ok'] == true) {
-          ErrorHandler.showSuccess(response.data['message'] ?? 'User created successfully');
-          if (currentSchoolId.value.isNotEmpty) {
-            await loadUsers(schoolId: currentSchoolId.value);
-          }
-          Navigator.pop(Get.context!);
-        } else {
-          final errorMsg = response.data['message'] ?? 'Failed to create user';
-          Get.snackbar('Create Failed', errorMsg,
+      if (response.statusCode == 200 || response.statusCode == 201 || response.data['ok'] == true) {
+        ErrorHandler.showSuccess(response.data['message'] ?? 'User created successfully');
+        if (currentSchoolId.value.isNotEmpty) {
+          await loadUsers(schoolId: currentSchoolId.value);
+        }
+        Navigator.pop(Get.context!);
+      } else {
+        final errorMsg = response.data['message'] ?? 'Failed to create user';
+        Get.snackbar('Create Failed', errorMsg,
             backgroundColor: AppTheme.errorRed, colorText: Colors.white, snackPosition: SnackPosition.TOP);
-        }
-      } catch (e) {
-        String userFriendlyError = 'Failed to create user';
-        if (e is DioException && e.response?.data?['message'] != null) {
-          userFriendlyError = e.response!.data['message'];
-        }
-        Get.snackbar('Error', userFriendlyError);
-      } finally {
-        isLoading.value = false;
       }
+    } catch (e) {
+      String userFriendlyError = 'Failed to create user';
+      if (e is DioException && e.response?.data?['message'] != null) {
+        userFriendlyError = e.response!.data['message'];
+      }
+      Get.snackbar('Error', userFriendlyError);
+    } finally {
+      isLoading.value = false;
+    }
 
   }
 

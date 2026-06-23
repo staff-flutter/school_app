@@ -997,6 +997,13 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                 if (Get.isDialogOpen == true) Get.back();
                 if (success && schoolController.selectedSchool.value != null && selectedClass != null) {
                   await homeworkController.getAllHomework(schoolId: schoolController.selectedSchool.value!.id, classId: selectedClass!.id, sectionId: selectedSection?.id);
+                  final String schoolId =schoolController.selectedSchool.value!.id;
+                  final String classId =selectedClass!.id;
+                  final String? sectionId =selectedSection?.id;
+
+                  print('schoolid:$schoolId');
+                  print('schoolid:$classId');
+                  print('schoolid:$sectionId');
                 }
               } catch (_) { if (Get.isDialogOpen == true) Get.back(); }
             },

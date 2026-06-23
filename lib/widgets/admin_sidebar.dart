@@ -599,6 +599,8 @@ class _MenuBody extends StatelessWidget {
           if (RoleModules.hasModule(role, 'announcements') &&
               ApiPermissions.canCreateAnnouncement(role))
             _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
+          _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+
         ]),
         _Section('Finance', [
           _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),

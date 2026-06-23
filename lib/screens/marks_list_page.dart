@@ -9,6 +9,7 @@ import '../core/utils/responsive_helper.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
+import 'package:school_app/controllers/school_controller.dart';
 
 // =============================================================================
 // DATA MODELS — mirror the Mongoose schema exactly
@@ -174,7 +175,26 @@ class _MarksListState extends State<MarksList> {
     super.initState();
     _fetchReport();
   }
+  Future<String> _resolveAcademicYear() async {
+    final schoolController = Get.find<SchoolController>();
 
+    // If we don't have a school loaded yet, try to load it.
+    // For non-correspondent roles this internally calls _loadUserSchool(),
+    // which fetches the user's own school by their schoolId.
+    if (schoolController.selectedSchool.value == null) {
+      await schoolController.getAllSchools();
+    }
+
+    final year = schoolController.selectedSchool.value?.currentAcademicYear;
+    if (year != null && year.trim().isNotEmpty) {
+      return year;
+    }
+
+    // Fallback only — shouldn't normally be hit.
+    final now = DateTime.now();
+    final startYear = now.month >= 6 ? now.year : now.year - 1;
+    return '$startYear-${startYear + 1}';
+  }
   Future<void> _fetchReport() async {
     if (mounted) setState(() => _loading = true);
     try {
@@ -192,12 +212,13 @@ class _MarksListState extends State<MarksList> {
           controller.selectedChild['name']?.toString() ??
               controller.selectedChild['studentName']?.toString() ??
               '';
+      final academicYear = await _resolveAcademicYear();
 
       final uri = Uri.parse(
         '$baseUrl/api/markreport/v1/get/student/$studentId',
       ).replace(queryParameters: {
         'schoolId':     '$schoolId',
-        'academicYear': '2025-2026',
+        'academicYear': academicYear,
         'studentId':    studentId,
       });
 
