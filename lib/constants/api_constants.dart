@@ -38,6 +38,7 @@ class ApiConstants {
   static const String getAttendanceSheet  = '/api/attendance/sheet';
   static const String markAttendance      = '/api/attendance/mark';
   static const String getClassAttendance  = '/api/attendance/getallclass';
+  static const String getStudentAttendance = '/api/attendance/student';
 
   // Student Endpoints
   static const String getAllStudents = '/api/student/getall';

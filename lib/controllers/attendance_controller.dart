@@ -26,6 +26,38 @@ class AttendanceController extends GetxController {
     });
   }
 
+  Future<List<Map<String, dynamic>>?> getStudentAttendance({
+    required String studentId,
+}) async{
+    try {
+      isLoading.value = true;
+
+      final queryParams = {
+        'studentId':studentId
+      };
+
+      final response = await _apiService.get(
+        ApiConstants.getStudentAttendance,
+        queryParameters: queryParams,
+      );
+
+
+      if (response.data['ok'] == true) {
+      final data = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+      attendanceHistory.value = data;
+      return data;
+    } else {
+      _showSnackbar('Error', response.data['message'] ?? 'Failed to load attendance of Student', AppTheme.errorRed);
+      return null;
+    }
+  } catch (e) {
+  _showSnackbar('Error', 'An error occurred while loading attendance of a Student', AppTheme.errorRed);
+  return null;
+  } finally {
+  isLoading.value = false;
+  }
+}
+
   // Fetch Attendance Sheet
   Future<List<Map<String, dynamic>>?> getAttendanceSheet({
     required String schoolId,

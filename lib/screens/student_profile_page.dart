@@ -387,7 +387,8 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() {
           for (final e in updated.entries) {
-            if (e.value.isNotEmpty) _fieldValues[e.key] = e.value;
+          //  if (e.value.isNotEmpty)
+              _fieldValues[e.key] = e.value;
           }
           final norm = _normalizeGender(_fieldValues['Gender']);
           _fieldValues['Gender'] = norm ?? '';
@@ -558,6 +559,8 @@ class _ProfilePageState extends State<ProfilePage> {
     'Previous Result': 'previousResult',
     'Marks List': 'marksObtainedPercentage',
     'Days Attended Last Year': 'daysAttendedLastYear',
+
+
   };
 
   // ─── Submit update request ───────────────────────────────────────
