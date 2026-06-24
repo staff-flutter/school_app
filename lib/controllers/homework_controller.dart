@@ -81,7 +81,7 @@ class HomeworkController extends GetxController {
         }
         
         Get.snackbar('Success', 'Homework created successfully');
-        await getAllHomework(schoolId: schoolId, classId: classId, sectionId: sectionId);
+        await getAllHomework(schoolId: schoolId, classId: classId, sectionId: sectionId,academicYear:academicYear);
         return true;
       }
       return false;
@@ -208,65 +208,68 @@ class HomeworkController extends GetxController {
   }
 
   // Get homework list with pagination (API 98)
+// Get homework list with pagination (API 98)
   Future<void> getAllHomework({
     required String schoolId,
     required String classId,
     String? sectionId,
+    String? academicYear,
     int? page,
     int? pageLimit,
   }) async {
     try {
-      
-      
-      
-      
-      
       isLoading.value = true;
-      
+
       final queryParams = <String, dynamic>{
         'schoolId': schoolId,
         'classId': classId,
         if (sectionId != null) 'sectionId': sectionId,
+        if (academicYear != null) 'academicYear': academicYear, // FIX: Added to query payload
         'page': (page ?? currentPage.value).toString(),
         'limit': (pageLimit ?? limit.value).toString(),
       };
-      
-      
-      
+
       final response = await _apiService.get('/api/homework/getall', queryParameters: queryParams);
-      
-      
-      
-      
+
       if (response.statusCode == 200 && response.data != null) {
+        print('homework:${response.data}');
         final data = response.data;
         if (data is Map) {
-          // Handle pagination info
+          // 1. Parse pagination info cleanly
           if (data['pagination'] != null) {
-            currentPage.value = data['pagination']['currentPage'] ?? 1;
-            totalPages.value = data['pagination']['totalPages'] ?? 1;
-            
+            final rawCurrentPage = data['pagination']['currentPage'];
+            final rawTotalPages = data['pagination']['totalPages'];
+
+            if (rawCurrentPage is int) {
+              currentPage.value = rawCurrentPage;
+            } else if (rawCurrentPage is String) {
+              currentPage.value = int.tryParse(rawCurrentPage) ?? 1;
+            }
+
+            if (rawTotalPages is int) {
+              totalPages.value = rawTotalPages;
+            } else if (rawTotalPages is String) {
+              totalPages.value = int.tryParse(rawTotalPages) ?? 1;
+            }
           }
-          
-          // Handle homework list
+
+          // 2. Parse homework list EXACTLY ONCE
           final homeworkData = data['homework'] ?? data['data'];
           if (homeworkData is List) {
-            homeworkList.value = List<Map<String, dynamic>>.from(homeworkData);
-            
+            homeworkList.assignAll(List<Map<String, dynamic>>.from(homeworkData));
+          } else {
+            homeworkList.clear();
           }
         }
       }
     } catch (e) {
-      
       if (e.toString().contains('403') || e.toString().contains('Forbidden')) {
-        
         Get.snackbar('Access Denied', 'You do not have permission to view homework');
       } else {
         Get.snackbar('Error', 'Failed to fetch homework: ${e.toString()}');
       }
     } finally {
       isLoading.value = false;
-      
     }
   }
 
@@ -416,12 +419,15 @@ class HomeworkController extends GetxController {
     required String schoolId,
     required String classId,
     String? sectionId,
+    String? academicYear,
   }) async {
     currentPage.value = 1;
     await getAllHomework(
       schoolId: schoolId,
       classId: classId,
       sectionId: sectionId,
+        academicYear:academicYear
+
     );
   }
 

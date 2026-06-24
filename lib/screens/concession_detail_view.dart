@@ -22,7 +22,7 @@ class ConcessionDetailView extends StatelessWidget {
           Navigator.of(context).pop(),
          iconSize: 18,
          icon: Icon(Icons.arrow_back_ios_new)),
-        backgroundColor: Colors.blue[600],
+        backgroundColor:Color(0xFF2563EB),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -72,7 +72,7 @@ class ConcessionDetailView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue[600],
+        color: Color(0xFF2563EB),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

@@ -141,7 +141,7 @@ class AnnouncementDetailView extends StatelessWidget {
     final type     = announcement['type'] as String?;
     final priority = announcement['priority'] as String?;
     final accent   = _typeAccent(type);
-    final accentBg = accent.withOpacity(0.08);
+    final accentBg = accent.withOpacity(0.25);
 
     return Scaffold(
       backgroundColor: _DS.bg,

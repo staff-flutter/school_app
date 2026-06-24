@@ -1,3 +1,4 @@
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -62,9 +63,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
               if (!isOpen) return const SizedBox.shrink();
               return Positioned(
                 left: _kExpandedWidth,
-                top: 0,
-                right: 0,
-                bottom: 0,
+                top: 0, right: 0, bottom: 0,
                 child: GestureDetector(
                   onTap: () => _isExpanded.value = false,
                   onPanUpdate: (_) => _isExpanded.value = false,
@@ -95,6 +94,7 @@ class _AdminSidebarState extends State<AdminSidebar>
   late final AnimationController _anim;
   late final Animation<double> _progress;
   final ValueNotifier<String> _selectedKey = ValueNotifier<String>('');
+  Worker? _authWorker;
 
   @override
   void initState() {
@@ -103,7 +103,18 @@ class _AdminSidebarState extends State<AdminSidebar>
     _progress = CurvedAnimation(parent: _anim, curve: _kCurve);
     widget.expandedNotifier?.addListener(_onExternal);
     _selectedKey.value = Get.currentRoute;
-    _loadSchoolData();
+
+    final auth = Get.find<AuthController>();
+    if (auth.user.value != null) {
+      _loadSchoolData(clearFirst: false);
+    }
+    _authWorker = ever(auth.user, (user) {
+      if (user != null) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _loadSchoolData(clearFirst: true);
+        });
+      }
+    });
   }
 
   void _onExternal() {
@@ -113,6 +124,7 @@ class _AdminSidebarState extends State<AdminSidebar>
 
   @override
   void dispose() {
+    _authWorker?.dispose();
     widget.expandedNotifier?.removeListener(_onExternal);
     _anim.dispose();
     _selectedKey.dispose();
@@ -137,17 +149,15 @@ class _AdminSidebarState extends State<AdminSidebar>
   void _navigate(String route) {
     final activeKey = route.contains('?') ? route.split('?')[0] : route;
     _selectedKey.value = activeKey;
-
     if (widget.expandedNotifier != null) {
       widget.expandedNotifier!.value = false;
     } else {
       _setExpanded(false);
     }
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (route.contains('?')) {
-        final parts = route.split('?');
+        final parts  = route.split('?');
         final params = <String, dynamic>{};
         for (final seg in parts[1].split('&')) {
           final kv = seg.split('=');
@@ -180,10 +190,9 @@ class _AdminSidebarState extends State<AdminSidebar>
             border: Border(right: BorderSide(color: _kBorderColor, width: 1)),
             boxShadow: [
               BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 24,
-                offset: Offset(6, 0),
-              ),
+                  color: Color(0x14000000),
+                  blurRadius: 24,
+                  offset: Offset(6, 0)),
             ],
           ),
           child: Column(
@@ -214,24 +223,27 @@ class _AdminSidebarState extends State<AdminSidebar>
     );
   }
 
-  void _loadSchoolData() async {
+  void _loadSchoolData({bool clearFirst = false}) async {
     try {
-      final schoolController = Get.find<SchoolController>();
-
-      if (schoolController.schools.isEmpty) {
-        await schoolController.getAllSchools();
+      if (!Get.isRegistered<SchoolController>()) {
+        Get.put(SchoolController(), permanent: true);
+        await Future.delayed(const Duration(milliseconds: 200));
       }
-
-      if (schoolController.schools.isNotEmpty) {
-        final auth = Get.find<AuthController>();
-        final role = auth.user.value?.role?.toLowerCase() ?? '';
-
-        if (role != 'correspondent') {
-          schoolController.selectedSchool.value = schoolController.schools.first;
-        }
+      final schoolController = Get.find<SchoolController>();
+      final auth             = Get.find<AuthController>();
+      if (auth.user.value == null) return;
+      if (clearFirst) {
+        schoolController.selectedSchool.value = null;
+        schoolController.clearSessionData();
+      }
+      await schoolController.getAllSchools(forceRefresh: clearFirst);
+      if (!mounted) return;
+      if (schoolController.schools.isNotEmpty &&
+          schoolController.selectedSchool.value == null) {
+        schoolController.selectedSchool.value = schoolController.schools.first;
       }
     } catch (e) {
-      print('❌ Error loading school: $e');
+      print('Error loading school data: $e');
     }
   }
 }
@@ -262,11 +274,7 @@ class _Header extends StatelessWidget {
       child: Container(
         width: currentWidth,
         padding: EdgeInsets.only(
-          left: 10,
-          right: 10,
-          top: topPad + 8,
-          bottom: 8,
-        ),
+            left: 10, right: 10, top: topPad + 8, bottom: 8),
         clipBehavior: Clip.hardEdge,
         decoration: const BoxDecoration(
           color: _kBg,
@@ -279,157 +287,109 @@ class _Header extends StatelessWidget {
     );
   }
 
-  // ── Non-correspondent: show ≡ when collapsed, school info when expanded ──
   Widget _buildNonCorrespondentHeader() {
     try {
       final schoolController = Get.find<SchoolController>();
-
       return Obx(() {
-        final school = schoolController.selectedSchool.value;
+        final school     = schoolController.selectedSchool.value;
         final schoolName = school?.name ?? 'School Portal';
-        final logoUrl = school?.logo?['url'] as String?;
+        final logoUrl    = school?.logo?['url'] as String?;
 
-        // COLLAPSED: just show the hamburger menu icon
         if (progress <= 0.5) {
           return SizedBox(
             width: double.infinity,
             child: Center(
-              child: Icon(
-                Icons.menu_rounded,
-                size: 22,
-                color: _kIconDefault,
-              ),
-            ),
+                child: Icon(Icons.menu_rounded, size: 22, color: _kIconDefault)),
           );
         }
-
-        // EXPANDED: show school logo + name + role
-        return Row(
-          children: [
-            // Logo
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
+        return Row(children: [
+          Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: _kBorderColor, width: 1.5),
-                color: _kSelectedBg,
-              ),
-              child: logoUrl != null && logoUrl.isNotEmpty
-                  ? ClipOval(
-                child: Image.network(
-                  logoUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.school_rounded,
-                    size: 16,
-                    color: _kSelectedClr,
-                  ),
-                ),
-              )
-                  : const Icon(
-                Icons.school_rounded,
-                size: 16,
-                color: _kSelectedClr,
-              ),
-            ),
-            const SizedBox(width: 10),
-            // School name + role label
-            Expanded(
-              child: Opacity(
-                opacity: ((progress - 0.5) / 0.5).clamp(0.0, 1.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      schoolName,
+                color: _kSelectedBg),
+            child: logoUrl != null && logoUrl.isNotEmpty
+                ? ClipOval(
+                child: Image.network(logoUrl, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                        Icons.school_rounded,
+                        size: 16,
+                        color: _kSelectedClr)))
+                : const Icon(Icons.school_rounded,
+                size: 16, color: _kSelectedClr),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Opacity(
+              opacity: ((progress - 0.5) / 0.5).clamp(0.0, 1.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(schoolName,
                       style: const TextStyle(
-                        color: _kTextDefault,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                          color: _kTextDefault,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700),
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      role.toUpperCase(),
+                      overflow: TextOverflow.ellipsis),
+                  Text(role.toUpperCase(),
                       style: const TextStyle(
-                        color: _kSectionLabel,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
+                          color: _kSectionLabel,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1)),
+                ],
               ),
             ),
-          ],
-        );
+          ),
+        ]);
       });
-    } catch (_) {
-      // Fallback: always show hamburger
+    } catch (e) {
       return Center(
-        child: Icon(Icons.menu_rounded, size: 22, color: _kIconDefault),
-      );
+          child: Icon(Icons.menu_rounded, size: 22, color: _kIconDefault));
     }
   }
 
-  // ── Correspondent: logo circle when collapsed, full school picker when expanded ──
   Widget _buildCorrespondentHeader() {
     try {
       final schoolController = Get.find<SchoolController>();
       return Obx(() {
-        final schools = schoolController.schools;
+        final schools  = schoolController.schools;
         final selected = schoolController.selectedSchool.value;
-        final logoUrl = selected?.logo?['url'] as String?;
+        final logoUrl  = selected?.logo?['url'] as String?;
 
-        // COLLAPSED: school logo circle (or hamburger if no logo)
         if (progress <= 0.5) {
           return SizedBox(
             width: double.infinity,
             child: Center(
               child: Container(
-                width: 34,
-                height: 34,
+                width: 34, height: 34,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _kBorderColor, width: 1.5),
-                  color: _kSelectedBg,
-                ),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _kBorderColor, width: 1.5),
+                    color: _kSelectedBg),
                 child: logoUrl != null && logoUrl.isNotEmpty
                     ? ClipOval(
-                  child: Image.network(
-                    logoUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.school_rounded,
-                      size: 16,
-                      color: _kSelectedClr,
-                    ),
-                  ),
-                )
-                    : const Icon(
-                  Icons.school_rounded,
-                  size: 16,
-                  color: _kSelectedClr,
-                ),
+                    child: Image.network(logoUrl, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                            Icons.school_rounded,
+                            size: 16,
+                            color: _kSelectedClr)))
+                    : const Icon(Icons.school_rounded,
+                    size: 16, color: _kSelectedClr),
               ),
             ),
           );
         }
 
-        // EXPANDED: tappable school picker row
         if (schools.isEmpty) {
-          return const Text(
-            'School Portal',
-            style: TextStyle(
-              color: _kTextDefault,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          );
+          return const Text('School Portal',
+              style: TextStyle(
+                  color: _kTextDefault,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700));
         }
 
         return GestureDetector(
@@ -443,70 +403,48 @@ class _Header extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _kBorderColor),
               ),
-              child: Row(
-                children: [
-                  // Logo
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
+              child: Row(children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: _kBorderColor, width: 1.5),
-                      color: Colors.white,
-                    ),
-                    child: logoUrl != null && logoUrl.isNotEmpty
-                        ? ClipOval(
-                      child: Image.network(
-                        logoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.school_rounded,
-                          size: 14,
-                          color: _kSelectedClr,
-                        ),
-                      ),
-                    )
-                        : const Icon(
-                      Icons.school_rounded,
-                      size: 14,
-                      color: _kSelectedClr,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          selected?.name ?? 'Select School',
+                      color: Colors.white),
+                  child: logoUrl != null && logoUrl.isNotEmpty
+                      ? ClipOval(
+                      child: Image.network(logoUrl, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.school_rounded,
+                              size: 14,
+                              color: _kSelectedClr)))
+                      : const Icon(Icons.school_rounded,
+                      size: 14, color: _kSelectedClr),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(selected?.name ?? 'Select School',
                           style: const TextStyle(
-                            color: _kTextDefault,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
+                              color: _kTextDefault,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const Text(
-                          'CORRESPONDENT',
+                          overflow: TextOverflow.ellipsis),
+                      const Text('CORRESPONDENT',
                           style: TextStyle(
-                            color: _kSectionLabel,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
+                              color: _kSectionLabel,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1)),
+                    ],
                   ),
-                  const Icon(
-                    Icons.unfold_more_rounded,
-                    size: 14,
-                    color: _kSelectedClr,
-                  ),
-                ],
-              ),
+                ),
+                const Icon(Icons.unfold_more_rounded,
+                    size: 14, color: _kSelectedClr),
+              ]),
             ),
           ),
         );
@@ -516,95 +454,94 @@ class _Header extends StatelessWidget {
     }
   }
 
-  void _showSchoolPicker(SchoolController controller, List<dynamic> schools) {
+  void _showSchoolPicker(
+      SchoolController controller, List<dynamic> schools) {
     Get.bottomSheet(
-      Container(
-        decoration: const BoxDecoration(
-          color: _kBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _kBorderColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
+      DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: _kBg,
+              borderRadius:
+              BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Select School',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextDefault,
-                ),
-              ),
-            ),
-            const Divider(height: 1, color: _kDividerColor),
-            ...schools.map((school) {
-              final isSelected =
-                  controller.selectedSchool.value?.id == school.id;
-              final logoUrl = school.logo?['url'] as String?;
-              return ListTile(
-                leading: Container(
-                  width: 36,
-                  height: 36,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 12),
+              Container(
+                  width: 36, height: 4,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? _kSelectedClr : _kBorderColor,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    color: _kSelectedBg,
-                  ),
-                  child: logoUrl != null && logoUrl.isNotEmpty
-                      ? ClipOval(
-                    child: Image.network(
-                      logoUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.school_rounded,
-                        size: 16,
-                        color: _kSelectedClr,
+                      color: _kBorderColor,
+                      borderRadius: BorderRadius.circular(2))),
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Select School',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _kTextDefault)),
+              ),
+              const Divider(height: 1, color: _kDividerColor),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: schools.length,
+                  itemBuilder: (context, index) {
+                    final school     = schools[index];
+                    final isSelected = controller.selectedSchool.value?.id == school.id;
+                    final logoUrl    = school.logo?['url'] as String?;
+                    return ListTile(
+                      leading: Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: isSelected ? _kSelectedClr : _kBorderColor,
+                              width: isSelected ? 2 : 1),
+                          color: _kSelectedBg,
+                        ),
+                        child: logoUrl != null && logoUrl.isNotEmpty
+                            ? ClipOval(
+                            child: Image.network(logoUrl, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.school_rounded,
+                                    size: 16,
+                                    color: _kSelectedClr)))
+                            : const Icon(Icons.school_rounded,
+                            size: 16, color: _kSelectedClr),
                       ),
-                    ),
-                  )
-                      : const Icon(
-                    Icons.school_rounded,
-                    size: 16,
-                    color: _kSelectedClr,
-                  ),
+                      title: Text(school.name ?? '',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? _kSelectedClr
+                                  : _kTextDefault)),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle_rounded,
+                          color: _kSelectedClr, size: 18)
+                          : null,
+                      onTap: () {
+                        controller.selectedSchool.value = school;
+                        Get.back();
+                      },
+                    );
+                  },
                 ),
-                title: Text(
-                  school.name ?? '',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? _kSelectedClr : _kTextDefault,
-                  ),
-                ),
-                trailing: isSelected
-                    ? const Icon(Icons.check_circle_rounded,
-                    color: _kSelectedClr, size: 18)
-                    : null,
-                onTap: () {
-                  controller.selectedSchool.value = school;
-                  Get.back();
-                },
-              );
-            }),
-            const SizedBox(height: 16),
-          ],
-        ),
+              ),
+            ]),
+          );
+        },
       ),
       isScrollControlled: true,
+      ignoreSafeArea: false,
+      backgroundColor: Colors.transparent,
     );
   }
 }
@@ -649,8 +586,10 @@ class _MenuBody extends StatelessWidget {
   }
 
   static List<_Section> _getSections(String role) {
-    final _authCtrl = Get.find<AuthController>();
+    final authCtrl        = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+    final canUploadMarks  = authCtrl?.canUploadMarks ?? false;
 
+    // ── CORRESPONDENT ──────────────────────────────────────────────────────
     if (role == 'correspondent') {
       return [
         _Section('Menu', [
@@ -660,33 +599,47 @@ class _MenuBody extends StatelessWidget {
           if (RoleModules.hasModule(role, 'announcements') &&
               ApiPermissions.canCreateAnnouncement(role))
             _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
+          _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+
         ]),
         _Section('Finance', [
+          _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
+          _Item('Bill Book', Icons.menu_book, AppRoutes.BILL_BOOK),
+          _Item('Admission Forms', Icons.receipt, AppRoutes.ADMISSION_FORMS_VIEW),
           if (RoleModules.hasModule(role, 'feeCollection'))
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           if (RoleModules.hasModule(role, 'feeStructure'))
-            _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
+            _Item('Fee Configuration', Icons.request_quote, AppRoutes.FEE_CONFIGURATION),
+
+
+          _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
+          _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
             _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
           if (RoleModules.hasModule(role, 'reports'))
             _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
         ]),
         _Section('Manage', [
+          // ── Student: Create then Manage ──────────────────────────────
+          _Item('Student Profile Creation', Icons.person_add_alt_1_outlined,
+              AppRoutes.STUDENT_PROFILE_CREATION),
+          _Item('Student Profile Management', Icons.manage_accounts_rounded,
+              AppRoutes.STUDENT_PROFILE_MANAGEMENT),          // ← NEW
+          // ────────────────────────────────────────────────────────────
           if (RoleModules.hasModule(role, 'attendance'))
-           // _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
-          _Item('Student Attendance', Icons.how_to_reg_rounded, '${AppRoutes.ATTENDANCE}/student'),
-        //  if (RoleModules.hasModule(role, 'studentRecords'))
-       //     _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
+            _Item('Student Attendance', Icons.how_to_reg_rounded,
+                '${AppRoutes.ATTENDANCE}/student'),
           if (RoleModules.hasModule(role, 'clubs'))
-            _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
+            _Item('Clubs & Activities', Icons.account_balance_rounded,
+                AppRoutes.CLUBS_ACTIVITIES),
           if (RoleModules.hasModule(role, 'campusManagementPage'))
-            _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+            _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
           _Item('Notifications', Icons.notifications, '/notifications'),
-          _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
-
+          //_Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
           _Item('Timetable', Icons.calendar_today_rounded, AppRoutes.TIMETABLE_MANAGEMENT),
           _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
-          _Item('Profile Verification',Icons.perm_contact_calendar_outlined,AppRoutes.STUDENT_PROFILE_VERIFICATION)
+          _Item('Profile Verification', Icons.perm_contact_calendar_outlined,
+              AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
         _Section('Other', [
           if (RoleModules.hasModule(role, 'subscription'))
@@ -697,6 +650,7 @@ class _MenuBody extends StatelessWidget {
       ];
     }
 
+    // ── ACCOUNTANT ─────────────────────────────────────────────────────────
     if (role == 'accountant') {
       return [
         _Section('Menu', [
@@ -707,6 +661,7 @@ class _MenuBody extends StatelessWidget {
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           if (RoleModules.hasModule(role, 'feeStructure'))
             _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
+          _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
             _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
           if (RoleModules.hasModule(role, 'reports'))
@@ -719,7 +674,10 @@ class _MenuBody extends StatelessWidget {
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
       ];
-    } else if (role == 'administrator') {
+    }
+
+    // ── ADMINISTRATOR ──────────────────────────────────────────────────────
+    if (role == 'administrator') {
       return [
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
@@ -728,18 +686,21 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
-          _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
         ]),
         _Section('Manage', [
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
+          // ── Student: Create then Manage ──────────────────────────────
+          _Item('Student Management', Icons.manage_accounts_rounded,
+              AppRoutes.STUDENT_PROFILE_MANAGEMENT),          // ← NEW
+          // ────────────────────────────────────────────────────────────
           _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
-          _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
-          _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
-          if (_authCtrl.canUploadMarks)
-            _Item('Students performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
+          _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
+          _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+          if (canUploadMarks)
+            _Item('Students Performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
-          _Item('Profile Verification',Icons.perm_contact_calendar_outlined,AppRoutes.STUDENT_PROFILE_VERIFICATION)
-
+          _Item('Profile Verification', Icons.perm_contact_calendar_outlined,
+              AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
         _Section('Other', [
           if (RoleModules.hasModule(role, 'subscription'))
@@ -747,7 +708,10 @@ class _MenuBody extends StatelessWidget {
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
       ];
-    } else if (role == 'principal') {
+    }
+
+    // ── PRINCIPAL ──────────────────────────────────────────────────────────
+    if (role == 'principal') {
       return [
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
@@ -760,19 +724,24 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Manage', [
           _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
-          _Item('Student Attendance', Icons.how_to_reg_rounded, '${AppRoutes.ATTENDANCE}/student'),
+          _Item('Student Attendance', Icons.how_to_reg_rounded,
+              '${AppRoutes.ATTENDANCE}/student'),
           _Item('Timetable', Icons.edit_calendar_rounded, AppRoutes.TIMETABLE_MANAGEMENT1),
           _Item('Notifications', Icons.notifications, '/notifications'),
-          _Item('Students', Icons.school_rounded, '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=students'),
+          _Item('Students', Icons.school_rounded,
+              '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=students'),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
-          _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
-          _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+          _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
+          _Item('Campus Management', Icons.groups_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
         ]),
         _Section('Other', [
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
       ];
-    } else if (role == 'viceprincipal') {
+    }
+
+    // ── VICE PRINCIPAL ─────────────────────────────────────────────────────
+    if (role == 'viceprincipal') {
       return [
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
@@ -780,19 +749,23 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Manage', [
           _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
-          _Item('Student Attendance', Icons.how_to_reg_rounded, '${AppRoutes.ATTENDANCE}/student'),
+          _Item('Student Attendance', Icons.how_to_reg_rounded,
+              '${AppRoutes.ATTENDANCE}/student'),
           _Item('Timetable', Icons.edit_calendar_rounded, AppRoutes.TIMETABLE_MANAGEMENT1),
           _Item('Notifications', Icons.notifications, '/notifications'),
           _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
           _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
-          if (_authCtrl.canUploadMarks)
+          if (canUploadMarks)
             _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
         ]),
         _Section('Other', [
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
       ];
-    } else if (role == 'teacher') {
+    }
+
+    // ── TEACHER ────────────────────────────────────────────────────────────
+    if (role == 'teacher') {
       return [
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
@@ -804,7 +777,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
           _Item('Timetable', Icons.calendar_today_rounded, AppRoutes.TIMETABLE_MANAGEMENT),
           _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
-          _Item('Students performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
+          _Item('Students Performance', Icons.mark_chat_read_outlined,
+              AppRoutes.STUDENT_MARKS_LIST),
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
         ]),
         _Section('Other', [
@@ -813,6 +787,7 @@ class _MenuBody extends StatelessWidget {
       ];
     }
 
+    // ── DEFAULT ────────────────────────────────────────────────────────────
     return [
       _Section('Menu', [
         _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
@@ -852,11 +827,10 @@ class _SectionBlock extends StatelessWidget {
               child: Text(
                 section.title.toUpperCase(),
                 style: const TextStyle(
-                  color: _kSectionLabel,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.3,
-                ),
+                    color: _kSectionLabel,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.3),
               ),
             ),
           ),
@@ -891,9 +865,7 @@ class _NavItem extends StatelessWidget {
 
   bool _isActive(String sel) {
     if (sel == item.route) return true;
-    final selBase = sel.split('?')[0];
-    final itemBase = item.route.split('?')[0];
-    return selBase == itemBase;
+    return sel.split('?')[0] == item.route.split('?')[0];
   }
 
   @override
@@ -910,9 +882,7 @@ class _NavItem extends StatelessWidget {
               duration: const Duration(milliseconds: 160),
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               padding: EdgeInsets.symmetric(
-                horizontal: progress > 0.8 ? 12 : 0,
-                vertical: 10,
-              ),
+                  horizontal: progress > 0.8 ? 12 : 0, vertical: 10),
               clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
                 color: active ? _kSelectedBg : Colors.transparent,
@@ -925,11 +895,9 @@ class _NavItem extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: 24,
-                    child: Icon(
-                      item.icon,
-                      size: 20,
-                      color: active ? _kSelectedClr : _kIconDefault,
-                    ),
+                    child: Icon(item.icon,
+                        size: 20,
+                        color: active ? _kSelectedClr : _kIconDefault),
                   ),
                   if (progress > 0.6)
                     Expanded(
@@ -942,8 +910,9 @@ class _NavItem extends StatelessWidget {
                             style: TextStyle(
                               color: active ? _kSelectedClr : _kTextDefault,
                               fontSize: 13,
-                              fontWeight:
-                              active ? FontWeight.w600 : FontWeight.w500,
+                              fontWeight: active
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                             ),
                             maxLines: 1,
                             softWrap: false,
@@ -973,7 +942,7 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     AuthController? auth;
     try {
-      auth = Get.find<AuthController>();
+      auth = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
     } catch (_) {}
 
     return ClipRect(
@@ -992,29 +961,28 @@ class _Footer extends StatelessWidget {
                   : MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 32, height: 32,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                        colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: auth == null
                         ? const Icon(Icons.person, color: Colors.white, size: 16)
-                        : Obx(() => Text(
-                      (auth!.user.value?.userName ?? 'U')
-                          .substring(0, 1)
-                          .toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    )),
+                        : Obx(() {
+                      final name   = auth?.user.value?.userName ?? 'U';
+                      final letter = name.isNotEmpty
+                          ? name.substring(0, 1).toUpperCase()
+                          : 'U';
+                      return Text(letter,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13));
+                    }),
                   ),
                 ),
                 if (progress > 0.25 && auth != null)
@@ -1029,21 +997,18 @@ class _Footer extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Obx(() => Text(
-                                auth!.user.value?.userName ?? 'User',
+                                auth?.user.value?.userName ?? 'User',
                                 style: const TextStyle(
-                                  color: _kTextDefault,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                    color: _kTextDefault,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               )),
                               Obx(() => Text(
-                                auth!.user.value?.email ?? '',
+                                auth?.user.value?.email ?? '',
                                 style: const TextStyle(
-                                  color: _kSectionLabel,
-                                  fontSize: 10,
-                                ),
+                                    color: _kSectionLabel, fontSize: 10),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               )),
@@ -1071,17 +1036,15 @@ class _Footer extends StatelessWidget {
                       Expanded(
                         child: ClipRect(
                           child: Opacity(
-                            opacity: ((progress - 0.3) / 0.7).clamp(0.0, 1.0),
+                            opacity:
+                            ((progress - 0.3) / 0.7).clamp(0.0, 1.0),
                             child: const Padding(
                               padding: EdgeInsets.only(left: 10),
-                              child: Text(
-                                'Logout',
-                                style: TextStyle(
-                                  color: _kLogoutClr,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              child: Text('Logout',
+                                  style: TextStyle(
+                                      color: _kLogoutClr,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500)),
                             ),
                           ),
                         ),
@@ -1108,17 +1071,21 @@ class _Footer extends StatelessWidget {
           onPressed: () {
             if (Get.isRegistered<UserSession>()) {
               final userSession = Get.find<UserSession>();
-              userSession.token = null;
+              userSession.token    = null;
               userSession.schoolId = null;
-              userSession.role = null;
+              userSession.role     = null;
               userSession.update();
             }
-            Get.offAllNamed(AppRoutes.LOGIN);
+            if (Get.isRegistered<SchoolController>()) {
+              Get.find<SchoolController>().clearSessionData();
+            }
+            if (auth != null) auth.logout();
             Get.back();
-            auth?.logout();
+            Get.offAllNamed(AppRoutes.LOGIN);
           },
           style: ElevatedButton.styleFrom(backgroundColor: _kLogoutClr),
-          child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          child:
+          const Text('Logout', style: TextStyle(color: Colors.white)),
         ),
       ],
     ));

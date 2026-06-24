@@ -288,7 +288,9 @@ class TimetableController extends GetxController {
   }) async {
     try {
       
-      
+      print('schoolId:$schoolId');
+      print('classId:$classId');
+      print('sectionId:$sectionId');
       isLoading.value = true;
       
       final queryParams = <String, dynamic>{};
@@ -307,6 +309,7 @@ class TimetableController extends GetxController {
       
       
       if (response.statusCode == 200 && response.data != null) {
+        print("DEBUG TIMETABLE RESPONSE: ${response.data}");
         final data = response.data;
         if (data is Map && data['timetables'] is List) {
           timetables.value = List<Map<String, dynamic>>.from(data['timetables']);

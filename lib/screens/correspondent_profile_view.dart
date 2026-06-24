@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 
+import '../controllers/school_controller.dart';
+
 // ─── Design tokens matching AccountingDashboardView ──────────────────────────
 const _kBg          = Color(0xFFF0F5FF);
 const _kBlue        = Color(0xFF2563EB);
@@ -15,12 +17,33 @@ class CorrespondentProfileView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = Get.find<AuthController>();
+    final schoolCtrl = Get.isRegistered<SchoolController>()
+        ? Get.find<SchoolController>()
+        : null;
 
     return Scaffold(
       backgroundColor: _kBg,
       body: Obx(() {
         final user = auth.user.value;
-        final school = auth.userSchool.value;
+        final role = user?.role?.toLowerCase() ?? '';
+
+        Map<String, dynamic>? school;
+        if (role == 'correspondent' && schoolCtrl != null) {
+          final selected = schoolCtrl.selectedSchool.value;
+          if (selected != null) {
+            school = {
+              '_id':                 selected.id,
+              'name':                selected.name,
+              'email':               selected.email ?? '',
+              'phoneNo':             selected.phoneNo ?? '',
+              'address':             selected.address ?? '',
+              'currentAcademicYear': selected.currentAcademicYear ?? '',
+              'logo':                selected.logo,
+            };
+          }
+        } else {
+          school = auth.userSchool.value;
+        }
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -28,7 +51,6 @@ class CorrespondentProfileView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Inline header ─────────────────────────────────────────
                 _card(
                   child: Row(
                     children: [
@@ -50,10 +72,7 @@ class CorrespondentProfileView extends StatelessWidget {
                             ),
                             const Text(
                               'My Profile',
-                              style: TextStyle(
-                                color: _kTextMuted,
-                                fontSize: 11,
-                              ),
+                              style: TextStyle(color: _kTextMuted, fontSize: 11),
                             ),
                           ],
                         ),
@@ -64,13 +83,12 @@ class CorrespondentProfileView extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                // ── Avatar + name card ────────────────────────────────────
+                // Avatar + name — unchanged
                 _card(
                   child: Column(
                     children: [
                       Container(
-                        width: 72,
-                        height: 72,
+                        width: 72, height: 72,
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             colors: [Color(0xFF60A5FA), _kBlue],
@@ -81,9 +99,7 @@ class CorrespondentProfileView extends StatelessWidget {
                         ),
                         child: Center(
                           child: Text(
-                            (user?.userName ?? 'U')
-                                .substring(0, 1)
-                                .toUpperCase(),
+                            (user?.userName ?? 'U').substring(0, 1).toUpperCase(),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
@@ -93,18 +109,15 @@ class CorrespondentProfileView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        user?.userName ?? 'User',
-                        style: const TextStyle(
-                          color: _kTextPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Text(user?.userName ?? 'User',
+                          style: const TextStyle(
+                            color: _kTextPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          )),
                       const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           color: _kBlue.withOpacity(0.10),
                           borderRadius: BorderRadius.circular(20),
@@ -112,10 +125,8 @@ class CorrespondentProfileView extends StatelessWidget {
                         child: Text(
                           (user?.role ?? 'User').toUpperCase(),
                           style: const TextStyle(
-                            color: _kBlue,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
+                            color: _kBlue, fontSize: 11,
+                            fontWeight: FontWeight.w700, letterSpacing: 0.8,
                           ),
                         ),
                       ),
@@ -125,37 +136,21 @@ class CorrespondentProfileView extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                // ── Account info ──────────────────────────────────────────
+                // Account info — unchanged
                 _card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionTitle('Account Information'),
                       const SizedBox(height: 12),
-                      _infoRow(
-                        Icons.person_outline_rounded,
-                        'Username',
-                        user?.userName ?? '—',
-                      ),
+                      _infoRow(Icons.person_outline_rounded, 'Username', user?.userName ?? '—'),
                       _divider(),
-                      _infoRow(
-                        Icons.email_outlined,
-                        'Email',
-                        user?.email ?? '—',
-                      ),
+                      _infoRow(Icons.email_outlined, 'Email', user?.email ?? '—'),
                       _divider(),
-                      _infoRow(
-                        Icons.badge_outlined,
-                        'Role',
-                        user?.role ?? '—',
-                      ),
+                      _infoRow(Icons.badge_outlined, 'Role', user?.role ?? '—'),
                       if (user?.schoolId != null) ...[
                         _divider(),
-                        _infoRow(
-                          Icons.business_rounded,
-                          'School ID',
-                          user!.schoolId!,
-                        ),
+                        _infoRow(Icons.business_rounded, 'School ID', user!.schoolId!),
                       ],
                     ],
                   ),
@@ -163,7 +158,7 @@ class CorrespondentProfileView extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                // ── School info ───────────────────────────────────────────
+                // School info — now uses sidebar-selected school
                 if (school != null)
                   _card(
                     child: Column(
@@ -171,42 +166,22 @@ class CorrespondentProfileView extends StatelessWidget {
                       children: [
                         _sectionTitle('School Information'),
                         const SizedBox(height: 12),
-                        _infoRow(
-                          Icons.school_rounded,
-                          'School Name',
-                          school['name'] ?? '—',
-                        ),
-                        if (school['email'] != null) ...[
+                        _infoRow(Icons.school_rounded, 'School Name', school['name'] ?? '—'),
+                        if ((school['email'] ?? '').isNotEmpty) ...[
                           _divider(),
-                          _infoRow(
-                            Icons.alternate_email_rounded,
-                            'School Email',
-                            school['email'] ?? '—',
-                          ),
+                          _infoRow(Icons.alternate_email_rounded, 'School Email', school['email']),
                         ],
-                        if (school['phoneNo'] != null) ...[
+                        if ((school['phoneNo'] ?? '').isNotEmpty) ...[
                           _divider(),
-                          _infoRow(
-                            Icons.phone_outlined,
-                            'Phone',
-                            school['phoneNo'] ?? '—',
-                          ),
+                          _infoRow(Icons.phone_outlined, 'Phone', school['phoneNo']),
                         ],
-                        if (school['address'] != null) ...[
+                        if ((school['address'] ?? '').isNotEmpty) ...[
                           _divider(),
-                          _infoRow(
-                            Icons.location_on_outlined,
-                            'Address',
-                            school['address'] ?? '—',
-                          ),
+                          _infoRow(Icons.location_on_outlined, 'Address', school['address']),
                         ],
-                        if (school['currentAcademicYear'] != null) ...[
+                        if ((school['currentAcademicYear'] ?? '').isNotEmpty) ...[
                           _divider(),
-                          _infoRow(
-                            Icons.calendar_today_outlined,
-                            'Academic Year',
-                            school['currentAcademicYear'] ?? '—',
-                          ),
+                          _infoRow(Icons.calendar_today_outlined, 'Academic Year', school['currentAcademicYear']),
                         ],
                       ],
                     ),
@@ -214,7 +189,7 @@ class CorrespondentProfileView extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                // ── Logout button ─────────────────────────────────────────
+                // Logout — unchanged
                 GestureDetector(
                   onTap: () => _confirmLogout(auth),
                   child: Container(
@@ -223,30 +198,25 @@ class CorrespondentProfileView extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: const Color(0xFFDC2626).withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFFDC2626).withOpacity(0.3)),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFFDDE6F5).withOpacity(0.5),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          blurRadius: 8, offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.logout_rounded,
-                            color: Color(0xFFDC2626), size: 18),
+                        Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
                         SizedBox(width: 8),
-                        Text(
-                          'Logout',
-                          style: TextStyle(
-                            color: Color(0xFFDC2626),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
+                        Text('Logout',
+                            style: TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            )),
                       ],
                     ),
                   ),
@@ -355,12 +325,23 @@ class CorrespondentProfileView extends StatelessWidget {
       if (school != null &&
           school['logo'] != null &&
           school['logo']['url'] != null) {
-        return Image.network(
-          school['logo']['url'],
-          width: 32,
-          height: 32,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => _defaultLogoIcon(),
+        return GestureDetector(
+          onTap: () => _showFullScreenSchoolLogo(school['logo']['url']),
+          child: ClipOval(
+            child: Image.network(
+              school['logo']['url'],
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.school_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 30,
+                );
+              },
+            ),
+          ),
         );
       }
     } catch (_) {}
@@ -415,4 +396,62 @@ class CorrespondentProfileView extends StatelessWidget {
       ),
     );
   }
-}
+
+  void _showFullScreenSchoolLogo(String logoUrl) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Get.back(),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black.withOpacity(0.9),
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      logoUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        Get.back();
+                        Get.snackbar(
+                          'Error',
+                          'Failed to load logo',
+                          backgroundColor: Colors.red,
+                          colorText: Colors.white,
+                        );
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 50,
+              right: 20,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }}

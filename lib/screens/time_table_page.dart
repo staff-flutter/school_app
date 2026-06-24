@@ -1,96 +1,17 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../services/user_session.dart';
 
-// ─── Design System: Light Blue Professional Theme (Shared) ───────────────────
-class _DS {
-  static const primary = Color(0xFF0EA5E9);
-  static const primaryDark = Color(0xFF0284C7);
-  static const primaryLight = Color(0xFF7DD3FC);
-  static const primarySoft = Color(0xFFE0F2FE);
-  static const primaryMuted = Color(0xFFBAE6FD);
-  static const bg = Color(0xFFF8FAFC);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceAlt = Color(0xFFF1F5F9);
-  static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF475569);
-  static const textMuted = Color(0xFF94A3B8);
-  static const success = Color(0xFF10B981);
-  static const successSoft = Color(0xFFD1FAE5);
-  static const warning = Color(0xFFF59E0B);
-  static const warningSoft = Color(0xFFFEF3C7);
-  static const danger = Color(0xFFEF4444);
-  static const dangerSoft = Color(0xFFFEE2E2);
-  static const border = Color(0xFFE2E8F0);
-  static const shadow = [
-    BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
-  ];
-  static const radius = 16.0;
-  static const radiusSm = 10.0;
-  static const radiusLg = 24.0;
-  static const spacingXs = 4.0;
-  static const spacingSm = 8.0;
-  static const spacingMd = 12.0;
-  static const spacingLg = 16.0;
-  static const spacingXl = 24.0;
-  static const spacingXxl = 32.0;
-  static double get mobile => 600;
-  static double get tablet => 900;
-}
-
-class _Responsive {
-  static double padding(BuildContext context) =>
-      MediaQuery.of(context).size.width < _DS.tablet ? _DS.spacingLg : _DS.spacingXl;
-  static double fontSize(BuildContext context, {double mobile = 14, double tablet = 16}) =>
-      MediaQuery.of(context).size.width < _DS.tablet ? mobile : tablet;
-  static bool isTablet(BuildContext context) => MediaQuery.of(context).size.width >= _DS.tablet;
-  static EdgeInsets pagePadding(BuildContext context) => EdgeInsets.symmetric(horizontal: padding(context));
-}
-
-// ─── Model ──────────────────────────────────────────────────────────────────
-class TimetableListStrings {
-  final String subjectName;
-  final String time;
-  final String teacherName;
-  final String periodNumber;
-  final bool isBreak;
-
-  TimetableListStrings({
-    required this.subjectName,
-    required this.time,
-    required this.teacherName,
-    required this.periodNumber,
-    required this.isBreak,
-  });
-
-  factory TimetableListStrings.fromJson(Map<String, dynamic> json) {
-    final teacherRaw = json['teacherId'];
-    final String teacherName;
-    if (teacherRaw is Map) {
-      teacherName = (teacherRaw['userName'] ?? 'N/A').toString();
-    } else {
-      teacherName = (teacherRaw ?? 'N/A').toString();
-    }
-    return TimetableListStrings(
-      subjectName: json['isBreak'] == true ? "Break" : (json['subjectName'] ?? "Unknown").toString(),
-      time: (json['timeRange'] ?? "00:00 - 00:00").toString(),
-      teacherName: teacherName,
-      periodNumber: json['periodNumber']?.toString() ?? "-",
-      isBreak: json['isBreak'] ?? false,
-    );
-  }
-}
-
-// ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 class TimeTablePage extends StatefulWidget {
   const TimeTablePage({super.key});
 
@@ -99,108 +20,188 @@ class TimeTablePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<TimeTablePage> {
-  static const double _chipWidth = 100.0;
+  static const double _chipWidth = 95.0;
   static const double _chipMargin = 6.0;
   late final MyChildrenController controller;
-  final session = Get.find<UserSession>();
+
+ // final session = Get.find<UserSession>();
+  final auth_ctrl = Get.find<AuthController>();
   final PageController _pageController = PageController();
-  final ScrollController _dayScrollController = ScrollController();
+  final ScrollController _textScrollController = ScrollController();
   int _currentPageIndex = 0;
+  int selectedRowIndex = 0;
+  final ScrollController _dayScrollController = ScrollController();
+
+  final List<String> days = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday'
+  ];
+
   final Map<int, Future<List<TimetableListStrings>>> _timetableFutures = {};
-  final List<String> days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   @override
   void initState() {
     super.initState();
     controller = Get.put(MyChildrenController());
-    _currentPageIndex = DateTime.now().weekday % 7;
-    _timetableFutures[_currentPageIndex] = fetchTimetable(days[_currentPageIndex]);
-    _preloadNearbyDays();
-  }
-
-  void _preloadNearbyDays() {
-    for (int i = -1; i <= 1; i++) {
-      int idx = (_currentPageIndex + i + 7) % 7;
-      _timetableFutures[idx] ??= fetchTimetable(days[idx]);
-    }
+    _currentPageIndex = 0;
+    _timetableFutures[0] = fetchTimetable(days[0]);
+    //loginAndGetToken();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
-    _dayScrollController.dispose();
     super.dispose();
+    _pageController.dispose();
+    _textScrollController.dispose();
+    _dayScrollController.dispose();
   }
 
+  // Future<void> loginAndGetToken() async {
+  //   final url = Uri.parse('${ApiConstants.baseUrl}/api/user/login');
+  //
+  //   try {
+  //     final response = await http.post(
+  //       url,
+  //       headers: {'Content-Type': 'application/json'},
+  //       body: jsonEncode({
+  //         "identifier": "parent1@gmail.com",
+  //         "password": "parent1@123",
+  //       }),
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final Map<String, dynamic> data = jsonDecode(response.body);
+  //       final prefs = await SharedPreferences.getInstance();
+  //       final userData = data['user'];
+  //
+  //       if (userData != null) {
+  //         if (userData['studentId'] != null) {
+  //           List<String> studentIds = (userData['studentId'] as List)
+  //               .map((e) => e.toString())
+  //               .toList();
+  //           await prefs.setStringList('studentId', studentIds);
+  //         }
+  //
+  //         await prefs.setString('token', (data['token'] ?? '').toString());
+  //         await prefs.setString('parentId', (userData['_id'] ?? '').toString());
+  //         await prefs.setString('parentName', (userData['userName'] ?? '').toString());
+  //         await prefs.setString('parentEmail', (userData['email'] ?? '').toString());
+  //         await prefs.setString('parentPhoneNo', (userData['phoneNo'] ?? '').toString());
+  //         await prefs.setString('role', (userData['role'] ?? '').toString());
+  //         await prefs.setBool('isPlatformAdmin', userData['isPlatformAdmin'] ?? false);
+  //
+  //         final schoolData = userData['schoolId'];
+  //         if (schoolData != null) {
+  //           await prefs.setString('schoolId', (schoolData['_id'] ?? '').toString());
+  //           await prefs.setString('schoolName', (schoolData['name'] ?? '').toString());
+  //           await prefs.setString('schoolEmail', (schoolData['email'] ?? '').toString());
+  //           await prefs.setString('schoolPhoneNo', (schoolData['phoneNo'] ?? '').toString());
+  //           await prefs.setString('schoolAddress', (schoolData['address'] ?? '').toString());
+  //           await prefs.setString('schoolSocialPlatform', (schoolData['socialPlatform'] ?? '').toString());
+  //         }
+  //       }
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Login Error: $e");
+  //   }
+  // }
+
+  // ─── FIX 1: Parse nested weeklySchedule → periods for the requested day ───
   Future<List<TimetableListStrings>> fetchTimetable(String day) async {
     final String baseUrl = ApiConstants.baseUrl;
     final selectedStudent = controller.selectedChild;
-    final String? token = session.token;
-    final String? schoolId = session.schoolId;
-    final String? classId = selectedStudent['classId'] ?? 'null';
+
+   // final String? token = session.token;
+    //final String? schoolId = session.schoolId;
+
+    final String? token = auth_ctrl.storage.read('token');
+    final String? schoolId = auth_ctrl.user.value?.schoolId;
+    final String? classId = controller.selectedChild['classId'] ?? 'null';
     final String? sectionId = selectedStudent['sectionId'] ?? 'null';
 
-    final uri = Uri.parse('$baseUrl/api/timetable/getall').replace(queryParameters: {
+    debugPrint("TIMETABLE FETCH → schoolId:$schoolId | classId:$classId | sectionId:$sectionId | day:$day | token:$token");
+
+    final Map<String, String> queryParameters = {
       "schoolId": schoolId ?? "null",
       "classId": '$classId',
       "SectionId": '$sectionId',
       "day": day.toLowerCase(),
-    });
+    };
+
+    debugPrint("schoolId:$schoolId | classId:$classId | SectionId:$sectionId | day:$day");
+    if (schoolId == null || classId == null) {
+      debugPrint("TIMETABLE: Missing schoolId or classId, aborting fetch");
+      return [];
+    }
+    final uri = Uri.parse('$baseUrl/api/timetable/getall')
+        .replace(queryParameters: queryParameters);
 
     try {
       final response = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
-
+      print('schoolId:$schoolId');
+      print('classId:$classId');
+      print('sectionId:$sectionId');
       if (response.statusCode == 200) {
         final decodedData = jsonDecode(response.body);
-        final List<dynamic> scheduleList = (decodedData is Map ? (decodedData['data'] ?? []) : decodedData) as List;
+        final List<dynamic> scheduleList =
+        (decodedData is Map ? (decodedData['data'] ?? []) : decodedData) as List;
+
+        // ✅ Prefer the record whose sectionId matches, fallback to null-section record
+        Map<String, dynamic>? matchedSchedule;
+        Map<String, dynamic>? fallbackSchedule;
 
         for (final schedule in scheduleList) {
-          final weeklySchedule = (schedule['weeklySchedule'] as List?) ?? [];
-          for (final dayEntry in weeklySchedule) {
-            final entryDay = (dayEntry['day'] as String? ?? '').toLowerCase();
-            if (entryDay == day.toLowerCase()) {
-              final periods = (dayEntry['periods'] as List?) ?? [];
-              return periods.map((p) => TimetableListStrings.fromJson(p as Map<String, dynamic>)).toList();
-            }
+          final sec = schedule['sectionId'];
+          final secId = sec is Map ? sec['_id'] : sec;
+
+          if (secId == sectionId) {
+            matchedSchedule = schedule;
+            break;
+          } else if (sec == null) {
+            fallbackSchedule = schedule;
           }
         }
+
+        final targetSchedule = matchedSchedule ?? fallbackSchedule;
+        if (targetSchedule == null) return [];
+
+        final weeklySchedule = (targetSchedule['weeklySchedule'] as List?) ?? [];
+        for (final dayEntry in weeklySchedule) {
+          final entryDay = (dayEntry['day'] as String? ?? '').toLowerCase();
+          if (entryDay == day.toLowerCase()) {
+            final periods = (dayEntry['periods'] as List?) ?? [];
+            return periods
+                .map((p) => TimetableListStrings.fromJson(p as Map<String, dynamic>))
+                .toList();
+          }
+        }
+      } else {
+        debugPrint("Timetable Error: ${response.statusCode} ${response.body}");
       }
     } catch (e) {
       debugPrint("Timetable fetch exception: $e");
     }
+
     return [];
-  }
-
-  void _scrollDayIntoView(int index) {
-    if (!_dayScrollController.hasClients) return;
-    final viewportWidth = _dayScrollController.position.viewportDimension;
-    final maxScroll = _dayScrollController.position.maxScrollExtent;
-    final itemOffset = index * (_chipWidth + _chipMargin * 2);
-    final centeredOffset = itemOffset - (viewportWidth - _chipWidth) / 2;
-    _dayScrollController.animateTo(
-      centeredOffset.clamp(0.0, maxScroll),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
-
-  bool _shouldShowBack() {
-    try {
-      final role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
-      const sidebarRoles = {'correspondent', 'administrator', 'principal', 'viceprincipal', 'teacher', 'accountant'};
-      return !sidebarRoles.contains(role);
-    } catch (_) {
-      return true;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = _Responsive.isTablet(context);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ));
     final screenHeight = MediaQuery.sizeOf(context).height;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -216,7 +217,6 @@ class _MyHomePageState extends State<TimeTablePage> {
       ),
       child: Scaffold(
         extendBody: true,
-        backgroundColor: _DS.bg,
         body: SafeArea(
           top: false,
           bottom: false,
@@ -227,43 +227,44 @@ class _MyHomePageState extends State<TimeTablePage> {
                   expandedHeight: (screenHeight * 0.18).clamp(100.0, 180.0),
                   floating: false,
                   pinned: true,
-                  backgroundColor: _DS.primary,
+                  backgroundColor: const Color(0xff4A90E2),
                   leading: _shouldShowBack()
                       ? IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                          onPressed: () => Get.back(),
-                        )
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Colors.white, size: 20),
+                    onPressed: () => Get.back(),
+                  )
                       : const SizedBox.shrink(),
-                  title: const Text('Timetable', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                  title: const Text(
+                    'Timetable',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600),
+                  ),
                   centerTitle: false,
                   flexibleSpace: FlexibleSpaceBar(
                     background: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_DS.primary, _DS.primaryDark]),
-                          ),
+                        Image.asset(
+                          'assets/images/Scientific UI background design header.png',
+                          fit: BoxFit.cover,
                         ),
-                        Positioned(
-                          right: -50,
-                          bottom: -50,
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.1),
-                            ),
-                          ),
-                        ),
+                        Container(color: Colors.black.withOpacity(0.15)),
                       ],
                     ),
                   ),
                   bottom: PreferredSize(
                     preferredSize: const Size.fromHeight(60),
                     child: Container(
-                      decoration: const BoxDecoration(color: _DS.surface, borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20))),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEEF3FB),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: SizedBox(
                         height: 44,
@@ -277,26 +278,34 @@ class _MyHomePageState extends State<TimeTablePage> {
                             return GestureDetector(
                               onTap: () {
                                 setState(() => _currentPageIndex = index);
-                                _pageController.animateToPage(index, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+                                _pageController.animateToPage(index,
+                                    duration:
+                                    const Duration(milliseconds: 400),
+                                    curve: Curves.easeInOut);
                                 _scrollDayIntoView(index);
-                                _timetableFutures[index] ??= fetchTimetable(days[index]);
                               },
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 width: _chipWidth,
-                                margin: const EdgeInsets.symmetric(horizontal: _chipMargin),
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 6),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? _DS.primary : _DS.surfaceAlt,
+                                  color: isSelected
+                                      ? const Color(0xff4A90E2)
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(25),
-                                  boxShadow: isSelected ? _DS.shadow : null,
                                 ),
                                 child: Center(
                                   child: Text(
-                                    days[index].substring(0, 3),
+                                    days[index],
                                     style: TextStyle(
-                                      fontSize: _Responsive.fontSize(context, mobile: 12, tablet: 13),
-                                      color: isSelected ? Colors.white : _DS.textSecondary,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      fontSize: 12,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
                                     ),
                                   ),
                                 ),
@@ -312,6 +321,11 @@ class _MyHomePageState extends State<TimeTablePage> {
             },
             body: Stack(
               children: [
+                Container(
+                  height: screenHeight,
+                  decoration:
+                  const BoxDecoration(color: Color(0xFFEEF3FB)),
+                ),
                 Positioned.fill(
                   top: 5,
                   child: Column(
@@ -323,29 +337,46 @@ class _MyHomePageState extends State<TimeTablePage> {
                           itemCount: days.length,
                           onPageChanged: (index) {
                             setState(() => _currentPageIndex = index);
-                            if (_dayScrollController.hasClients) _scrollDayIntoView(index);
-                            _timetableFutures[index] ??= fetchTimetable(days[index]);
-                            _preloadNearbyDays();
+                            if (_dayScrollController.hasClients) {
+                              _scrollDayIntoView(index);
+                            }
+                            _timetableFutures[index] ??=
+                                fetchTimetable(days[index]);
                           },
                           itemBuilder: (context, pageIndex) {
-                            _timetableFutures[pageIndex] ??= fetchTimetable(days[pageIndex]);
+                            _timetableFutures[pageIndex] ??=
+                                fetchTimetable(days[pageIndex]);
                             return FutureBuilder<List<TimetableListStrings>>(
                               future: _timetableFutures[pageIndex],
                               builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return Center(child: Padding(padding: EdgeInsets.all(_DS.spacingXl), child: CircularProgressIndicator(color: _DS.primary, strokeWidth: 2)));
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
                                 } else if (snapshot.hasError) {
-                                  return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: _DS.textMuted)));
-                                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                                  return _emptyState(context, icon: Icons.calendar_today_outlined, title: 'No classes', subtitle: 'No classes scheduled for ${days[pageIndex]}');
+                                  return Center(
+                                      child: Text(
+                                          'Error: ${snapshot.error}'));
+                                } else if (!snapshot.hasData ||
+                                    snapshot.data!.isEmpty) {
+                                  return const Center(
+                                      child: Text(
+                                          'No classes scheduled for today.'));
                                 }
+
+                                // ─── FIX 3: Use real API data, not dummyData ───
                                 final items = snapshot.data!;
-                                return ListView.separated(
+                                return ListView.builder(
                                   physics: const BouncingScrollPhysics(),
-                                  padding: _Responsive.pagePadding(context).copyWith(bottom: _DS.spacingXl),
+                                  padding: EdgeInsets.only(
+                                    left: screenWidth * 0.03,
+                                    right: screenWidth * 0.03,
+                                    top: 10,
+                                    bottom: 20,
+                                  ),
                                   itemCount: items.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                                  itemBuilder: (context, index) => TimeTableTile(item: items[index], context: context),
+                                  itemBuilder: (context, index) =>
+                                      TimeTableTile(user: items[index]),
                                 );
                               },
                             );
@@ -363,105 +394,219 @@ class _MyHomePageState extends State<TimeTablePage> {
     );
   }
 
-  Widget _emptyState(BuildContext context, {required IconData icon, required String title, required String subtitle}) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(_DS.spacingXxl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(width: 70, height: 70, decoration: BoxDecoration(color: _DS.primarySoft, shape: BoxShape.circle), child: Icon(icon, size: 32, color: _DS.primary)),
-            const SizedBox(height: 16),
-            Text(title, style: TextStyle(fontSize: _Responsive.fontSize(context, mobile: 16, tablet: 17), fontWeight: FontWeight.w700, color: _DS.textPrimary)),
-            const SizedBox(height: 4),
-            Text(subtitle, textAlign: TextAlign.center, style: TextStyle(fontSize: _Responsive.fontSize(context, mobile: 12, tablet: 13), color: _DS.textMuted)),
-          ],
-        ),
-      ),
+  void _scrollDayIntoView(int index) {
+    if (!_dayScrollController.hasClients) return;
+    final viewportWidth =
+        _dayScrollController.position.viewportDimension;
+    final maxScroll = _dayScrollController.position.maxScrollExtent;
+    final itemOffset = index * (_chipWidth + _chipMargin * 2);
+    final centeredOffset =
+        itemOffset - (viewportWidth - _chipWidth) / 2;
+
+    _dayScrollController.animateTo(
+      centeredOffset.clamp(0.0, maxScroll),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  bool _shouldShowBack() {
+    try {
+      final role =
+          Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+      const sidebarRoles = {
+        'correspondent',
+        'administrator',
+        'principal',
+        'viceprincipal',
+        'teacher',
+        'accountant'
+      };
+      return !sidebarRoles.contains(role);
+    } catch (_) {
+      return true;
+    }
+  }
+}
+
+// ─── MODEL ──────────────────────────────────────────────────────────────────
+
+class TimetableListStrings {
+  final String subjectName;
+  final String time;
+  final String teacherName;
+  final String periodNumber;
+  final bool isBreak;
+
+  TimetableListStrings({
+    required this.subjectName,
+    required this.time,
+    required this.teacherName,
+    required this.periodNumber,
+    required this.isBreak,
+  });
+
+  // ─── FIX 2: teacherId can be a String OR a nested Map {_id, userName} ───
+  factory TimetableListStrings.fromJson(Map<String, dynamic> json) {
+    final teacherRaw = json['teacherId'];
+    final String teacherName;
+    if (teacherRaw is Map) {
+      teacherName = (teacherRaw['userName'] ?? 'N/A').toString();
+    } else {
+      teacherName = (teacherRaw ?? 'N/A').toString();
+    }
+
+    return TimetableListStrings(
+      subjectName: json['isBreak'] == true
+          ? "Break"
+          : (json['subjectName'] ?? "Unknown").toString(),
+      time:json['timeRange'] ??
+    (json['startTime'] != null && json['endTime'] != null
+    ? '${json['startTime']} - ${json['endTime']}'
+        : "No time set"),
+      teacherName: teacherName,
+      periodNumber: json['periodNumber']?.toString() ?? "-",
+      isBreak: json['isBreak'] ?? false,
     );
   }
 }
 
-// ─── TILE WIDGET ────────────────────────────────────────────────────────────
-class TimeTableTile extends StatelessWidget {
-  final TimetableListStrings item;
-  final BuildContext context;
+// ─── TILE WIDGET ─────────────────────────────────────────────────────────────
 
-  const TimeTableTile({Key? key, required this.item, required this.context}) : super(key: key);
+class TimeTableTile extends StatelessWidget {
+  final TimetableListStrings user;
+
+  const TimeTableTile({Key? key, required this.user}) : super(key: key);
 
   static const List<Color> _subjectColors = [
-    Color(0xFF0EA5E9),
-    Color(0xFF7C3AED),
-    Color(0xFF10B981),
-    Color(0xFFF59E0B),
-    Color(0xFFEF4444),
-    Color(0xFF06B6D4),
+    Color(0xFF4A90E2),
+    Color(0xFF7B68EE),
+    Color(0xFF50C878),
+    Color(0xFFFF7F50),
+    Color(0xFFFFD700),
+    Color(0xFF20B2AA),
   ];
 
   @override
   Widget build(BuildContext context) {
-    if (item.isBreak) {
+    if (user.isBreak) {
       return Container(
-        margin: EdgeInsets.symmetric(vertical: _DS.spacingSm, horizontal: _DS.spacingXs),
-        padding: EdgeInsets.symmetric(vertical: _DS.spacingMd, horizontal: _DS.spacingLg),
-        decoration: BoxDecoration(color: _DS.warningSoft, borderRadius: BorderRadius.circular(_DS.radius), border: Border.all(color: _DS.warning.withOpacity(0.3))),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        padding:
+        const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F7FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE6E6FA)),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.free_breakfast_rounded, color: _DS.warning, size: 16),
+            Icon(Icons.free_breakfast,
+                color: Colors.blue.shade300, size: 16),
             const SizedBox(width: 8),
-            Text('Break', style: TextStyle(color: _DS.warning, fontWeight: FontWeight.w600, fontSize: _Responsive.fontSize(context, mobile: 13, tablet: 14))),
+            Text('Break',
+                style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13)),
             const SizedBox(width: 8),
-            Text(item.time, style: TextStyle(color: _DS.textMuted, fontSize: _Responsive.fontSize(context, mobile: 11, tablet: 12))),
+            Text(user.time,
+                style: const TextStyle(color: Colors.blue, fontSize: 12)),
           ],
         ),
       );
     }
 
-    final colorIndex = int.tryParse(item.periodNumber) ?? 0;
+    final colorIndex = int.tryParse(user.periodNumber) ?? 0;
     final accent = _subjectColors[colorIndex % _subjectColors.length];
-    final isTablet = _Responsive.isTablet(context);
 
     return Container(
-      margin: EdgeInsets.symmetric(vertical: _DS.spacingSm, horizontal: _DS.spacingXs),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
-        color: _DS.surface,
-        borderRadius: BorderRadius.circular(_DS.radius),
-        boxShadow: [BoxShadow(color: accent.withOpacity(0.12), blurRadius: 8, offset: const Offset(0, 2))],
-        border: Border.all(color: _DS.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // Period badge
-            Container(
-              width: isTablet ? 70 : 55,
-              padding: EdgeInsets.symmetric(vertical: _DS.spacingLg),
-              decoration: BoxDecoration(
-                color: accent.withOpacity(0.1),
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(_DS.radius), bottomLeft: Radius.circular(_DS.radius)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Period', style: TextStyle(fontSize: _Responsive.fontSize(context, mobile: 9, tablet: 10), color: accent, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(item.periodNumber, style: TextStyle(fontSize: isTablet ? 20 : 17, color: accent, fontWeight: FontWeight.w800)),
-                ],
-              ),
-            ),
-            // Content
             Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: _DS.spacingLg, vertical: _DS.spacingMd),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                child: Row(
                   children: [
-                    Text(item.subjectName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: _Responsive.fontSize(context, mobile: 14, tablet: 15), color: _DS.textPrimary)),
-                    const SizedBox(height: 6),
-                    _infoRow(Icons.access_time_rounded, item.time, context),
-                    const SizedBox(height: 4),
-                    _infoRow(Icons.person_outline_rounded, item.teacherName, context),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.subjectName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: Color(0xFF1A1A2E),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time,
+                                  size: 10,
+                                  color: Colors.grey.shade500),
+                              const SizedBox(width: 4),
+                              Text(user.time,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade600)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.person_outline,
+                                  size: 10,
+                                  color: Colors.grey.shade500),
+                              const SizedBox(width: 4),
+                              Text(user.teacherName,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: accent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('Period',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: accent,
+                                  fontWeight: FontWeight.w500)),
+                          Text(user.periodNumber,
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  color: accent,
+                                  fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -469,16 +614,6 @@ class TimeTableTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String text, BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: _DS.textMuted),
-        const SizedBox(width: 6),
-        Flexible(child: Text(text, style: TextStyle(fontSize: _Responsive.fontSize(context, mobile: 11, tablet: 12), color: _DS.textSecondary))),
-      ],
     );
   }
 }

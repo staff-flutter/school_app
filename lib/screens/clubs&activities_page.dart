@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
+import '../controllers/school_controller.dart';
 import '../core/theme/app_theme.dart';
 import '../services/user_session.dart';
 import 'club_gallery.dart';
@@ -22,7 +23,8 @@ class ClubAndActivitiesPage extends StatefulWidget {
 }
 
 class _ClubPageState extends State<ClubAndActivitiesPage> {
-  final AuthController _authController = Get.find<AuthController>();
+  SchoolController? get _school =>
+      Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;  final AuthController _authController = Get.find<AuthController>();
 
   // final controller = Get.find<MyChildrenController>();
   MyChildrenController? get _childrenController =>
@@ -32,7 +34,8 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   List<ClubsAndActivitiesStrings> apiClubs = [];
   bool isLoading = true;
-  final session = Get.find<UserSession>();
+//  final session = Get.find<UserSession>();
+    final auth_ctrl =Get.find<AuthController>();
 
   late VideoPlayerController _controller ;
   late Future<void> _initializeVideoPlayerFuture;
@@ -46,13 +49,16 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   Future<void> fetchClubsAndActivities() async {
     String baseUrl = ApiConstants.baseUrl;
+    final String? token = auth_ctrl.storage.read('token');
 
-    final String? token = session.token;
-    String? schoolId = session.schoolId ?? '';
-    if (schoolId == null || schoolId.isEmpty) {
-      try {
-        schoolId = Get.find<AuthController>().user.value?.schoolId;
-      } catch (_) {}
+    // Always get schoolId from selected school in controller
+    String? schoolId;
+    final role = _authController.user.value?.role?.toLowerCase() ?? '';
+
+    if (role == 'correspondent') {
+      schoolId = _school?.selectedSchool.value?.id;
+    } else {
+      schoolId = auth_ctrl.user.value?.schoolId ?? _authController.user.value?.schoolId;
     }
 
     if (schoolId == null || schoolId.isEmpty) {
@@ -66,9 +72,9 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       "page": "1",
       "limit": "10"
     };
-    print('schoolId:$schoolId');
 
-    final uri = Uri.parse('$baseUrl/api/club/getall').replace(queryParameters: queryParameters);
+    final uri = Uri.parse('$baseUrl/api/club/getall')
+        .replace(queryParameters: queryParameters);
 
     try {
       final response = await http.get(uri, headers: {
@@ -79,11 +85,14 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       if (response.statusCode == 200) {
         final decodedData = jsonDecode(response.body);
         final List<dynamic> list = decodedData['data'] ?? [];
-
         setState(() {
-          apiClubs = list.map((data) => ClubsAndActivitiesStrings.fromJson(data)).toList();
+          apiClubs = list
+              .map((data) => ClubsAndActivitiesStrings.fromJson(data))
+              .toList();
           isLoading = false;
         });
+      } else {
+        setState(() => isLoading = false);
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -91,25 +100,27 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     }
   }
 
-
   @override
   void initState() {
     super.initState();
     fetchClubsAndActivities();
-    // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    //   statusBarColor: Colors.black, // transparent so AppBar image shows through
-    //   statusBarIconBrightness: Brightness.light, // dark icons (visible on light bg)
-    //   // or Brightness.light if your header image is dark
-    // ));
+
+    // Re-fetch when correspondent switches school from sidebar
+    if (_authController.user.value?.role?.toLowerCase() == 'correspondent') {
+      ever(_school!.selectedSchool, (_) {
+        if (mounted) {
+          setState(() => isLoading = true);
+          fetchClubsAndActivities();
+        }
+      });
+    }
 
     _controller = VideoPlayerController.networkUrl(
       Uri.parse(
         'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
       ),
     );
-
     _initializeVideoPlayerFuture = _controller.initialize();
-
     _controller.setLooping(true);
   }
 
@@ -253,25 +264,37 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     );
   }
   Widget _header() {
-    return Row(
-      children: [
-       _buildSchoolLogo(),
-        const SizedBox(width: 10),
-        Text(
-          '${session.schoolName}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600,color: Colors.black),
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+    return Obx(() {
+      final role = _authController.user.value?.role?.toLowerCase() ?? '';
+      final schoolName = role == 'correspondent'
+          ? (_school?.selectedSchool.value?.name ?? '')
+          : (auth_ctrl.user.value?.schoolName ?? _authController.user.value?.schoolName ?? '');
+
+      return Row(
+        children: [
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              schoolName,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          child: const Icon(Icons.search),
-        )
-      ],
-    );
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.search),
+          ),
+        ],
+      );
+    });
   }
 
 

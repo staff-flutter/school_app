@@ -1,12 +1,12 @@
 import 'package:get/get.dart';
+import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/services/api_service.dart';
-import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 
 class AcademicsController extends GetxController {
   final ApiService _apiService = Get.find();
   final AuthController _authController = Get.find();
-  
+
   final isLoading = false.obs;
   final subjects = <Subject>[].obs;
   final timetable = <TimetableEntry>[].obs;
@@ -16,29 +16,45 @@ class AcademicsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadAcademicsData();
+    final schoolController = Get.find<SchoolController>();
+
+    // React whenever the selected school changes
+    ever(schoolController.selectedSchool, (school) {
+      if (school != null) {
+        loadSubjects(school.id);
+        loadExams(school.id);
+        loadTimetable(school.id);
+        loadResults(school.id);
+      } else {
+        // Clear all data when no school is selected
+        subjects.clear();
+        timetable.clear();
+        exams.clear();
+        results.clear();
+      }
+    });
+
+    // Initial load if a school is already selected
+    final currentSchool = schoolController.selectedSchool.value;
+    if (currentSchool != null) {
+      loadSubjects(currentSchool.id);
+      loadExams(currentSchool.id);
+      loadTimetable(currentSchool.id);
+      loadResults(currentSchool.id);
+    }
   }
 
-  void loadAcademicsData() async {
-    final schoolId = _authController.user.value?.schoolId;
-    if (schoolId == null) {
-      Get.snackbar('Error', 'School ID not found');
-      return;
-    }
+  // ── Subjects ────────────────────────────────────────────────────────────────
 
+  Future<void> loadSubjects(String schoolId) async {
     try {
       isLoading.value = true;
-      
-      // Load subjects, timetable, exams, and results from API
-      // For now, show empty state until API integration
+      // TODO: replace with real API call, e.g.:
+      // final response = await _apiService.get('/api/subjects', queryParameters: {'schoolId': schoolId});
+      // subjects.value = (response.data['data'] as List).map((e) => Subject.fromJson(e)).toList();
       subjects.clear();
-      timetable.clear();
-      exams.clear();
-      results.clear();
-      
-      Get.snackbar('Info', 'No academic data found. Add subjects, exams, and timetables to get started.');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load academic data');
+      Get.snackbar('Error', 'Failed to load subjects');
     } finally {
       isLoading.value = false;
     }
@@ -50,7 +66,7 @@ class AcademicsController extends GetxController {
   }
 
   void updateSubject(Subject subject) {
-    int index = subjects.indexWhere((s) => s.id == subject.id);
+    final index = subjects.indexWhere((s) => s.id == subject.id);
     if (index != -1) {
       subjects[index] = subject;
       Get.snackbar('Success', 'Subject updated successfully');
@@ -62,13 +78,39 @@ class AcademicsController extends GetxController {
     Get.snackbar('Success', 'Subject deleted successfully');
   }
 
+  // ── Timetable ───────────────────────────────────────────────────────────────
+
+  Future<void> loadTimetable(String schoolId) async {
+    try {
+      // TODO: replace with real API call
+      // final response = await _apiService.get('/api/timetable', queryParameters: {'schoolId': schoolId});
+      // timetable.value = (response.data['data'] as List).map((e) => TimetableEntry.fromJson(e)).toList();
+      timetable.clear();
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load timetable');
+    }
+  }
+
+  // ── Exams ───────────────────────────────────────────────────────────────────
+
+  Future<void> loadExams(String schoolId) async {
+    try {
+      // TODO: replace with real API call
+      // final response = await _apiService.get('/api/exams', queryParameters: {'schoolId': schoolId});
+      // exams.value = (response.data['data'] as List).map((e) => Exam.fromJson(e)).toList();
+      exams.clear();
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load exams');
+    }
+  }
+
   void addExam(Exam exam) {
     exams.add(exam);
     Get.snackbar('Success', 'Exam scheduled successfully');
   }
 
   void updateExam(Exam exam) {
-    int index = exams.indexWhere((e) => e.id == exam.id);
+    final index = exams.indexWhere((e) => e.id == exam.id);
     if (index != -1) {
       exams[index] = exam;
       Get.snackbar('Success', 'Exam updated successfully');
@@ -79,7 +121,22 @@ class AcademicsController extends GetxController {
     exams.removeWhere((e) => e.id == examId);
     Get.snackbar('Success', 'Exam deleted successfully');
   }
+
+  // ── Results ─────────────────────────────────────────────────────────────────
+
+  Future<void> loadResults(String schoolId) async {
+    try {
+      // TODO: replace with real API call
+      // final response = await _apiService.get('/api/results', queryParameters: {'schoolId': schoolId});
+      // results.value = (response.data['data'] as List).map((e) => Result.fromJson(e)).toList();
+      results.clear();
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load results');
+    }
+  }
 }
+
+// ── Models ───────────────────────────────────────────────────────────────────
 
 class Subject {
   final String id;

@@ -24,6 +24,8 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/screens/concession_detail_view.dart';
 import 'package:school_app/screens/student_receipts_view.dart';
 
+const _kPrimary = Color(0xFF2563EB);
+
 class StudentRecordsView extends StatefulWidget {
   const StudentRecordsView({Key? key}) : super(key: key);
 
@@ -35,10 +37,10 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   final recordController = Get.put(StudentRecordController());
   final schoolController = Get.find<SchoolController>();
   final authController = Get.find<AuthController>();
-  
+
   final studentRecords = <Map<String, dynamic>>[].obs;
   final isLoading = false.obs;
-  
+
   final selectedSchool = Rxn<School>();
   final selectedClass = Rxn<SchoolClass>();
   final selectedSection = Rxn<Section>();
@@ -55,26 +57,22 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   void _initializeSchoolForUser() {
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
     final userSchoolId = authController.user.value?.schoolId;
-    
+
     if (userRole != 'correspondent' && userSchoolId != null) {
-      // For non-correspondent users, find and set their school
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final userSchool = schoolController.schools.firstWhereOrNull(
-          (school) => school.id == userSchoolId,
+              (school) => school.id == userSchoolId,
         );
         if (userSchool != null) {
           selectedSchool.value = userSchool;
-          // Load classes for the selected school
           schoolController.getAllClasses(userSchool.id);
         } else {
-          // If school not found in list, fetch it
           schoolController.getAllSchools().then((_) {
             final school = schoolController.schools.firstWhereOrNull(
-              (s) => s.id == userSchoolId,
+                  (s) => s.id == userSchoolId,
             );
             if (school != null) {
               selectedSchool.value = school;
-              // Load classes for the selected school
               schoolController.getAllClasses(school.id);
             }
           });
@@ -87,7 +85,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F5FF),
       body: SafeArea(
@@ -99,7 +97,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   if(authController.user.value?.role?.toLowerCase()=='correspondent')
-
                     _buildSchoolSelectionCard(context, isTablet),
                   const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
@@ -134,12 +131,12 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withOpacity(0.10),
+                color: _kPrimary.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.folder_shared_rounded,
-                color: Color(0xFF2563EB),
+                color: _kPrimary,
                 size: 20,
               ),
             ),
@@ -171,13 +168,13 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withOpacity(0.08),
+                color: _kPrimary.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 authController.user.value?.role?.toUpperCase() ?? 'USER',
                 style: const TextStyle(
-                  color: Color(0xFF2563EB),
+                  color: _kPrimary,
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                 ),
@@ -206,7 +203,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
           ),
         ],
       ),
-
       child: Padding(
         padding: EdgeInsets.all(isTablet ? 24 : 20),
         child: Column(
@@ -235,25 +231,20 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
             ),
             const SizedBox(height: 20),
             if (isReadOnly)
-              // Show readonly school name for non-correspondent users
               Obx(() => Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryBlue.withOpacity(0.05), AppTheme.primaryBlue.withOpacity(0.02)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: _kPrimary.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.2), width: 1.5),
+                  border: Border.all(color: _kPrimary.withOpacity(0.2), width: 1.5),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
+                        color: _kPrimary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.business, color: Colors.white, size: 14),
@@ -273,23 +264,11 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                 ),
               ))
             else
-              // Show modern dropdown for correspondent
               Obx(() => Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
                 child: DropdownButtonFormField<School>(
                   decoration: InputDecoration(
@@ -301,14 +280,14 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                       margin: const EdgeInsets.only(left: 12, right: 8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
+                        color: _kPrimary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
                     ),
                   ),
-                  value: schoolController.schools.contains(selectedSchool.value) 
-                      ? selectedSchool.value 
+                  value: schoolController.schools.contains(selectedSchool.value)
+                      ? selectedSchool.value
                       : null,
                   items: schoolController.schools.map((school) {
                     return DropdownMenuItem<School>(
@@ -320,7 +299,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
+                                color: _kPrimary,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Icon(Icons.school, color: Colors.white, size: 14),
@@ -360,7 +339,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                     if (school != null) {
                       schoolController.classes.clear();
                       schoolController.sections.clear();
-
                       if (Get.isRegistered<SubscriptionController>()) {
                         final subscriptionController = Get.find<SubscriptionController>();
                         subscriptionController.loadSubscription(school.id);
@@ -390,13 +368,11 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
         return const Center(child: CircularProgressIndicator());
       }
 
-      // Only check subscription for correspondent and principal roles
       final userRole = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
       final requiresSubscriptionCheck = ['correspondent', 'principal'].contains(userRole);
 
       if (requiresSubscriptionCheck) {
         final hasAccess = subscriptionController?.hasModuleAccess('studentRecord') ?? false;
-
         if (!hasAccess) {
           return _buildUpgradeRequiredWidget(context, isTablet, 'Student Record');
         }
@@ -405,7 +381,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       return Column(
         children: [
           _buildFiltersCard(context, isTablet),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildTabsSection(context, isTablet),
         ],
       );
@@ -413,271 +389,151 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   }
 
   Widget _buildFiltersCard(BuildContext context, bool isTablet) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Obx(() => Column(
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.warningGradient,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.filter_list, color: Colors.white, size: 15),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Filters',
-                  style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryText,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              final isClassesLoading = schoolController.isLoading.value;
-              return Container(
+            GestureDetector(
+              onTap: () => _showClassFilterSheet(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  color: selectedClass.value != null
+                      ? _kPrimary.withOpacity(0.1)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: selectedClass.value != null ? _kPrimary : const Color(0xFFDDE6F5),
+                    width: selectedClass.value != null ? 1.5 : 1,
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withOpacity(0.04),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: isClassesLoading
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                        child: Row(
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.class_, color: Colors.white, size: 14),
-                            ),
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Loading classes...',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppTheme.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : DropdownButtonFormField<SchoolClass>(
-                        decoration: InputDecoration(
-                          labelText: 'Select Class',
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.all(8),
-                          labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 12),
-                          prefixIcon: Container(
-                            margin: const EdgeInsets.all(8),
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.class_, color: Colors.white, size: 14),
-                          ),
-                        ),
-                        value: schoolController.classes.contains(selectedClass.value)
-                            ? selectedClass.value
-                            : null,
-                        items: schoolController.classes.map((cls) {
-                          return DropdownMenuItem<SchoolClass>(
-                            value: cls,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.primaryGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  cls.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.primaryText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: selectedSchool.value == null ? null : (cls) {
-                          selectedClass.value = cls;
-                          selectedSection.value = null;
-                          if (cls != null) {
-                            schoolController.getAllSections(classId: cls.id, schoolId: selectedSchool.value!.id);
-                          }
-                        },
-                      ),
-              );
-            }),
-            const SizedBox(height: 16),
-            Obx(() {
-              final isSectionsLoading = schoolController.isLoading.value && selectedClass.value != null;
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: DropdownButtonFormField<Section>(
-                  decoration: InputDecoration(
-                    labelText: schoolController.sections.isEmpty && selectedClass.value != null
-                        ? 'No sections found'
-                        : 'Select Section',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(8),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 12),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.all(8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.warningGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.group, color: Colors.white, size: 14),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.class_rounded,
+                      size: 14,
+                      color: selectedClass.value != null ? _kPrimary : const Color(0xFF90A4BE)),
+                  const SizedBox(width: 6),
+                  Text(
+                    selectedClass.value?.name ?? 'All Classes',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selectedClass.value != null ? _kPrimary : const Color(0xFF64748B),
                     ),
                   ),
-                  value: schoolController.sections.contains(selectedSection.value)
-                      ? selectedSection.value
-                      : null,
-                  items: schoolController.sections.isEmpty
-                      ? []
-                      : schoolController.sections.map((section) {
-                          return DropdownMenuItem<Section>(
-                            value: section,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.warningGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  section.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.primaryText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                  onChanged: selectedClass.value == null || schoolController.sections.isEmpty ? null : (section) {
-                    selectedSection.value = section;
-                  },
-                ),
-              );
-            }),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 35,
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryBlue.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: selectedClass.value != null ? _kPrimary : const Color(0xFF90A4BE)),
+                ]),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: _applyFilter,
-                  child: const Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search, color: Colors.white, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Apply Filter',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showSectionFilterSheet(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selectedSection.value != null
+                      ? _kPrimary.withOpacity(0.1)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: selectedSection.value != null ? _kPrimary : const Color(0xFFDDE6F5),
+                    width: selectedSection.value != null ? 1.5 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.group_rounded,
+                      size: 14,
+                      color: selectedSection.value != null ? _kPrimary : const Color(0xFF90A4BE)),
+                  const SizedBox(width: 6),
+                  Text(
+                    selectedSection.value?.name ?? 'All Sections',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selectedSection.value != null ? _kPrimary : const Color(0xFF64748B),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: selectedSection.value != null ? _kPrimary : const Color(0xFF90A4BE)),
+                ]),
               ),
             ),
           ],
         ),
-      ),
-    );
+        const SizedBox(height: 10),
+        Row(children: [
+          GestureDetector(
+            onTap: _applyFilter,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: _kPrimary,
+                borderRadius: BorderRadius.circular(100),
+                boxShadow: [
+                  BoxShadow(
+                    color: _kPrimary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.search_rounded, size: 14, color: Colors.white),
+                SizedBox(width: 5),
+                Text('Search',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
+              ]),
+            ),
+          ),
+          if (selectedClass.value != null || selectedSection.value != null) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                selectedClass.value = null;
+                selectedSection.value = null;
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.close_rounded, size: 13, color: Colors.red.shade600),
+                  const SizedBox(width: 4),
+                  Text('Clear',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade600)),
+                ]),
+              ),
+            ),
+          ],
+        ]),
+      ],
+    ));
   }
 
   Widget _buildTabsSection(BuildContext context, bool isTablet) {
@@ -702,11 +558,11 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               padding: const EdgeInsets.all(6),
               child: TabBar(
                 indicator: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                  color: _kPrimary,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryBlue.withOpacity(0.3),
+                      color: _kPrimary.withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -733,11 +589,12 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                         Icon(Icons.receipt_long, size: isTablet ? 20 : 14),
                         const SizedBox(width: 8),
                         Flexible(
-                            child: Text(
-                              'Records',style: TextStyle(fontSize: 14),
-                               overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            )),
+                          child: Text('Records',
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -749,9 +606,12 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                         Icon(Icons.local_offer, size: isTablet ? 20 : 14),
                         const SizedBox(width: 8),
                         Flexible(
-                            child: Text('Concessions',style: TextStyle(fontSize: 14),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,)),
+                          child: Text('Concessions',
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -759,7 +619,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.6,
             child: TabBarView(
@@ -796,11 +656,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               color: Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: isTablet ? 64 : 48,
-              color: Colors.grey.shade400,
-            ),
+            child: Icon(icon, size: isTablet ? 64 : 48, color: Colors.grey.shade400),
           ),
           const SizedBox(height: 24),
           Text(
@@ -839,11 +695,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               gradient: AppTheme.warningGradient,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.lock_outline,
-              size: 48,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.lock_outline, size: 48, color: Colors.white),
           ),
           const SizedBox(height: 24),
           Text(
@@ -858,30 +710,22 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
           Text(
             'Your current plan does not include the $featureName module. Please contact your correspondent to upgrade.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 24),
           Container(
             decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
+              color: _kPrimary,
               borderRadius: BorderRadius.circular(12),
             ),
             child: ElevatedButton(
-              onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (_)=>SubscriptionManagementView()));},
+              onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionManagementView())); },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text(
-                'View Plans',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-              ),
+              child: const Text('View Plans', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -891,11 +735,9 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
 
   void _applyFilter() async {
     if (selectedSchool.value == null) {
-      
       Get.snackbar('Error', 'Please select a school');
       return;
     }
-
     try {
       isLoading.value = true;
       final response = await recordController.getStudentRecords(
@@ -903,7 +745,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
         classId: selectedClass.value?.id,
         sectionId: selectedSection.value?.id,
       );
-
       if (response != null) {
         final records = List<Map<String, dynamic>>.from(response['data'] ?? []);
         studentRecords.value = records;
@@ -913,7 +754,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
         studentRecords.value = [];
       }
     } catch (e) {
-      
       Get.snackbar('Error', 'Failed to load student records: ${e.toString()}');
     } finally {
       isLoading.value = false;
@@ -930,7 +770,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -941,7 +781,201 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       barrierDismissible: true,
     );
   }
+
+  void _showClassFilterSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDDE6F5),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1A2A3A))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded, color: Color(0xFF90A4BE), size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: Color(0xFFEAF0FB)),
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedClass.value == null ? _kPrimary.withOpacity(0.1) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded, size: 18,
+                  color: selectedClass.value == null ? _kPrimary : const Color(0xFF90A4BE)),
+            ),
+            title: const Text('All Classes',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1A2A3A))),
+            trailing: selectedClass.value == null
+                ? const Icon(Icons.check_circle_rounded, color: _kPrimary, size: 20) : null,
+            onTap: () {
+              selectedClass.value = null;
+              selectedSection.value = null;
+              Get.back();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: Obx(() => ListView.builder(
+              shrinkWrap: true,
+              itemCount: schoolController.classes.length,
+              itemBuilder: (_, i) {
+                final c = schoolController.classes[i];
+                final isSelected = selectedClass.value?.id == c.id;
+                return ListTile(
+                  leading: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: isSelected ? _kPrimary.withOpacity(0.1) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.class_rounded, size: 18,
+                        color: isSelected ? _kPrimary : const Color(0xFF90A4BE)),
+                  ),
+                  title: Text(c.name,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 14,
+                        color: isSelected ? _kPrimary : const Color(0xFF1A2A3A),
+                      )),
+                  trailing: isSelected
+                      ? const Icon(Icons.check_circle_rounded, color: _kPrimary, size: 20) : null,
+                  onTap: () {
+                    selectedClass.value = c;
+                    selectedSection.value = null;
+                    schoolController.getAllSections(classId: c.id, schoolId: selectedSchool.value!.id);
+                    Get.back();
+                  },
+                );
+              },
+            )),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _showSectionFilterSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDDE6F5),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Section',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1A2A3A))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: const Icon(Icons.close_rounded, color: Color(0xFF90A4BE), size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: Color(0xFFEAF0FB)),
+          ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selectedSection.value == null ? _kPrimary.withOpacity(0.1) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.all_inclusive_rounded, size: 18,
+                  color: selectedSection.value == null ? _kPrimary : const Color(0xFF90A4BE)),
+            ),
+            title: const Text('All Sections',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1A2A3A))),
+            trailing: selectedSection.value == null
+                ? const Icon(Icons.check_circle_rounded, color: _kPrimary, size: 20) : null,
+            onTap: () {
+              selectedSection.value = null;
+              Get.back();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: Obx(() {
+              if (schoolController.sections.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    selectedClass.value == null ? 'Select a class first' : 'No sections found',
+                    style: const TextStyle(color: Color(0xFF90A4BE), fontSize: 13),
+                  ),
+                );
+              }
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: schoolController.sections.length,
+                itemBuilder: (_, i) {
+                  final s = schoolController.sections[i];
+                  final isSelected = selectedSection.value?.id == s.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected ? _kPrimary.withOpacity(0.1) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.group_rounded, size: 18,
+                          color: isSelected ? _kPrimary : const Color(0xFF90A4BE)),
+                    ),
+                    title: Text(s.name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected ? _kPrimary : const Color(0xFF1A2A3A),
+                        )),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded, color: _kPrimary, size: 20) : null,
+                    onTap: () {
+                      selectedSection.value = s;
+                      Get.back();
+                    },
+                  );
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
 }
+
+// ─── Records Tab ────────────────────────────────────────────────────────────
 
 class _RecordsTab extends StatelessWidget {
   final RxList<Map<String, dynamic>> records;
@@ -955,23 +989,19 @@ class _RecordsTab extends StatelessWidget {
     return Obx(() {
       if (records.isEmpty) {
         return Container(
-          padding: EdgeInsets.all(isTablet ? 48 : 32),
+          padding: EdgeInsets.symmetric(horizontal: isTablet ? 48 : 24, vertical: 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient.scale(0.1),
+                  color: _kPrimary.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.receipt_long,
-                  size: isTablet ? 64 : 48,
-                  color: AppTheme.primaryBlue,
-                ),
+                child: Icon(Icons.receipt_long, size: isTablet ? 48 : 36, color: _kPrimary),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 'No Records Found',
                 style: TextStyle(
@@ -980,13 +1010,10 @@ class _RecordsTab extends StatelessWidget {
                   color: AppTheme.primaryText,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Apply filters above to load student records',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.mutedText,
-                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.mutedText),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -995,10 +1022,7 @@ class _RecordsTab extends StatelessWidget {
       }
 
       return ListView.builder(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 8 : 4,
-          vertical: 8,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 8),
         itemCount: records.length,
         itemBuilder: (context, index) {
           final record = records[index];
@@ -1015,84 +1039,68 @@ class _RecordsTab extends StatelessWidget {
     final dues = record['dues'] ?? {};
 
     final totalFees = (feeStructure['admissionFee'] ?? 0) +
-                     (feeStructure['firstTermAmt'] ?? 0) +
-                     (feeStructure['secondTermAmt'] ?? 0) +
-                     (feeStructure['busFirstTermAmt'] ?? 0) +
-                     (feeStructure['busSecondTermAmt'] ?? 0);
+        (feeStructure['firstTermAmt'] ?? 0) +
+        (feeStructure['secondTermAmt'] ?? 0) +
+        (feeStructure['busFirstTermAmt'] ?? 0) +
+        (feeStructure['busSecondTermAmt'] ?? 0);
 
     final totalPaid = (feePaid['admissionFee'] ?? 0) +
-                     (feePaid['firstTermAmt'] ?? 0) +
-                     (feePaid['secondTermAmt'] ?? 0) +
-                     (feePaid['busFirstTermAmt'] ?? 0) +
-                     (feePaid['busSecondTermAmt'] ?? 0);
+        (feePaid['firstTermAmt'] ?? 0) +
+        (feePaid['secondTermAmt'] ?? 0) +
+        (feePaid['busFirstTermAmt'] ?? 0) +
+        (feePaid['busSecondTermAmt'] ?? 0);
 
     final totalDues = (dues['admissionDues'] ?? 0) +
-                     (dues['firstTermDues'] ?? 0) +
-                     (dues['secondTermDues'] ?? 0) +
-                     (dues['busfirstTermDues'] ?? 0) +
-                     (dues['busSecondTermDues'] ?? 0);
+        (dues['firstTermDues'] ?? 0) +
+        (dues['secondTermDues'] ?? 0) +
+        (dues['busfirstTermDues'] ?? 0) +
+        (dues['busSecondTermDues'] ?? 0);
 
     final isPaid = record['isFullyPaid'] == true;
 
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: isTablet ? 8 : 4,
-        vertical: 8,
-      ),
+      margin: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           onTap: () => Get.to(() => StudentReceiptsView(studentRecord: record)),
           child: Padding(
-            padding: EdgeInsets.all(isTablet ? 24 : 20),
+            padding: EdgeInsets.all(isTablet ? 20 : 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: isPaid ? AppTheme.successGradient : AppTheme.warningGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isPaid ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: isTablet ? 32 : 20,
-                        backgroundColor: Colors.transparent,
-                        backgroundImage: student['studentImage']?['url'] != null
-                            ? NetworkImage(student['studentImage']['url'])
-                            : null,
-                        child: student['studentImage']?['url'] == null
-                            ? Text(
-                                student['studentName']?.toString().substring(0, 1).toUpperCase() ?? 'S',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: isTablet ? 20 : 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
-                      ),
+                    CircleAvatar(
+                      radius: isTablet ? 26 : 18,
+                      backgroundColor: isPaid ? AppTheme.successGreen.withOpacity(0.15) : _kPrimary.withOpacity(0.12),
+                      backgroundImage: student['studentImage']?['url'] != null
+                          ? NetworkImage(student['studentImage']['url'])
+                          : null,
+                      child: student['studentImage']?['url'] == null
+                          ? Text(
+                        student['studentName']?.toString().substring(0, 1).toUpperCase() ?? 'S',
+                        style: TextStyle(
+                          color: isPaid ? AppTheme.successGreen : _kPrimary,
+                          fontSize: isTablet ? 16 : 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                          : null,
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1100,65 +1108,55 @@ class _RecordsTab extends StatelessWidget {
                           Text(
                             student['studentName'] ?? 'Unknown',
                             style: TextStyle(
-                              fontSize: isTablet ? 20 : 14,
+                              fontSize: isTablet ? 18 : 13,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryText,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryBlue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'SR ID: ${student['srId'] ?? 'N/A'}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryBlue,
-                                fontSize: 12,
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _kPrimary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'SR: ${student['srId'] ?? 'N/A'}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: _kPrimary,
+                                    fontSize: 11,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Class: ${record['className']} - ${record['sectionName']}',
-                            style: TextStyle(
-                              color: AppTheme.mutedText,
-                              fontSize: 12,
-                            ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${record['className']} - ${record['sectionName']}',
+                                style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                     Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            gradient: isPaid ? AppTheme.successGradient : AppTheme.warningGradient,
+                            color: isPaid ? AppTheme.successGreen : _kPrimary,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isPaid ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                           ),
                           child: Text(
                             isPaid ? 'PAID' : 'PENDING',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Container(
-
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(8),
@@ -1170,35 +1168,29 @@ class _RecordsTab extends StatelessWidget {
                             itemBuilder: (context) => [
                               const PopupMenuItem(
                                 value: 'view',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.visibility, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('View Details'),
-                                  ],
-                                ),
+                                child: Row(children: [
+                                  Icon(Icons.visibility, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('View Details'),
+                                ]),
                               ),
                               if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'PATCH /api/studentrecord/togglestatus'))
                                 const PopupMenuItem(
                                   value: 'toggle',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.toggle_on, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Toggle Status'),
-                                    ],
-                                  ),
+                                  child: Row(children: [
+                                    Icon(Icons.toggle_on, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Toggle Status'),
+                                  ]),
                                 ),
                               if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'DELETE /api/studentrecord/deleterecord'))
                                 const PopupMenuItem(
                                   value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, size: 18, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Delete Record', style: TextStyle(color: Colors.red)),
-                                    ],
-                                  ),
+                                  child: Row(children: [
+                                    Icon(Icons.delete, size: 18, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Delete Record', style: TextStyle(color: Colors.red)),
+                                  ]),
                                 ),
                             ],
                           ),
@@ -1207,58 +1199,52 @@ class _RecordsTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient.scale(0.05),
-                    borderRadius: BorderRadius.circular(16),
+                    color: _kPrimary.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _kPrimary.withOpacity(0.08)),
                   ),
                   child: Row(
                     children: [
-                      Expanded(child: _buildSummaryItem('Total Fees', '₹$totalFees', AppTheme.primaryBlue, isTablet)),
-                      Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
+                      Expanded(child: _buildSummaryItem('Total', '₹$totalFees', AppTheme.primaryBlue, isTablet)),
+                      Container(width: 1, height: 32, color: _kPrimary.withOpacity(0.15)),
                       Expanded(child: _buildSummaryItem('Paid', '₹$totalPaid', AppTheme.successGreen, isTablet)),
-                      Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
+                      Container(width: 1, height: 32, color: _kPrimary.withOpacity(0.15)),
                       Expanded(child: _buildSummaryItem('Dues', '₹$totalDues', AppTheme.errorRed, isTablet)),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 Theme(
                   data: Theme.of(context).copyWith(
                     dividerColor: Colors.transparent,
                     expansionTileTheme: ExpansionTileThemeData(
                       backgroundColor: Colors.grey.shade50,
                       collapsedBackgroundColor: Colors.grey.shade50,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      collapsedShape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                   child: ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                     leading: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.warningGradient,
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.orange.shade400,
+                        borderRadius: BorderRadius.circular(7),
                       ),
-                      child: const Icon(Icons.receipt, color: Colors.white, size: 15),
+                      child: const Icon(Icons.receipt, color: Colors.white, size: 13),
                     ),
                     title: Text(
                       'Fee Breakdown',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.primaryText,
-                      ),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryText),
                     ),
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
                         child: Column(
                           children: [
                             _buildFeeRow('Admission Fee', feeStructure['admissionFee'], feePaid['admissionFee'], isTablet),
@@ -1286,16 +1272,16 @@ class _RecordsTab extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: isTablet ? 20 : 16,
+            fontSize: isTablet ? 16 : 13,
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            fontSize: isTablet ? 14 : 10,
+            fontSize: isTablet ? 12 : 10,
             color: AppTheme.mutedText,
             fontWeight: FontWeight.w500,
           ),
@@ -1310,36 +1296,25 @@ class _RecordsTab extends StatelessWidget {
     final dueAmount = totalAmount - paidAmount;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: isTablet ? 16 : 14,
-              color: AppTheme.primaryText,
-            ),
+          Text(label,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: isTablet ? 14 : 12, color: AppTheme.primaryText),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
-              Expanded(
-                child: _buildFeeDetail('Total', '₹$totalAmount', AppTheme.primaryBlue, isTablet),
-              ),
-              Expanded(
-                child: _buildFeeDetail('Paid', '₹$paidAmount', AppTheme.successGreen, isTablet),
-              ),
-              Expanded(
-                child: _buildFeeDetail('Due', '₹$dueAmount', AppTheme.errorRed, isTablet),
-              ),
+              Expanded(child: _buildFeeDetail('Total', '₹$totalAmount', AppTheme.primaryBlue, isTablet)),
+              Expanded(child: _buildFeeDetail('Paid', '₹$paidAmount', AppTheme.successGreen, isTablet)),
+              Expanded(child: _buildFeeDetail('Due', '₹$dueAmount', AppTheme.errorRed, isTablet)),
             ],
           ),
         ],
@@ -1352,27 +1327,16 @@ class _RecordsTab extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: isTablet ? 16 : 14,
-            color: color,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: isTablet ? 14 : 12, color: color),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTablet ? 12 : 11,
-            color: AppTheme.mutedText,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: isTablet ? 11 : 10, color: AppTheme.mutedText)),
       ],
     );
   }
 
   void _handleRecordAction(String action, Map<String, dynamic> record, BuildContext context) async {
     final controller = Get.find<StudentRecordController>();
-
     switch (action) {
       case 'view':
         Get.to(() => StudentRecordDetailsPage(
@@ -1380,9 +1344,8 @@ class _RecordsTab extends StatelessWidget {
           studentId: record['studentId']?['_id'],
         ));
         break;
-
       case 'toggle':
-        await controller.toggleStudentStatus(record['_id'],!record['isActive']);
+        await controller.toggleStudentStatus(record['_id'], !record['isActive']);
         parent._applyFilter();
         break;
       case 'delete':
@@ -1392,6 +1355,8 @@ class _RecordsTab extends StatelessWidget {
     }
   }
 }
+
+// ─── Concessions Tab ────────────────────────────────────────────────────────
 
 class _ConcessionsTab extends StatelessWidget {
   final RxList<Map<String, dynamic>> records;
@@ -1407,43 +1372,36 @@ class _ConcessionsTab extends StatelessWidget {
       backgroundColor: Colors.transparent,
       body: Obx(() {
         final concessionsRecords = records.where((record) =>
-          record['concession']?['isApplied'] == true
+        record['concession']?['isApplied'] == true
         ).toList();
 
         if (concessionsRecords.isEmpty) {
           return Container(
-            padding: EdgeInsets.all(isTablet ? 48 : 32),
+            padding: EdgeInsets.symmetric(horizontal: isTablet ? 48 : 24, vertical: 24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.warningGradient.scale(0.1),
+                    color: Colors.orange.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.local_offer,
-                    size: isTablet ? 64 : 48,
-                    color: AppTheme.warningYellow,
-                  ),
+                  child: Icon(Icons.local_offer, size: isTablet ? 48 : 36, color: Colors.orange.shade600),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 Text(
                   'No Concessions Found',
                   style: TextStyle(
-                    fontSize: isTablet ? 20 : 18,
+                    fontSize: isTablet ? 20 : 15,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryText,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Apply filters above to load concession records',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.mutedText,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppTheme.mutedText),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -1452,10 +1410,7 @@ class _ConcessionsTab extends StatelessWidget {
         }
 
         return ListView.builder(
-          padding: EdgeInsets.symmetric(
-            horizontal: isTablet ? 8 : 4,
-            vertical: 8,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 8),
           itemCount: concessionsRecords.length,
           itemBuilder: (context, index) {
             final record = concessionsRecords[index];
@@ -1467,11 +1422,11 @@ class _ConcessionsTab extends StatelessWidget {
         apiEndpoint: 'POST /api/studentrecord/applyconcession',
         child: Container(
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            color: _kPrimary,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryBlue.withOpacity(0.4),
+                color: _kPrimary.withOpacity(0.4),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -1481,8 +1436,8 @@ class _ConcessionsTab extends StatelessWidget {
             onPressed: parent._showApplyConcessionDialog,
             backgroundColor: Colors.transparent,
             elevation: 0,
-            child: const Icon(Icons.add, color: Colors.white, size: 28),
             tooltip: 'Apply Concession',
+            child: const Icon(Icons.add, color: Colors.white, size: 28),
           ),
         ),
       ),
@@ -1495,64 +1450,50 @@ class _ConcessionsTab extends StatelessWidget {
     final isApproved = concession['approvedBy'] != null;
 
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: isTablet ? 8 : 4,
-        vertical: 8,
-      ),
+      margin: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           onTap: () => Get.to(() => ConcessionDetailView(concessionData: record)),
           child: Padding(
-            padding: EdgeInsets.all(isTablet ? 24 : 20),
+            padding: EdgeInsets.all(isTablet ? 20 : 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: isApproved ? AppTheme.successGradient : AppTheme.warningGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isApproved ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: isTablet ? 28 : 20,
-                        backgroundColor: Colors.transparent,
-                        backgroundImage: student['studentImage']?['url'] != null
-                            ? NetworkImage(student['studentImage']['url'])
-                            : null,
-                        child: student['studentImage']?['url'] == null
-                            ? Text(
-                                student['studentName']?.toString().substring(0, 1).toUpperCase() ?? 'S',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: isTablet ? 18 : 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
-                      ),
+                    CircleAvatar(
+                      radius: isTablet ? 24 : 18,
+                      backgroundColor: isApproved
+                          ? AppTheme.successGreen.withOpacity(0.12)
+                          : _kPrimary.withOpacity(0.12),
+                      backgroundImage: student['studentImage']?['url'] != null
+                          ? NetworkImage(student['studentImage']['url'])
+                          : null,
+                      child: student['studentImage']?['url'] == null
+                          ? Text(
+                        student['studentName']?.toString().substring(0, 1).toUpperCase() ?? 'S',
+                        style: TextStyle(
+                          color: isApproved ? AppTheme.successGreen : _kPrimary,
+                          fontSize: isTablet ? 16 : 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                          : null,
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1560,47 +1501,34 @@ class _ConcessionsTab extends StatelessWidget {
                           Text(
                             student['studentName'] ?? 'Unknown',
                             style: TextStyle(
-                              fontSize: isTablet ? 18 : 16,
+                              fontSize: isTablet ? 16 : 13,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryText,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
                             '${record['className']} - ${record['sectionName']}',
-                            style: TextStyle(
-                              color: AppTheme.mutedText,
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
                           ),
                         ],
                       ),
                     ),
                     Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            gradient: isApproved ? AppTheme.successGradient : AppTheme.warningGradient,
+                            color: isApproved ? AppTheme.successGreen : _kPrimary,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isApproved ? AppTheme.successGreen : AppTheme.primaryBlue).withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                           ),
                           child: Text(
                             isApproved ? 'APPROVED' : 'PENDING',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
@@ -1613,34 +1541,22 @@ class _ConcessionsTab extends StatelessWidget {
                               if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'PUT /api/studentrecord/updatevalue'))
                                 const PopupMenuItem(
                                   value: 'update_value',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Update Value'),
-                                    ],
-                                  ),
+                                  child: Row(children: [
+                                    Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Update Value'),
+                                  ]),
                                 ),
                               if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'PUT /api/studentrecord/update/proof'))
                                 const PopupMenuItem(
                                   value: 'update_proof',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.upload_file, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Update Proof'),
-                                    ],
-                                  ),
+                                  child: Row(children: [
+                                    Icon(Icons.upload_file, size: 18), SizedBox(width: 8), Text('Update Proof'),
+                                  ]),
                                 ),
                               const PopupMenuItem(
                                 value: 'view_details',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.visibility, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('View Details'),
-                                  ],
-                                ),
+                                child: Row(children: [
+                                  Icon(Icons.visibility, size: 18), SizedBox(width: 8), Text('View Details'),
+                                ]),
                               ),
                             ],
                           ),
@@ -1649,98 +1565,72 @@ class _ConcessionsTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.warningGradient.scale(0.05),
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.orange.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.15)),
                   ),
                   child: Column(
                     children: [
                       Row(
                         children: [
-                          Flexible(
-                            child: _buildConcessionDetail('Type', concession['type']?.toString().toUpperCase() ?? 'N/A', isTablet),
-                          ),
-                          Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
-                          Flexible(
-                            child: _buildConcessionDetail('Value', '${concession['value'] ?? 0}${concession['type'] == 'percentage' ? '%' : ''}', isTablet),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: _buildConcessionDetail('Amount', '₹${concession['inAmount'] ?? 0}', isTablet),
-                          ),
-                          Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
-                          Flexible(
-                            child: _buildConcessionDetail('Status', isApproved ? 'Approved' : 'Pending', isTablet),
-                          ),
+                          Flexible(child: _buildConcessionDetail('Type', concession['type']?.toString().toUpperCase() ?? 'N/A', isTablet)),
+                          Container(width: 1, height: 32, color: Colors.orange.withOpacity(0.2)),
+                          Flexible(child: _buildConcessionDetail('Value', '${concession['value'] ?? 0}${concession['type'] == 'percentage' ? '%' : ''}', isTablet)),
+                          Container(width: 1, height: 32, color: Colors.orange.withOpacity(0.2)),
+                          Flexible(child: _buildConcessionDetail('Amount', '₹${concession['inAmount'] ?? 0}', isTablet)),
+                          Container(width: 1, height: 32, color: Colors.orange.withOpacity(0.2)),
+                          Flexible(child: _buildConcessionDetail('Status', isApproved ? 'Approved' : 'Pending', isTablet)),
                         ],
                       ),
                     ],
                   ),
                 ),
                 if (concession['proof'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.2)),
+                      color: _kPrimary.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _kPrimary.withOpacity(0.15)),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            gradient: AppTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(8),
+                            color: _kPrimary,
+                            borderRadius: BorderRadius.circular(7),
                           ),
-                          child: const Icon(Icons.attachment, color: Colors.white, size: 16),
+                          child: const Icon(Icons.attachment, color: Colors.white, size: 13),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Proof Document',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryText,
-                                  fontSize: 12,
-                                ),
+                              Text('Proof Document',
+                                style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primaryText, fontSize: 11),
                               ),
-                              Text(
-                                concession['proof']['originalName'] ?? 'Document attached',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.mutedText,
-                                ),
+                              Text(concession['proof']['originalName'] ?? 'Document attached',
+                                style: TextStyle(fontSize: 10, color: AppTheme.mutedText),
                               ),
                             ],
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(8),
+                        TextButton(
+                          onPressed: () => _viewProof(concession['proof']),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _kPrimary,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: TextButton(
-                            onPressed: () => _viewProof(concession['proof']),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.all(8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text('View', style: TextStyle(fontSize:10,fontWeight: FontWeight.w600)),
-                          ),
+                          child: const Text('View', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
@@ -1759,21 +1649,10 @@ class _ConcessionsTab extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontSize: isTablet ? 18 : 12,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryText,
-          ),
+          style: TextStyle(fontSize: isTablet ? 14 : 11, fontWeight: FontWeight.bold, color: AppTheme.primaryText),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTablet ? 14 : 12,
-            color: AppTheme.mutedText,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: isTablet ? 12 : 10, color: AppTheme.mutedText, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -1781,18 +1660,10 @@ class _ConcessionsTab extends StatelessWidget {
   void _viewProof(Map<String, dynamic> proof) async {
     final url = proof['url'];
     if (url == null) return;
-
     final uri = Uri.parse(url);
     final fileExtension = path.extension(url).toLowerCase();
-
     if (['.jpg', '.jpeg', '.png'].contains(fileExtension)) {
-      Get.dialog(
-        Dialog(
-          child: PhotoView(
-            imageProvider: NetworkImage(url),
-          ),
-        ),
-      );
+      Get.dialog(Dialog(child: PhotoView(imageProvider: NetworkImage(url))));
     } else {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
@@ -1822,40 +1693,34 @@ class _ConcessionsTab extends StatelessWidget {
 
     Get.dialog(
       Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Update Concession Value', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+              const Text('Update Concession Value',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Concession Type'),
                 value: concessionType,
                 items: ['percentage', 'amount'].map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.toUpperCase()),
-                  );
+                  return DropdownMenuItem(value: type, child: Text(type.toUpperCase()));
                 }).toList(),
                 onChanged: (value) => concessionType = value!,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextField(
                 controller: valueController,
                 decoration: const InputDecoration(labelText: 'Concession Value'),
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Row(
                 children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Get.back(),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
+                  Expanded(child: TextButton(onPressed: () => Get.back(), child: const Text('Cancel'))),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
@@ -1869,11 +1734,10 @@ class _ConcessionsTab extends StatelessWidget {
                           concessionValue: double.tryParse(valueController.text) ?? 0,
                         );
                         Get.back();
-                        if (success) {
-                          onSuccess();
-                        }
+                        if (success) onSuccess();
                       },
-                      child: const Text('Update'),
+                      style: ElevatedButton.styleFrom(backgroundColor: _kPrimary),
+                      child: const Text('Update', style: TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],
@@ -1884,9 +1748,6 @@ class _ConcessionsTab extends StatelessWidget {
       ),
     );
   }
-// Add this for byte operations
-
-// ... inside your _ConcessionsTab or State class ...
 
   void _showUpdateConcessionProofDialog(Map<String, dynamic> record, VoidCallback onSuccess) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -1897,9 +1758,8 @@ class _ConcessionsTab extends StatelessWidget {
     if (result != null) {
       File file = File(result.files.single.path!);
       final String extension = path.extension(file.path).toLowerCase();
-      const int targetLimit = 250 * 1024; // 250 KB
+      const int targetLimit = 250 * 1024;
 
-      // Show Loading Dialog with Progress Percentage
       Get.dialog(
         Obx(() {
           final progress = Get.find<StudentRecordController>().uploadProgress.value;
@@ -1928,20 +1788,17 @@ class _ConcessionsTab extends StatelessWidget {
         if (['.jpg', '.jpeg', '.png'].contains(extension)) {
           if (await file.length() > targetLimit) {
             final Directory tempDir = await getTemporaryDirectory();
-            // FIX: Ensure targetPath is different from file.path
             final String targetPath = path.join(
-                tempDir.path,
-                "compressed_${DateTime.now().millisecondsSinceEpoch}.jpg"
+              tempDir.path,
+              "compressed_${DateTime.now().millisecondsSinceEpoch}.jpg",
             );
-
             XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
               file.absolute.path,
               targetPath,
-              quality: 50, // High compression for 250KB limit
+              quality: 50,
               minWidth: 1024,
               minHeight: 1024,
             );
-
             if (compressedXFile != null) {
               file = File(compressedXFile.path);
             }
@@ -1953,11 +1810,10 @@ class _ConcessionsTab extends StatelessWidget {
           file: file,
         );
 
-        Get.back(); // Close Loading Dialog
+        Get.back();
         if (success) onSuccess();
-
       } catch (e) {
-        if (e is DioException && e.response?.statusCode == 413 ){
+        if (e is DioException && e.response?.statusCode == 413) {
           Get.back();
           Get.snackbar('Error', 'File size exceeds the limit of 250KB');
         } else {
@@ -1968,6 +1824,8 @@ class _ConcessionsTab extends StatelessWidget {
     }
   }
 }
+
+// ─── Apply Concession Form ───────────────────────────────────────────────────
 
 class ApplyConcessionForm extends StatefulWidget {
   final String schoolId;
@@ -1987,648 +1845,265 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
   Section? selectedSection;
   Student? selectedStudent;
   String concessionType = 'percentage';
-  String newOld = 'new'; // Add newOld variable
+  String newOld = 'new';
   final concessionValueController = TextEditingController();
   final remarkController = TextEditingController();
   File? proofFile;
   bool isSubmitting = false;
+
+  // Compact input decoration shared across all fields
+  InputDecoration _inputDecor(String label, IconData icon, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      border: InputBorder.none,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 13),
+      hintStyle: TextStyle(color: AppTheme.mutedText, fontSize: 13),
+      prefixIcon: Padding(
+        padding: const EdgeInsets.only(left: 10, right: 6),
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: _kPrimary,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon, color: Colors.white, size: 14),
+        ),
+      ),
+      prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+    );
+  }
+
+  BoxDecoration _fieldBox() => BoxDecoration(
+    color: Colors.grey.shade50,
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: Colors.grey.shade200, width: 1.5),
+  );
 
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
     final screenHeight = MediaQuery.of(context).size.height;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final availableHeight = screenHeight - keyboardHeight - 150; // Leave padding for dialog
-    
+    final availableHeight = screenHeight - keyboardHeight - 150;
+
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: availableHeight > 400 ? availableHeight : 400,
         maxWidth: isTablet ? 600 : double.infinity,
       ),
       child: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: keyboardHeight > 0 ? 20 : 0),
+        padding: EdgeInsets.only(bottom: keyboardHeight > 0 ? 16 : 0),
         child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      gradient: AppTheme.successGradient,
-                      borderRadius: BorderRadius.circular(12),
+                      color: _kPrimary,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.local_offer, color: Colors.white, size: 24),
+                    child: const Icon(Icons.local_offer, color: Colors.white, size: 16),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Text(
                     'Apply Concession',
                     style: TextStyle(
-                      fontSize: isTablet ? 24 : 20,
+                      fontSize: isTablet ? 17 : 14,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryText,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // Class
               Obx(() {
                 final isClassesLoading = schoolController.isLoading.value;
                 return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.grey.shade50, Colors.white],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                  decoration: _fieldBox(),
                   child: isClassesLoading
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                          child: Row(
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.only(right: 12),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.primaryGradient,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.class_, color: Colors.white, size: 16),
-                              ),
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Loading classes...',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: AppTheme.mutedText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
+                      ? _loadingRow('Loading classes...')
                       : DropdownButtonFormField<SchoolClass>(
-                          decoration: InputDecoration(
-                            labelText: 'Select Class',
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                            labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-                            prefixIcon: Container(
-                              margin: const EdgeInsets.only(left: 12, right: 8),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.class_, color: Colors.white, size: 16),
-                            ),
-                          ),
-                          value: selectedClass,
-                          items: schoolController.classes.map((cls) {
-                            return DropdownMenuItem(
-                              value: cls,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      gradient: AppTheme.primaryGradient,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    cls.name,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.primaryText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (cls) {
-                            setState(() {
-                              selectedClass = cls;
-                              selectedSection = null;
-                              selectedStudent = null;
-                            });
-                            if (cls != null) {
-                              
-                              schoolController.getAllSections(classId: cls.id, schoolId: widget.schoolId);
-                            }
-                          },
-                          validator: (value) => value == null ? 'Please select a class' : null,
-                        ),
+                    decoration: _inputDecor('Select Class', Icons.class_),
+                    value: selectedClass,
+                    items: schoolController.classes.map((cls) {
+                      return DropdownMenuItem(value: cls, child: Text(cls.name, style: const TextStyle(fontSize: 13)));
+                    }).toList(),
+                    onChanged: (cls) {
+                      setState(() { selectedClass = cls; selectedSection = null; selectedStudent = null; });
+                      if (cls != null) {
+                        schoolController.getAllSections(classId: cls.id, schoolId: widget.schoolId);
+                      }
+                    },
+                    validator: (v) => v == null ? 'Please select a class' : null,
+                  ),
                 );
               }),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Section
               Obx(() {
                 final isSectionsLoading = schoolController.isLoading.value && selectedClass != null;
                 return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.grey.shade50, Colors.white],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                  decoration: _fieldBox(),
                   child: isSectionsLoading
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                          child: Row(
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.only(right: 12),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.warningGradient,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.group, color: Colors.white, size: 16),
-                              ),
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Loading sections...',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: AppTheme.mutedText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
+                      ? _loadingRow('Loading sections...')
                       : DropdownButtonFormField<Section>(
-                          decoration: InputDecoration(
-                            labelText: schoolController.sections.isEmpty && selectedClass != null
-                                ? 'No sections found'
-                                : 'Select Section',
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                            labelStyle: TextStyle(
-                              color: schoolController.sections.isEmpty && selectedClass != null
-                                  ? AppTheme.errorRed
-                                  : AppTheme.mutedText,
-                              fontSize: 16
-                            ),
-                            prefixIcon: Container(
-                              margin: const EdgeInsets.only(left: 12, right: 8),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: schoolController.sections.isEmpty && selectedClass != null
-                                    ? AppTheme.errorGradient
-                                    : AppTheme.warningGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                schoolController.sections.isEmpty && selectedClass != null
-                                    ? Icons.warning
-                                    : Icons.group,
-                                color: Colors.white,
-                                size: 16
-                              ),
-                            ),
-                          ),
-                          value: selectedSection,
-                          items: schoolController.sections.isEmpty
-                              ? []
-                              : schoolController.sections.map((section) {
-                                  return DropdownMenuItem(
-                                    value: section,
-                                    child: Text(section.name),
-                                  );
-                                }).toList(),
-                          onChanged: selectedClass == null || schoolController.sections.isEmpty ? null : (section) {
-                            setState(() {
-                              selectedSection = section;
-                              selectedStudent = null;
-                            });
-                            if (selectedClass != null && section != null) {
-                              
-                              schoolController.getAllStudents(
-                                schoolId: widget.schoolId,
-                                classId: selectedClass!.id,
-                                sectionId: section.id
-                              );
-                            }
-                          },
-                          validator: (value) => value == null ? 'Please select a section' : null,
-                        ),
+                    decoration: _inputDecor(
+                      schoolController.sections.isEmpty && selectedClass != null
+                          ? 'No sections found'
+                          : 'Select Section',
+                      schoolController.sections.isEmpty && selectedClass != null
+                          ? Icons.warning
+                          : Icons.group,
+                    ),
+                    value: selectedSection,
+                    items: schoolController.sections.isEmpty
+                        ? []
+                        : schoolController.sections.map((s) {
+                      return DropdownMenuItem(value: s, child: Text(s.name, style: const TextStyle(fontSize: 13)));
+                    }).toList(),
+                    onChanged: selectedClass == null || schoolController.sections.isEmpty ? null : (section) {
+                      setState(() { selectedSection = section; selectedStudent = null; });
+                      if (selectedClass != null && section != null) {
+                        schoolController.getAllStudents(
+                          schoolId: widget.schoolId,
+                          classId: selectedClass!.id,
+                          sectionId: section.id,
+                        );
+                      }
+                    },
+                    validator: (v) => v == null ? 'Please select a section' : null,
+                  ),
                 );
               }),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Student
               Obx(() {
                 final isStudentsLoading = schoolController.isLoading.value && selectedSection != null;
                 return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.grey.shade50, Colors.white],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                  decoration: _fieldBox(),
                   child: isStudentsLoading
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                          child: Row(
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.only(right: 12),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.successGradient,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.person, color: Colors.white, size: 16),
-                              ),
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Loading students...',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: AppTheme.mutedText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
+                      ? _loadingRow('Loading students...')
                       : DropdownButtonFormField<Student>(
-                          decoration: InputDecoration(
-                            labelText: 'Select Student',
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                            labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-                            prefixIcon: Container(
-                              margin: const EdgeInsets.only(left: 12, right: 8),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.successGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.person, color: Colors.white, size: 16),
-                            ),
-                          ),
-                          value: selectedStudent,
-                          items: schoolController.students.map((student) {
-                            return DropdownMenuItem(
-                              value: student,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      gradient: AppTheme.successGradient,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    student.name ?? 'Unknown Student',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.primaryText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (student) => setState(() => selectedStudent = student),
-                          validator: (value) => value == null ? 'Please select a student' : null,
-                        ),
+                    decoration: _inputDecor('Select Student', Icons.person),
+                    value: selectedStudent,
+                    items: schoolController.students.map((student) {
+                      return DropdownMenuItem(
+                        value: student,
+                        child: Text(student.name ?? 'Unknown Student', style: const TextStyle(fontSize: 13)),
+                      );
+                    }).toList(),
+                    onChanged: (s) => setState(() => selectedStudent = s),
+                    validator: (v) => v == null ? 'Please select a student' : null,
+                  ),
                 );
               }),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Concession Type
               Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                decoration: _fieldBox(),
                 child: DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: 'Concession Type',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.only(left: 12, right: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.warningGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.local_offer, color: Colors.white, size: 16),
-                    ),
-                  ),
+                  decoration: _inputDecor('Concession Type', Icons.local_offer),
                   value: concessionType,
                   items: ['percentage', 'amount'].map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              gradient: type == 'percentage' ? AppTheme.warningGradient : AppTheme.successGradient,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            type.toUpperCase(),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.primaryText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return DropdownMenuItem(value: type, child: Text(type.toUpperCase(), style: const TextStyle(fontSize: 13)));
                   }).toList(),
-                  onChanged: (value) => setState(() => concessionType = value!),
+                  onChanged: (v) => setState(() => concessionType = v!),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Student Type
               Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                decoration: _fieldBox(),
                 child: DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: 'Student Type',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.only(left: 12, right: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.person_outline, color: Colors.white, size: 16),
-                    ),
-                  ),
+                  decoration: _inputDecor('Student Type', Icons.person_outline),
                   value: newOld,
                   items: ['new', 'old'].map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              gradient: type == 'new' ? AppTheme.successGradient : AppTheme.primaryGradient,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            type.toUpperCase(),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.primaryText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return DropdownMenuItem(value: type, child: Text(type.toUpperCase(), style: const TextStyle(fontSize: 13)));
                   }).toList(),
-                  onChanged: (value) => setState(() => newOld = value!),
-                  validator: (value) => value == null ? 'Please select student type' : null,
+                  onChanged: (v) => setState(() => newOld = v!),
+                  validator: (v) => v == null ? 'Please select student type' : null,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Concession Value
               Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                decoration: _fieldBox(),
                 child: TextFormField(
                   controller: concessionValueController,
-                  decoration: InputDecoration(
-                    labelText: 'Concession Value',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.only(left: 12, right: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.calculate, color: Colors.white, size: 16),
-                    ),
-                  ),
+                  decoration: _inputDecor('Concession Value', Icons.calculate),
                   keyboardType: TextInputType.number,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.primaryText,
-                  ),
-                  validator: (value) => value == null || value.isEmpty ? 'Please enter a value' : null,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  validator: (v) => v == null || v.isEmpty ? 'Please enter a value' : null,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Remarks
               Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                decoration: _fieldBox(),
                 child: TextFormField(
                   controller: remarkController,
-                  decoration: InputDecoration(
-                    labelText: 'Remarks',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    labelStyle: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-                    prefixIcon: Container(
-                      margin: const EdgeInsets.only(left: 12, right: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.warningGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.note_add, color: Colors.white, size: 16),
-                    ),
-                  ),
-                  maxLines: 3,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.primaryText,
-                  ),
-                  validator: (value) => value == null || value.isEmpty ? 'Please enter remarks' : null,
+                  decoration: _inputDecor('Remarks', Icons.note_add),
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  validator: (v) => v == null || v.isEmpty ? 'Please enter remarks' : null,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              // Upload Proof
               Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
+                decoration: _fieldBox(),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: _pickProof,
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.upload_file, color: Colors.white, size: 20),
+                            width: 28, height: 28,
+                            decoration: BoxDecoration(color: _kPrimary, borderRadius: BorderRadius.circular(7)),
+                            child: const Icon(Icons.upload_file, color: Colors.white, size: 14),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Upload Proof',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.primaryText,
-                                  ),
-                                ),
+                                Text('Upload Proof',
+                                    style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primaryText, fontSize: 13)),
                                 if (proofFile != null)
-                                  Text(
-                                    'Selected: ${path.basename(proofFile!.path)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.successGreen,
-                                    ),
-                                  )
+                                  Text('Selected: ${path.basename(proofFile!.path)}',
+                                      style: TextStyle(fontSize: 10, color: AppTheme.successGreen))
                                 else
-                                  Text(
-                                    'Tap to select document',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.mutedText,
-                                    ),
-                                  ),
+                                  Text('Tap to select document',
+                                      style: TextStyle(fontSize: 10, color: AppTheme.mutedText)),
                               ],
                             ),
                           ),
                           Icon(
                             proofFile != null ? Icons.check_circle : Icons.add_circle_outline,
                             color: proofFile != null ? AppTheme.successGreen : AppTheme.mutedText,
+                            size: 18,
                           ),
                         ],
                       ),
@@ -2636,81 +2111,42 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // Actions
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
                       onPressed: () => Get.back(),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                           side: BorderSide(color: Colors.grey.shade300),
                         ),
                       ),
-                      child: const Text('Cancel'),
+                      child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryBlue.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                    child: ElevatedButton(
+                      onPressed: isSubmitting ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _kPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
                       ),
-                      child: ElevatedButton(
-                        onPressed: isSubmitting ? null : _submitForm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: isSubmitting
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Flexible(
-                                    child: Text(
-                                      'Applying...',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : const Text(
-                                'Apply Concession',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                        ),
-                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                          : const Text('Apply',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                    ),
                   ),
                 ],
               ),
@@ -2721,36 +2157,40 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
     );
   }
 
+  Widget _loadingRow(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 14, height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: _kPrimary),
+          ),
+          const SizedBox(width: 10),
+          Text(text, style: TextStyle(fontSize: 13, color: AppTheme.mutedText)),
+        ],
+      ),
+    );
+  }
+
   void _pickProof() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
     );
-
     if (result != null) {
-      setState(() {
-        proofFile = File(result.files.single.path!);
-      });
+      setState(() { proofFile = File(result.files.single.path!); });
     }
   }
 
   void _submitForm() async {
-    // Check if proof file is uploaded
     if (proofFile == null) {
-      Get.snackbar(
-        'Proof Required',
-        'Please upload a proof document before applying concession',
-        backgroundColor: AppTheme.warningYellow,
-        colorText: Colors.black,
-      );
+      Get.snackbar('Proof Required', 'Please upload a proof document before applying concession',
+          backgroundColor: AppTheme.warningYellow, colorText: Colors.black);
       return;
     }
-
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        isSubmitting = true;
-      });
-
+      setState(() { isSubmitting = true; });
       try {
         final success = await recordController.applyConcession(
           schoolId: widget.schoolId,
@@ -2764,16 +2204,9 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
           proofFile: proofFile,
           newOld: newOld,
         );
-
-        if(success) {
-          widget.onSuccess();
-        }
+        if (success) widget.onSuccess();
       } finally {
-        if (mounted) {
-          setState(() {
-            isSubmitting = false;
-          });
-        }
+        if (mounted) setState(() { isSubmitting = false; });
       }
     }
   }

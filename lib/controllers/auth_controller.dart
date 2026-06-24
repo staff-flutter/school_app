@@ -18,6 +18,7 @@ import 'package:school_app/routes/app_routes.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/my_children_controller.dart';
 
+import '../screens/create_student_profile_page.dart';
 import '../services/user_session.dart';
 import 'announcement_controller.dart';
 
@@ -31,6 +32,9 @@ class AuthController extends GetxController {
   final userSchool = Rxn<Map<String, dynamic>>();
   bool _isNavigating = false;
 
+
+  String? get schoolId => user.value?.schoolId;
+  String? get role     => user.value?.role;
   @override
   void onInit() {
     super.onInit();

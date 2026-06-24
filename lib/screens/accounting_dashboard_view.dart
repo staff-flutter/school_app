@@ -6,15 +6,22 @@ import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'dart:math' as math;
 
-class AccountingDashboardView extends StatefulWidget {
-  const AccountingDashboardView({super.key});
+import '../controllers/school_controller.dart';
+
+class AccountingDashboardView2 extends StatefulWidget {
+  const AccountingDashboardView2({super.key});
 
   @override
-  State<AccountingDashboardView> createState() => _AccountingDashboardViewState();
+  State<AccountingDashboardView2> createState() => _AccountingDashboardViewState();
 }
 
-class _AccountingDashboardViewState extends State<AccountingDashboardView> with TickerProviderStateMixin {
-  final AuthController _authController = Get.find<AuthController>();
+class _AccountingDashboardViewState extends State<AccountingDashboardView2> with TickerProviderStateMixin {
+  SchoolController? get _school {
+    if (Get.isRegistered<SchoolController>()) {
+      return Get.find<SchoolController>();
+    }
+    return null;
+  }  final AuthController _authController = Get.find<AuthController>();
   final FinanceLedgerController _financeController = Get.find<FinanceLedgerController>();
   final AccountingController _accountingController = Get.find<AccountingController>();
 
@@ -41,6 +48,21 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> with 
 
   void _loadFinanceStats() {
     final userRole = _authController.user.value?.role.toLowerCase() ?? '';
+
+    // Load school data for non-correspondent roles
+    if (userRole != 'correspondent') {
+      final schoolId = _authController.user.value?.schoolId;
+      if (schoolId != null && _school != null) {
+        _school!.getAllSchools().then((_) {
+          if (_school!.selectedSchool.value == null &&
+              _school!.schools.isNotEmpty) {
+            _school!.selectedSchool.value = _school!.schools
+                .firstWhereOrNull((s) => s.id == schoolId);
+          }
+        });
+      }
+    }
+
     if (userRole == 'correspondent' || userRole == 'accountant') {
       final schoolId = _authController.user.value?.schoolId;
       if (schoolId != null) {
@@ -266,57 +288,64 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView> with 
   }
 
 
-Widget _buildInlineHeader() {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFFDDE6F5).withOpacity(0.5),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        _buildSchoolLogo(),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Obx(() {
-                final school = _authController.userSchool.value;
-                final schoolName = school?['name'] ?? 'School';
-                return Text(
-                  schoolName,
-                  style: const TextStyle(
-                    color: Color(0xFF1A2A3A),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                );
-              }),
-              Text(
-                'Welcome, ${_authController.user.value?.userName ?? 'User'}',
-                style: const TextStyle(
-                  color: Color(0xFF90A4BE),
-                  fontSize: 11,
-                ),
-              ),
-            ],
+  Widget _buildInlineHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFDDE6F5).withOpacity(0.5),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Obx(() {
+                  final role = _authController.user.value?.role?.toLowerCase() ?? '';
 
+                  // For all roles: try SchoolController first, fall back to user.schoolName
+                  String schoolName = '';
+                  if (_school != null) {
+                    schoolName = _school!.selectedSchool.value?.name ?? '';
+                  }
+                  // Fallback for non-correspondent if SchoolController hasn't loaded yet
+                  if (schoolName.isEmpty) {
+                    schoolName = _authController.user.value?.schoolName ?? '';
+                  }
+
+                  return Text(
+                    schoolName,
+                    style: const TextStyle(
+                      color: Color(0xFF1A2A3A),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }),                Text(
+                  'Welcome, ${_authController.user.value?.userName ?? 'User'}',
+                  style: const TextStyle(
+                    color: Color(0xFF90A4BE),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 Widget _buildFinanceStatsSection() {
   final userRole = _authController.user.value?.role.toLowerCase() ?? '';
   if (userRole != 'correspondent' && userRole != 'accountant') {

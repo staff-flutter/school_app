@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
@@ -27,11 +28,11 @@ class _ParentProfileState extends State<ParentProfile> {
   final session = Get.find<UserSession>();
 
 
-  final storage = const FlutterSecureStorage();
+ // final storage = const FlutterSecureStorage();
 
  // 1. THE LOGIN FUNCTION
   Future<void> loginAndGetToken() async {
-    final url = Uri.parse('https://bmbbackend.com/api/user/login');
+    final url = Uri.parse('${ApiConstants.baseUrl}/api/user/login');
 
     try {
       final response = await http.post(
@@ -76,10 +77,12 @@ class _ParentProfileState extends State<ParentProfile> {
     //String?  userId =prefs.getString('parentId');
 
   //  final String? token = session.token;
-    final String? token = await storage.read(key: 'user_token');
-    final String? userId = await storage.read(key: 'parentId');
+   // final String? token = await storage.read(key: 'user_token');
+  //  final String? userId = await storage.read(key: 'parentId');
 
-
+    final auth = Get.find<AuthController>();
+    final String? token = auth.storage.read('token');
+    final String? userId = auth.user.value?.id;
 
 
     // If no token, try to login first
@@ -157,8 +160,9 @@ print('userid:$userId');
     final controller = Get.find<MyChildrenController>();
 
 
+    final school = Get.find<AuthController>().userSchool.value;
 
-    final session = Get.find<UserSession>();
+    //final session = Get.find<UserSession>();
     String rawData = session.schoolSocialPlatform ?? "";
     String cleaned = rawData.replaceAll('{', '').replaceAll('}', '');
     List<String> pairs = cleaned.split(',');
@@ -347,9 +351,15 @@ print('userid:$userId');
                           title: "Personal Information",
                           icon: Icons.info_outline,
                           children: [
-                            InfoRow( title:"Email", icon:Icons.email,data:session.parentEmail),
-                            InfoRow(title:"Mobile Number" ,icon: Icons.phone,data:session.parentPhoneNo),
-
+                            //InfoRow( title:"Email", icon:Icons.email,data:session.parentEmail),
+                           // InfoRow(title:"Mobile Number" ,icon: Icons.phone,data:session.parentPhoneNo),
+                            Builder(builder: (context) {
+                              final user = Get.find<AuthController>().user.value;
+                              return Column(children: [
+                                InfoRow(title: "Email", icon: Icons.email, data: user?.email),
+                                InfoRow(title: "Mobile Number", icon: Icons.phone, data: user?.phoneNo),
+                              ]);
+                            }),
                           ],
                         ),
 
@@ -361,9 +371,9 @@ print('userid:$userId');
                           title: "School Information",
                           icon: Icons.description_outlined,
                           children: [
-                            InfoRow( title:"School Name", icon: Icons.apartment,data:session.schoolName),
-                            InfoRow( title:"Address", icon: Icons.location_on,data:session.schoolAddress),
-                            InfoRow( title:"Contact Email", icon: Icons.email,data:session.schoolEmail),
+                            InfoRow(title: "School Name", icon: Icons.apartment, data: school?['name']),
+                            InfoRow(title: "Address", icon: Icons.location_on, data: school?['address']),
+                            InfoRow(title: "Contact Email", icon: Icons.email, data: school?['email']),
                             //InfoRow( title:"Social Media", icon: Icons.share,data:session.schoolSocialPlatform),
                             buildSocialMediaRow(socialMap),
 
@@ -438,33 +448,53 @@ print('userid:$userId');
     );
   }
   Future<void> _handleLogout() async {
-    // Show a confirmation dialog
     Get.dialog(
       AlertDialog(
         title: const Text("Logout"),
         content: const Text("Are you sure you want to exit?"),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text("Cancel"),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
-              await storage.delete(key: 'user_token');
-              await storage.delete(key: 'parentId');
-
-              // final prefs = await SharedPreferences.getInstance();
-              // await prefs.clear(); // Clears all saved tokens/data
-              Get.offAllNamed('/login'); // Redirect to login and clear stack
+              Get.back();
+              Get.find<AuthController>().logout(); // handles everything already
             },
+            // async {
+            //   Get.back(); // close dialog first
+            //
+            //   // 1. Clear FlutterSecureStorage (parent-specific keys)
+            //  // await storage.delete(key: 'user_token');
+            //  // await storage.delete(key: 'parentId');
+            //
+            //   // 2. Clear UserSession — THIS was missing, causing stale token
+            //   if (Get.isRegistered<UserSession>()) {
+            //     final userSession = Get.find<UserSession>();
+            //     userSession.token = null;
+            //     userSession.schoolId = null;
+            //     userSession.role = null;
+            //     userSession.update();
+            //   }
+            //
+            //   // 3. Clear AuthController — THIS was missing
+            //   if (Get.isRegistered<AuthController>()) {
+            //     final auth = Get.find<AuthController>();
+            //     auth.user.value = null;
+            //     // also wipe GetStorage so checkAuthStatus() doesn't restore parent
+            //     auth.storage.remove('token');
+            //     auth.storage.remove('user');
+            //     auth.storage.remove('userSchool');
+            //   }
+            //
+            //   Get.offAllNamed('/login');
+            // },
+
             child: const Text("Logout", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-  }
-  Widget buildGradientSection({
+  }  Widget buildGradientSection({
     required String title,
     required IconData icon,
     required List<Widget> children,

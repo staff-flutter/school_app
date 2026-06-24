@@ -2,73 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:school_app/controllers/academics_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
+import 'package:school_app/controllers/school_controller.dart';
 
-class AcademicsView extends StatefulWidget{
-  AcademicsView({super.key});
+class AcademicsView extends StatefulWidget {
+  const AcademicsView({super.key});
+
   @override
   State<AcademicsView> createState() => _AcademicsViewState();
 }
+
 class _AcademicsViewState extends State<AcademicsView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late AcademicsController controller;
+  late SchoolController schoolController;
 
   @override
   void initState() {
     super.initState();
-    print('🔵 AcademicsView initState called');
+    // 1. TabController first — needs vsync ready
     _tabController = TabController(length: 4, vsync: this);
-    print('🔵 TabController created');
 
-    // Defer controller access to after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller = Get.find<AcademicsController>();
-    });
+    // 2. Lazily register AcademicsController if not already done
+    if (!Get.isRegistered<AcademicsController>()) {
+      Get.put(AcademicsController());
+    }
+    if (!Get.isRegistered<SchoolController>()) {
+      Get.put(SchoolController());
+    }
+    controller = Get.find<AcademicsController>();
+
+    // 3. SchoolController must already be registered by the sidebar
+    schoolController = Get.find<SchoolController>();
   }
 
   @override
   void dispose() {
-    print('🔴 AcademicsView dispose called');
-
     _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Block access for accountant role
-    // if (!RolePermissions.canAccessModule('classes')) {
-    //   return Scaffold(
-    //     appBar: AppBar(title: const Text('Access Denied')),
-    //     body: const Center(
-    //       child: Column(
-    //         mainAxisAlignment: MainAxisAlignment.center,
-    //         children: [
-    //           Icon(Icons.block, size: 64, color: Colors.red),
-    //           SizedBox(height: 16),
-    //           Text('You do not have permission to access this module.'),
-    //         ],
-    //       ),
-    //     ),
-    //   );
-    // }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Academics'),
-        bottom:  TabBar(
+        bottom: TabBar(
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           controller: _tabController,
-          // Font size for the SELECTED tab
           labelStyle: const TextStyle(
             fontSize: 12.0,
             fontWeight: FontWeight.bold,
           ),
-          // Font size for the UNSELECTED tabs
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12.0,
-          ),
-          tabs: [
+          unselectedLabelStyle: const TextStyle(fontSize: 12.0),
+          tabs: const [
             Tab(text: 'Subjects', icon: Icon(Icons.book)),
             Tab(text: 'Timetable', icon: Icon(Icons.schedule)),
             Tab(text: 'Exams', icon: Icon(Icons.quiz)),
@@ -88,28 +76,41 @@ class _AcademicsViewState extends State<AcademicsView>
     );
   }
 
+  // ── Subjects Tab ────────────────────────────────────────────────────────────
+
   Widget _buildSubjectsTab(BuildContext context) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'Subjects',
-                  style: TextStyle(fontSize: 17)
-
-                  //Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              SizedBox(
-                width: 140,
-                child: ElevatedButton.icon(
-                  onPressed: ()=>_showAddSubjectDialog(context) ,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Subject',style: TextStyle(fontSize: 10),),
-                ),
+              Obx(() {
+                final school = schoolController.selectedSchool.value;
+                return Text(
+                  school?.name ?? 'No school selected',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                );
+              }),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('Subjects', style: TextStyle(fontSize: 17)),
+                  ),
+                  SizedBox(
+                    width: 140,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showAddSubjectDialog(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text(
+                        'Add Subject',
+                        style: TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -119,7 +120,6 @@ class _AcademicsViewState extends State<AcademicsView>
             if (controller.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
-
             if (controller.subjects.isEmpty) {
               return const Center(
                 child: Column(
@@ -129,64 +129,64 @@ class _AcademicsViewState extends State<AcademicsView>
                     SizedBox(height: 16),
                     Text('No subjects found'),
                     SizedBox(height: 8),
-                    Text('Add subjects to get started', style: TextStyle(color: Colors.grey)),
+                    Text(
+                      'Add subjects to get started',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   ],
                 ),
               );
             }
-
             return ListView.builder(
-            itemCount: controller.subjects.length,
-            itemBuilder: (context, index) {
-              final subject = controller.subjects[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+              itemCount: controller.subjects.length,
+              itemBuilder: (context, index) {
+                final subject = controller.subjects[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 4),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.book, color: AppTheme.primaryBlue),
                     ),
-                    child: Icon(Icons.book, color: AppTheme.primaryBlue),
-                  ),
-                  title: Text(subject.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Code: ${subject.code}'),
-                      Text('Teacher: ${subject.teacher}'),
-                      Text('Class: ${subject.className}-${subject.section}'),
-                    ],
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'edit':
+                    title: Text(subject.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Code: ${subject.code}'),
+                        Text('Teacher: ${subject.teacher}'),
+                        Text('Class: ${subject.className}-${subject.section}'),
+                      ],
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
                           _showEditSubjectDialog(context, subject);
-                          break;
-                        case 'delete':
+                        } else if (value == 'delete') {
                           _showDeleteSubjectConfirmation(context, subject);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      // if (RolePermissions.canEdit('class'))
-                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      // if (RolePermissions.canDelete('class'))
-                        const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                    ],
-                  ) ,
-                  isThreeLine: true,
-                ),
-              );
-            },
-          );
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                    isThreeLine: true,
+                  ),
+                );
+              },
+            );
           }),
         ),
       ],
     );
   }
+
+  // ── Timetable Tab ───────────────────────────────────────────────────────────
 
   Widget _buildTimetableTab(BuildContext context) {
     return Padding(
@@ -194,39 +194,52 @@ class _AcademicsViewState extends State<AcademicsView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Class 10-A Timetable',
-            style: TextStyle(fontSize: 17)
-            //Theme.of(context).textTheme.headlineMedium,
-          ),
+          Obx(() {
+            final school = schoolController.selectedSchool.value;
+            return Text(
+              school != null ? '${school.name} — Timetable' : 'Timetable',
+              style: const TextStyle(fontSize: 12,color: Colors.grey,),
+            );
+          }),
           const SizedBox(height: 16),
           Expanded(
             child: Obx(() {
-              final groupedTimetable = <String, List<TimetableEntry>>{};
-              for (var entry in controller.timetable) {
-                if (!groupedTimetable.containsKey(entry.day)) {
-                  groupedTimetable[entry.day] = [];
-                }
-                groupedTimetable[entry.day]!.add(entry);
+              if (controller.timetable.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.schedule, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No timetable found'),
+                    ],
+                  ),
+                );
               }
-
+              final grouped = <String, List<TimetableEntry>>{};
+              for (final entry in controller.timetable) {
+                grouped.putIfAbsent(entry.day, () => []).add(entry);
+              }
               return ListView.builder(
-                itemCount: groupedTimetable.keys.length,
+                itemCount: grouped.keys.length,
                 itemBuilder: (context, index) {
-                  final day = groupedTimetable.keys.elementAt(index);
-                  final entries = groupedTimetable[day]!;
-
+                  final day = grouped.keys.elementAt(index);
+                  final entries = grouped[day]!;
                   return Card(
                     child: ExpansionTile(
-                      title: Text(day, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      children: entries.map((entry) => ListTile(
+                      title: Text(day,
+                          style:
+                          const TextStyle(fontWeight: FontWeight.bold)),
+                      children: entries
+                          .map((e) => ListTile(
                         leading: CircleAvatar(
                           backgroundColor: AppTheme.primaryBlue,
-                          child: Text(entry.period),
+                          child: Text(e.period),
                         ),
-                        title: Text(entry.subject),
-                        subtitle: Text('${entry.time} | ${entry.teacher}'),
-                      )).toList(),
+                        title: Text(e.subject),
+                        subtitle: Text('${e.time} | ${e.teacher}'),
+                      ))
+                          .toList(),
                     ),
                   );
                 },
@@ -238,24 +251,39 @@ class _AcademicsViewState extends State<AcademicsView>
     );
   }
 
+  // ── Exams Tab ───────────────────────────────────────────────────────────────
+
   Widget _buildExamsTab(BuildContext context) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'Scheduled Exams',
-                  style: TextStyle(fontSize: 17)
-                  //Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddExamDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Schedule Exam',style: TextStyle(fontSize: 10),),
+              Obx(() {
+                final school = schoolController.selectedSchool.value;
+                return Text(
+                  school?.name ?? 'No school selected',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                );
+              }),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('Scheduled Exams',
+                        style: TextStyle(fontSize: 17)),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddExamDialog(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text(
+                      'Schedule Exam',
+                      style: TextStyle(fontSize: 10),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -265,7 +293,6 @@ class _AcademicsViewState extends State<AcademicsView>
             if (controller.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
-
             if (controller.exams.isEmpty) {
               return const Center(
                 child: Column(
@@ -275,62 +302,64 @@ class _AcademicsViewState extends State<AcademicsView>
                     SizedBox(height: 16),
                     Text('No exams scheduled'),
                     SizedBox(height: 8),
-                    Text('Schedule exams to get started', style: TextStyle(color: Colors.grey)),
+                    Text('Schedule exams to get started',
+                        style: TextStyle(color: Colors.grey)),
                   ],
                 ),
               );
             }
-
             return ListView.builder(
-            itemCount: controller.exams.length,
-            itemBuilder: (context, index) {
-              final exam = controller.exams[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.mathOrange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+              itemCount: controller.exams.length,
+              itemBuilder: (context, index) {
+                final exam = controller.exams[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 4),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.mathOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.quiz, color: AppTheme.mathOrange),
                     ),
-                    child: Icon(Icons.quiz, color: AppTheme.mathOrange),
-                  ),
-                  title: Text(exam.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Subject: ${exam.subject}'),
-                      Text('Date: ${exam.date} at ${exam.time}'),
-                      Text('Duration: ${exam.duration} | Marks: ${exam.totalMarks}'),
-                      Text('Class: ${exam.className}-${exam.section}'),
-                    ],
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'edit':
+                    title: Text(exam.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Subject: ${exam.subject}'),
+                        Text('Date: ${exam.date} at ${exam.time}'),
+                        Text(
+                            'Duration: ${exam.duration} | Marks: ${exam.totalMarks}'),
+                        Text('Class: ${exam.className}-${exam.section}'),
+                      ],
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
                           _showEditExamDialog(context, exam);
-                          break;
-                        case 'delete':
+                        } else if (value == 'delete') {
                           _showDeleteExamConfirmation(context, exam);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                    ],
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                    isThreeLine: true,
                   ),
-                  isThreeLine: true,
-                ),
-              );
-            },
-          );}),
+                );
+              },
+            );
+          }),
         ),
       ],
     );
   }
+
+  // ── Results Tab ─────────────────────────────────────────────────────────────
 
   Widget _buildResultsTab(BuildContext context) {
     return Padding(
@@ -338,59 +367,76 @@ class _AcademicsViewState extends State<AcademicsView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Exam Results',
-            style: TextStyle(fontSize: 17)
-            //Theme.of(context).textTheme.headlineMedium,
-          ),
+          const Text('Exam Results', style: TextStyle(fontSize: 17)),
           const SizedBox(height: 16),
           Expanded(
-            child: Obx(() => ListView.builder(
-              itemCount: controller.results.length,
-              itemBuilder: (context, index) {
-                final result = controller.results[index];
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: _getGradeColor(result.grade),
-                      child: Text(
-                        result.grade,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    title: Text(result.studentName),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Subject: ${result.subject}'),
-                        Text('Marks: ${result.marksObtained}/${result.totalMarks}'),
-                        Text('Percentage: ${result.percentage.toStringAsFixed(1)}%'),
-                      ],
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _getGradeColor(result.grade).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        result.grade,
-                        style: TextStyle(
-                          color: _getGradeColor(result.grade),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    isThreeLine: true,
+            child: Obx(() {
+              if (controller.results.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.grade, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No results found'),
+                    ],
                   ),
                 );
-              },
-            )),
+              }
+              return ListView.builder(
+                itemCount: controller.results.length,
+                itemBuilder: (context, index) {
+                  final result = controller.results[index];
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _getGradeColor(result.grade),
+                        child: Text(
+                          result.grade,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(result.studentName),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Subject: ${result.subject}'),
+                          Text(
+                              'Marks: ${result.marksObtained}/${result.totalMarks}'),
+                          Text(
+                              'Percentage: ${result.percentage.toStringAsFixed(1)}%'),
+                        ],
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _getGradeColor(result.grade).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          result.grade,
+                          style: TextStyle(
+                            color: _getGradeColor(result.grade),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      isThreeLine: true,
+                    ),
+                  );
+                },
+              );
+            }),
           ),
         ],
       ),
     );
   }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
 
   Color _getGradeColor(String grade) {
     switch (grade) {
@@ -408,20 +454,20 @@ class _AcademicsViewState extends State<AcademicsView>
     }
   }
 
-  void _showAddSubjectDialog(BuildContext context) {
-    _showSubjectForm(context, null);
-  }
+  // ── Subject Dialogs ─────────────────────────────────────────────────────────
 
-  void _showEditSubjectDialog(BuildContext context, Subject subject) {
-    _showSubjectForm(context, subject);
-  }
+  void _showAddSubjectDialog(BuildContext context) =>
+      _showSubjectForm(context, null);
+
+  void _showEditSubjectDialog(BuildContext context, Subject subject) =>
+      _showSubjectForm(context, subject);
 
   void _showSubjectForm(BuildContext context, Subject? subject) {
-    final nameController = TextEditingController(text: subject?.name ?? '');
-    final codeController = TextEditingController(text: subject?.code ?? '');
-    final teacherController = TextEditingController(text: subject?.teacher ?? '');
-    String selectedClass = subject?.className ?? '10';
-    String selectedSection = subject?.section ?? 'A';
+    final nameCtrl = TextEditingController(text: subject?.name ?? '');
+    final codeCtrl = TextEditingController(text: subject?.code ?? '');
+    final teacherCtrl = TextEditingController(text: subject?.teacher ?? '');
+    final selectedClassId = (subject?.className ?? '').obs;
+    final selectedSection = (subject?.section ?? 'A').obs;
 
     Get.dialog(
       AlertDialog(
@@ -431,42 +477,65 @@ class _AcademicsViewState extends State<AcademicsView>
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: nameController,
+                controller: nameCtrl,
                 decoration: const InputDecoration(labelText: 'Subject Name'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: codeController,
+                controller: codeCtrl,
                 decoration: const InputDecoration(labelText: 'Subject Code'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: teacherController,
+                controller: teacherCtrl,
                 decoration: const InputDecoration(labelText: 'Teacher Name'),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedClass,
-                      decoration: const InputDecoration(labelText: 'Class'),
-                      items: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-                          .map((cls) => DropdownMenuItem(value: cls, child: Text('Class $cls')))
-                          .toList(),
-                      onChanged: (value) => selectedClass = value!,
-                    ),
+                    child: Obx(() {
+                      final classes = schoolController.classes;
+                      if (classes.isNotEmpty &&
+                          !classes.any((c) => c.id == selectedClassId.value)) {
+                        selectedClassId.value = classes.first.id;
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: classes.any(
+                                (c) => c.id == selectedClassId.value)
+                            ? selectedClassId.value
+                            : null,
+                        decoration:
+                        const InputDecoration(labelText: 'Class'),
+                        hint: const Text('Select Class'),
+                        items: classes
+                            .map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name),
+                        ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) selectedClassId.value = v;
+                        },
+                      );
+                    }),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedSection,
-                      decoration: const InputDecoration(labelText: 'Section'),
+                    child: Obx(() => DropdownButtonFormField<String>(
+                      value: selectedSection.value,
+                      decoration:
+                      const InputDecoration(labelText: 'Section'),
                       items: ['A', 'B', 'C', 'D']
-                          .map((section) => DropdownMenuItem(value: section, child: Text('Section $section')))
+                          .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text('Section $s'),
+                      ))
                           .toList(),
-                      onChanged: (value) => selectedSection = value!,
-                    ),
+                      onChanged: (v) {
+                        if (v != null) selectedSection.value = v;
+                      },
+                    )),
                   ),
                 ],
               ),
@@ -475,20 +544,18 @@ class _AcademicsViewState extends State<AcademicsView>
         ),
         actions: [
           TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final newSubject = Subject(
-                id: subject?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-                name: nameController.text,
-                code: codeController.text,
-                teacher: teacherController.text,
-                className: selectedClass,
-                section: selectedSection,
+                id: subject?.id ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                name: nameCtrl.text,
+                code: codeCtrl.text,
+                teacher: teacherCtrl.text,
+                className: selectedClassId.value,
+                section: selectedSection.value,
               );
-
               if (subject == null) {
                 controller.addSubject(newSubject);
               } else {
@@ -504,45 +571,41 @@ class _AcademicsViewState extends State<AcademicsView>
   }
 
   void _showDeleteSubjectConfirmation(BuildContext context, Subject subject) {
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Delete Subject'),
-        content: Text('Are you sure you want to delete ${subject.name}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              controller.deleteSubject(subject.id);
-              Get.back();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
+    Get.dialog(AlertDialog(
+      title: const Text('Delete Subject'),
+      content: Text('Are you sure you want to delete ${subject.name}?'),
+      actions: [
+        TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            controller.deleteSubject(subject.id);
+            Get.back();
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          child: const Text('Delete'),
+        ),
+      ],
+    ));
   }
 
-  void _showAddExamDialog(BuildContext context) {
-    _showExamForm(context, null);
-  }
+  // ── Exam Dialogs ────────────────────────────────────────────────────────────
 
-  void _showEditExamDialog(BuildContext context, Exam exam) {
-    _showExamForm(context, exam);
-  }
+  void _showAddExamDialog(BuildContext context) =>
+      _showExamForm(context, null);
+
+  void _showEditExamDialog(BuildContext context, Exam exam) =>
+      _showExamForm(context, exam);
 
   void _showExamForm(BuildContext context, Exam? exam) {
-    final nameController = TextEditingController(text: exam?.name ?? '');
-    final subjectController = TextEditingController(text: exam?.subject ?? '');
-    final dateController = TextEditingController(text: exam?.date ?? '');
-    final timeController = TextEditingController(text: exam?.time ?? '');
-    final durationController = TextEditingController(text: exam?.duration ?? '');
-    final marksController = TextEditingController(text: exam?.totalMarks.toString() ?? '');
-    String selectedClass = exam?.className ?? '10';
-    String selectedSection = exam?.section ?? 'A';
+    final nameCtrl = TextEditingController(text: exam?.name ?? '');
+    final subjectCtrl = TextEditingController(text: exam?.subject ?? '');
+    final dateCtrl = TextEditingController(text: exam?.date ?? '');
+    final timeCtrl = TextEditingController(text: exam?.time ?? '');
+    final durationCtrl = TextEditingController(text: exam?.duration ?? '');
+    final marksCtrl =
+    TextEditingController(text: exam?.totalMarks.toString() ?? '');
+    final selectedClassId = (exam?.className ?? '').obs;
+    final selectedSection = (exam?.section ?? 'A').obs;
 
     Get.dialog(
       AlertDialog(
@@ -552,32 +615,33 @@ class _AcademicsViewState extends State<AcademicsView>
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: nameController,
+                controller: nameCtrl,
                 decoration: const InputDecoration(labelText: 'Exam Name'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: subjectController,
+                controller: subjectCtrl,
                 decoration: const InputDecoration(labelText: 'Subject'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: dateController,
-                decoration: const InputDecoration(labelText: 'Date (YYYY-MM-DD)'),
+                controller: dateCtrl,
+                decoration:
+                const InputDecoration(labelText: 'Date (YYYY-MM-DD)'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: timeController,
+                controller: timeCtrl,
                 decoration: const InputDecoration(labelText: 'Time'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: durationController,
+                controller: durationCtrl,
                 decoration: const InputDecoration(labelText: 'Duration'),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: marksController,
+                controller: marksCtrl,
                 decoration: const InputDecoration(labelText: 'Total Marks'),
                 keyboardType: TextInputType.number,
               ),
@@ -585,25 +649,48 @@ class _AcademicsViewState extends State<AcademicsView>
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedClass,
-                      decoration: const InputDecoration(labelText: 'Class'),
-                      items: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-                          .map((cls) => DropdownMenuItem(value: cls, child: Text('Class $cls')))
-                          .toList(),
-                      onChanged: (value) => selectedClass = value!,
-                    ),
+                    child: Obx(() {
+                      final classes = schoolController.classes;
+                      if (classes.isNotEmpty &&
+                          !classes.any((c) => c.id == selectedClassId.value)) {
+                        selectedClassId.value = classes.first.id;
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: classes.any(
+                                (c) => c.id == selectedClassId.value)
+                            ? selectedClassId.value
+                            : null,
+                        decoration:
+                        const InputDecoration(labelText: 'Class'),
+                        hint: const Text('Select Class'),
+                        items: classes
+                            .map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name),
+                        ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) selectedClassId.value = v;
+                        },
+                      );
+                    }),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedSection,
-                      decoration: const InputDecoration(labelText: 'Section'),
+                    child: Obx(() => DropdownButtonFormField<String>(
+                      value: selectedSection.value,
+                      decoration:
+                      const InputDecoration(labelText: 'Section'),
                       items: ['A', 'B', 'C', 'D']
-                          .map((section) => DropdownMenuItem(value: section, child: Text('Section $section')))
+                          .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text('Section $s'),
+                      ))
                           .toList(),
-                      onChanged: (value) => selectedSection = value!,
-                    ),
+                      onChanged: (v) {
+                        if (v != null) selectedSection.value = v;
+                      },
+                    )),
                   ),
                 ],
               ),
@@ -612,23 +699,21 @@ class _AcademicsViewState extends State<AcademicsView>
         ),
         actions: [
           TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final newExam = Exam(
-                id: exam?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-                name: nameController.text,
-                subject: subjectController.text,
-                date: dateController.text,
-                time: timeController.text,
-                duration: durationController.text,
-                totalMarks: int.tryParse(marksController.text) ?? 100,
-                className: selectedClass,
-                section: selectedSection,
+                id: exam?.id ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                name: nameCtrl.text,
+                subject: subjectCtrl.text,
+                date: dateCtrl.text,
+                time: timeCtrl.text,
+                duration: durationCtrl.text,
+                totalMarks: int.tryParse(marksCtrl.text) ?? 100,
+                className: selectedClassId.value,
+                section: selectedSection.value,
               );
-
               if (exam == null) {
                 controller.addExam(newExam);
               } else {
@@ -644,25 +729,20 @@ class _AcademicsViewState extends State<AcademicsView>
   }
 
   void _showDeleteExamConfirmation(BuildContext context, Exam exam) {
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Delete Exam'),
-        content: Text('Are you sure you want to delete ${exam.name}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              controller.deleteExam(exam.id);
-              Get.back();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
+    Get.dialog(AlertDialog(
+      title: const Text('Delete Exam'),
+      content: Text('Are you sure you want to delete ${exam.name}?'),
+      actions: [
+        TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            controller.deleteExam(exam.id);
+            Get.back();
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          child: const Text('Delete'),
+        ),
+      ],
+    ));
   }
 }

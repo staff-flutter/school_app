@@ -74,7 +74,9 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
-    _fetchRequests();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchRequests();
+    });
   }
 
   @override
@@ -309,14 +311,17 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
   }
 
   void _snack(String msg, Color color) {
-    Get.snackbar('', msg,
-        titleText: const SizedBox.shrink(),
-        messageText: Text(msg, style: const TextStyle(color: Colors.white)),
-        backgroundColor: color,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(12),
-        borderRadius: 12,
-        duration: const Duration(seconds: 3));
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      Get.snackbar('', msg,
+          titleText: const SizedBox.shrink(),
+          messageText: Text(msg, style: const TextStyle(color: Colors.white)),
+          backgroundColor: color,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(12),
+          borderRadius: 12,
+          duration: const Duration(seconds: 3));
+    });
   }
 
   // ─── Build ───────────────────────────────────────────────────────

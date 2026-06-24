@@ -205,7 +205,7 @@ class AccountingController extends GetxController {
         MapEntry('paidHeads', '{}'), // Empty JSON object
         MapEntry('referenceNumber', additionalData?['referenceNumber'] ?? ''),
         MapEntry('remarks', additionalData?['remarks'] ?? ''),
-        MapEntry('isBusApplicable', (additionalData?['isBusApplicable'] ?? false).toString()),
+        //MapEntry('isBusApplicable', (additionalData?['isBusApplicable'] ?? false).toString()),
         MapEntry('busPoint', additionalData?['busPoint'] ?? ''),
       ]);
 
@@ -248,7 +248,7 @@ class AccountingController extends GetxController {
         cashDenominations.clear();
         selectedFiles.clear();
         // Refresh the page or navigate back
-        Navigator.pop(Get.context!);
+       // Navigator.pop(Get.context!);
       } else {
         
         Get.snackbar('Error', response.data['message'] ?? 'Fee collection failed',backgroundColor: Colors.red,colorText: Colors.white);
@@ -369,7 +369,7 @@ class AccountingController extends GetxController {
         Get.snackbar('Success', response.data['message'] ?? 'Expense added successfully',
           backgroundColor: Colors.green, colorText: Colors.white);
         loadExpenses(); // Refresh the expenses list
-        Navigator.pop(Get.context!); // Return to previous screen
+        //Navigator.pop(Get.context!); // Return to previous screen
       } else {
         Get.snackbar('Error', response.data['message'] ?? 'Failed to add expense',
           backgroundColor: Colors.red, colorText: Colors.white);
@@ -460,10 +460,11 @@ class AccountingController extends GetxController {
       isLoading.value = true;
 
       final response = await _apiService.get(
-        '/api/studentrecord/getrecord/$schoolId/$studentId',
+        '/api/studentrecord/v1/getrecord/$schoolId/$studentId',
       );
 
       if (response.data != null && response.data['ok'] == true) {
+        print(response.data);
         return response.data['data'];
       }
       return null;
@@ -854,10 +855,10 @@ class AccountingController extends GetxController {
     try {
 
       // Test get all student records
-      final allRecords = await _apiService.get('/api/studentrecord/getall?schoolId=$schoolId');
+      final allRecords = await _apiService.get('/api/studentrecord/v1/getall?schoolId=$schoolId');
 
       // Test get student record with receipts
-      final recordWithReceipts = await _apiService.get('/api/studentrecord/getrecord/$schoolId/$studentId');
+      final recordWithReceipts = await _apiService.get('/api/studentrecord/v1/getrecord/$schoolId/$studentId');
 
       // Test get dues
       final dues = await _apiService.get('/api/studentrecord/getdues?schoolId=$schoolId&studentId=$studentId');

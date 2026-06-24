@@ -3,38 +3,104 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MODEL
+// ─────────────────────────────────────────────────────────────────────────────
 
-// --------------------------------------------- MODEL CLASS MATCHING JSON -----------------------------------
-
-
-class FeeStructureModel {
+class FeeRecord {
   final String id;
-  final String type; // "new" or "old"
-  final int totalAmount;
-  final Map<String, dynamic> feeHead;
+  final String studentName;
+  final String studentImage;
 
-  FeeStructureModel({
+  final Map<String, int> feeStructure;
+  final Map<String, int> feePaid;
+  final Map<String, int> dues;
+  final ConcessionModel concession;
+
+  FeeRecord({
     required this.id,
-    required this.type,
-    required this.totalAmount,
-    required this.feeHead,
+    required this.studentName,
+    required this.studentImage,
+    required this.feeStructure,
+    required this.feePaid,
+    required this.dues,
+    required this.concession,
   });
 
-  factory FeeStructureModel.fromJson(Map<String, dynamic> json) {
-    return FeeStructureModel(
+  factory FeeRecord.fromJson(Map<String, dynamic> json) {
+    Map<String, int> _toIntMap(Map<String, dynamic>? raw) {
+      if (raw == null) return {};
+      return raw.map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
+    }
+
+    final student = json['studentId'] as Map<String, dynamic>? ?? {};
+    final imgObj = student['studentImage'] as Map<String, dynamic>? ?? {};
+
+    // Prefer the v1 custom-fee-head maps (where dynamic fee heads like
+    // "Lab Fee"/"Sports Fee" actually live); fall back to the legacy
+    // static-field maps for any older records that predate this.
+    final feeStructureRaw = (json['feeStructurev1'] as Map<String, dynamic>?)
+        ?? (json['feeStructure'] as Map<String, dynamic>?);
+    final feePaidRaw = (json['feePaidv1'] as Map<String, dynamic>?)
+        ?? (json['feePaid'] as Map<String, dynamic>?);
+    final duesRaw = (json['duesv1'] as Map<String, dynamic>?)
+        ?? (json['dues'] as Map<String, dynamic>?);
+
+    return FeeRecord(
       id: json['_id'] ?? '',
-      type: json['type'] ?? 'Unknown',
-      totalAmount: (json['totalAmount'] as num?)?.toInt() ?? 0,
-      feeHead: json['feeHead'] ?? {},
+      studentName: student['studentName'] ?? 'Student',
+      studentImage: imgObj['url'] ?? '',
+      feeStructure: _toIntMap(feeStructureRaw),
+      feePaid: _toIntMap(feePaidRaw),
+      dues: _toIntMap(duesRaw),
+      concession: ConcessionModel.fromJson(
+          json['concession'] as Map<String, dynamic>? ?? {}),
+    );
+  }
+
+  int get totalFeeStructure => feeStructure.values.fold(0, (a, b) => a + b);
+  int get totalPaid => feePaid.values.fold(0, (a, b) => a + b);
+  int get totalDues => dues.values.fold(0, (a, b) => a + b);
+}
+
+class ConcessionModel {
+  final bool isApplied;
+  final String type; // "percentage" | "fixed"
+  final num value;
+  final int inAmount;
+  final String proofUrl;
+  final String approvedBy;
+
+  ConcessionModel({
+    required this.isApplied,
+    required this.type,
+    required this.value,
+    required this.inAmount,
+    required this.proofUrl,
+    required this.approvedBy,
+  });
+
+  factory ConcessionModel.fromJson(Map<String, dynamic> json) {
+    final proof = json['proof'] as Map<String, dynamic>? ?? {};
+    return ConcessionModel(
+      isApplied: json['isApplied'] ?? false,
+      type: json['type'] ?? 'percentage',
+      value: (json['value'] as num?) ?? 0,
+      inAmount: (json['inAmount'] as num?)?.toInt() ?? 0,
+      proofUrl: proof['url'] ?? '',
+      approvedBy: json['approvedBy']?.toString() ?? 'Pending',
     );
   }
 }
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE
+// ─────────────────────────────────────────────────────────────────────────────
 
 class FeeDetailsFirstPage extends StatefulWidget {
   const FeeDetailsFirstPage({super.key});
@@ -43,13 +109,12 @@ class FeeDetailsFirstPage extends StatefulWidget {
   State<FeeDetailsFirstPage> createState() => _FeeDetailsFirstPageState();
 }
 
-class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage> with SingleTickerProviderStateMixin {
-  final session = Get.find<UserSession>();
-  final PageController _pageController = PageController();
-  int _currentPageIndex = 0;
-  late Future<List<FeeStructureModel>> _feeFuture;
-
-  final List<String> _feeNames = ['School Fee', 'Exam Fee', 'Activity Fee', 'Tuition Fee', 'Other'];
+class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
+    with SingleTickerProviderStateMixin {
+ // final session = Get.find<UserSession>();
+  final auth_ctrl = Get.find<AuthController>();
+  late TabController _tabController;
+  late Future<FeeRecord?> _feeFuture;
 
   static const LinearGradient appGradient = LinearGradient(
     colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
@@ -57,195 +122,216 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage> with SingleTi
     end: Alignment.bottomRight,
   );
 
+  static const Color _blue = Color(0xff4A90E2);
+
+  final List<_TabMeta> _tabs = const [
+    _TabMeta(icon: Icons.receipt_long_outlined, label: 'Fee Structure'),
+    _TabMeta(icon: Icons.warning_amber_rounded, label: 'Dues'),
+    _TabMeta(icon: Icons.check_circle_outline_rounded, label: 'Paid'),
+    _TabMeta(icon: Icons.card_giftcard_rounded, label: 'Concession'),
+  ];
+
   @override
   void initState() {
     super.initState();
-    // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    //   statusBarColor: Colors.black, // transparent so AppBar image shows through
-    //   statusBarIconBrightness: Brightness.light, // dark icons (visible on light bg)
-    //   // or Brightness.light if your header image is dark
-    // ));
-    _feeFuture = fetchFeeDetails();
-    _pageController.addListener(() {
-      int next = (_pageController.page ?? 0).round();
-      if (_currentPageIndex != next) setState(() => _currentPageIndex = next);
-    });
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _feeFuture = _fetchFeeRecord();
   }
 
-  Future<List<FeeStructureModel>> fetchFeeDetails() async {
-    String baseUrl = ApiConstants.baseUrl;
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
+  Future<FeeRecord?> _fetchFeeRecord() async {
     final controller = Get.find<MyChildrenController>();
-    final String token = session.token ?? '';
-    final String schoolId = session.schoolId ?? '';
-    final String classId = controller.selectedChild['classId'] ?? '';
+    final String token = auth_ctrl.storage.read('token');
+    final String schoolId = auth_ctrl.user.value?.schoolId;
+    final String studentId = controller.selectedChild['_id'] ?? '';
 
-    final queryParameters = {
-      "schoolId": schoolId,
-      "classId": classId,
-    };
-
-    final uri = Uri.parse('$baseUrl/api/feestructure/getbyclass').replace(queryParameters: queryParameters);
-    print('classId:$classId');
+    final uri = Uri.parse(
+        //'${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
+    '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/$schoolId/$studentId');
 
     try {
       final response = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
-
+      print('Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
-        print(response.body);
-        final decodedData = jsonDecode(response.body);
-        final List<dynamic> list = decodedData['data'] ?? [];
-        return list.map((item) => FeeStructureModel.fromJson(item)).toList();
+        print('Response Data: ${response.body}');
+        final body = jsonDecode(response.body);
+        final data = body['data'];
+        if (data != null) return FeeRecord.fromJson(data as Map<String, dynamic>);
       }
     } catch (e) {
       debugPrint("API Error: $e");
     }
-    print('error');
-    return [];
+    print('fetchrecord');
+    return null;
   }
 
-
-  // ------------------------------------------------- BUILD METHOD ----------------------------------------
-
+  // ──────────────────────────────────────────────────────────────────────────
+  // BUILD
+  // ──────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent, // match your blue gradient color
-          statusBarIconBrightness: Brightness.light, // white icons
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
           statusBarBrightness: Brightness.dark,
         ),
-        flexibleSpace: Container(decoration: const BoxDecoration(image: DecorationImage(image: AssetImage('assets/images/Scientific UI background design header.png'), fit: BoxFit.cover))),
-        backgroundColor: Colors.transparent,
-        title: const Text('Fee Details', style: TextStyle(color: Colors.white)),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.black), // Custom icon and color
-          onPressed: () => Navigator.of(context).pop(), // Don't forget this!
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withOpacity(0.8),      // Change Circle Color here
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(
+                  'assets/images/Scientific UI background design header.png'),
+              fit: BoxFit.cover,
+            ),
           ),
         ),
+        backgroundColor: Colors.transparent,
+        title: const Text('Fee Details',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+          style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.8)),
+        ),
         toolbarHeight: MediaQuery.sizeOf(context).height * 0.10,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopMenu(),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _feeNames.length,
-                itemBuilder: (context, index) {
-                  return FutureBuilder<List<FeeStructureModel>>(
-                    future: _feeFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("No fee data found"));
-
-
-         // --------------------------------- LIST VIEW BUILDER FOR FEE DETAILS ---------------------------------
-
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(15),
-                        itemCount: snapshot.data!.length,
-                        itemBuilder: (context, i) => Column(
-                          children: [
-                            FeeContainerTile(fee: snapshot.data![i]),
-                            FeeContainerTile(fee: snapshot.data![i]),
-
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+              BorderRadius.only(topRight: Radius.circular(28)),
             ),
-          ],
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorColor: _blue,
+              indicatorWeight: 3,
+              labelColor: _blue,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: const TextStyle(fontSize: 11),
+              tabs: _tabs
+                  .map((t) => Tab(
+                icon: Icon(t.icon, size: 18),
+                text: t.label,
+                iconMargin: const EdgeInsets.only(bottom: 2),
+              ))
+                  .toList(),
+            ),
+          ),
         ),
       ),
-    );
-  }
+      body: SafeArea(
+        child: FutureBuilder<FeeRecord?>(
+          future: _feeFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final record = snapshot.data;
+            if (record == null) {
+              return const Center(child: Text("No fee data found"));
+            }
 
-  Widget _buildTopMenu() {
-    return Container(
-      decoration: const BoxDecoration(gradient: appGradient),
-      child: Container(
-        padding: const EdgeInsets.only(top: 20),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topRight: Radius.circular(30))),
-        child: SizedBox(
-          height: 50,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _feeNames.length,
-            itemBuilder: (context, index) {
-              bool isSelected = _currentPageIndex == index;
-              return GestureDetector(
-                onTap: () => _pageController.animateToPage(index, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
+            return Column(
+              children: [
+                // ── Student summary strip ──────────────────────────────────
+                _StudentSummaryCard(record: record, gradient: appGradient),
+                // ── Tab views ─────────────────────────────────────────────
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
                     children: [
-                      Text(_feeNames[index], style: TextStyle(color: isSelected ? const Color(0xff4A90E2) : Colors.grey, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                      if (isSelected) Container(margin: const EdgeInsets.only(top: 4), height: 2, width: 30, color: const Color(0xff4A90E2)),
+                      _FeeStructureTab(record: record),
+                      _DuesTab(record: record),
+                      _PaidTab(record: record),
+                      _ConcessionTab(record: record),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-// --- TILE COMPONENT ---
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT SUMMARY STRIP
+// ─────────────────────────────────────────────────────────────────────────────
 
-class FeeContainerTile extends StatefulWidget {
-  final FeeStructureModel fee;
-  const FeeContainerTile({super.key, required this.fee});
-
-  @override
-  State<FeeContainerTile> createState() => _FeeContainerTileState();
-}
-
-class _FeeContainerTileState extends State<FeeContainerTile> {
-  bool _isExpanded = false;
+class _StudentSummaryCard extends StatelessWidget {
+  final FeeRecord record;
+  final LinearGradient gradient;
+  const _StudentSummaryCard(
+      {required this.record, required this.gradient});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      decoration: BoxDecoration(gradient: _FeeDetailsFirstPageState.appGradient, borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        // This removes the border when expanded
-        shape: const Border(),
-        // This ensures no border appears when collapsed
-        collapsedShape: const Border(),
-        onExpansionChanged: (val) => setState(() => _isExpanded = val),
-        title: Text('${widget.fee.type.toUpperCase()} ADMISSION', style: const TextStyle(color: Colors.white, fontSize: 8, letterSpacing: 1.1)),
-        subtitle: Text('₹ ${widget.fee.totalAmount}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        trailing: Icon(_isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          CircleAvatar(
+            radius: 26,
+            backgroundImage: record.studentImage.isNotEmpty
+                ? NetworkImage(record.studentImage)
+                : null,
+            backgroundColor: const Color(0xff4A90E2).withOpacity(0.15),
+            child: record.studentImage.isEmpty
+                ? const Icon(Icons.person, color: Color(0xff4A90E2))
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(record.studentName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 2),
+                Text('Academic Year Fee Summary',
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontSize: 12)),
+              ],
+            ),
+          ),
+          // Total outstanding badge
+          Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Divider(color: Colors.white24),
-                _row("Admission Fee", widget.fee.feeHead['admissionFee']),
-                _row("First Term Amount", widget.fee.feeHead['firstTermAmt']),
-                _row("Second Term Amount", widget.fee.feeHead['secondTermAmt']),
-                if ((widget.fee.feeHead['busFirstTermAmt'] ?? 0) > 0)
-                  _row("Bus Fee (T1)", widget.fee.feeHead['busFirstTermAmt']),
-                const Divider(color: Colors.white24),
-                _row("Total Payable", widget.fee.totalAmount, isBold: true),
+                const Text('Total Due',
+                    style:
+                    TextStyle(color: Colors.white70, fontSize: 10)),
+                Text('₹ ${record.totalDues}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14)),
               ],
             ),
           ),
@@ -253,17 +339,551 @@ class _FeeContainerTileState extends State<FeeContainerTile> {
       ),
     );
   }
+}
 
-  Widget _row(String label, dynamic value, {bool isBold = false}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 1 – FEE STRUCTURE
+// ─────────────────────────────────────────────────────────────────────────────
+class _FeeStructureTab extends StatelessWidget {
+  final FeeRecord record;
+  const _FeeStructureTab({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    return _TabScaffold(
+      headerColor: const Color(0xff4A90E2),
+      headerIcon: Icons.receipt_long_outlined,
+      headerTitle: 'Fee Structure',
+      headerSubtitle: 'Total: ₹ ${record.totalFeeStructure}',
+      child: _FeeTable(
+        rows: record.feeStructure.entries
+            .map((e) => _FeeRow(label: _prettify(e.key), amount: e.value))
+            .toList(),
+        totalLabel: 'Grand Total',
+        totalAmount: record.totalFeeStructure,
+        accentColor: const Color(0xff4A90E2),
+      ),
+    );
+  }
+
+  // Optional: keep friendly labels for legacy keys, fall back to raw name for custom heads
+  String _prettify(String key) {
+    const legacyLabels = {
+      'admissionFee': 'Admission Fee',
+      'firstTermAmt': 'Term 1 Fee',
+      'secondTermAmt': 'Term 2 Fee',
+      'busFirstTermAmt': 'Bus Fee (Term 1)',
+      'busSecondTermAmt': 'Bus Fee (Term 2)',
+    };
+    return legacyLabels[key] ?? key; // custom fee head names show as-is
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 2 – DUES
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+class _DuesTab extends StatelessWidget {
+  final FeeRecord record;
+  const _DuesTab({required this.record});
+
+  // Legacy keys still get a friendly label; custom fee heads show their
+  // own name as-is (no filtering against a fixed key set anymore).
+  static const _legacyLabels = {
+    'admissionDues': 'Admission Dues',
+    'firstTermDues': 'Term 1 Dues',
+    'secondTermDues': 'Term 2 Dues',
+    'busfirstTermDues': 'Bus Dues (Term 1)',
+    'busSecondTermDues': 'Bus Dues (Term 2)',
+  };
+
+  String _prettify(String key) => _legacyLabels[key] ?? key;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TabScaffold(
+      headerColor: const Color(0xffE25F4A),
+      headerIcon: Icons.warning_amber_rounded,
+      headerTitle: 'Outstanding Dues',
+      headerSubtitle: 'Pending: ₹ ${record.totalDues}',
+      child: _FeeTable(
+        rows: record.dues.entries
+            .map((e) => _FeeRow(label: _prettify(e.key), amount: e.value))
+            .toList(),
+        totalLabel: 'Total Dues',
+        totalAmount: record.totalDues,
+        accentColor: const Color(0xffE25F4A),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 3 – PAID
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaidTab extends StatelessWidget {
+  final FeeRecord record;
+  const _PaidTab({required this.record});
+
+  static const _legacyLabels = {
+    'admissionFee': 'Admission Fee',
+    'firstTermAmt': 'Term 1 Fee',
+    'secondTermAmt': 'Term 2 Fee',
+    'busFirstTermAmt': 'Bus Fee (Term 1)',
+    'busSecondTermAmt': 'Bus Fee (Term 2)',
+  };
+
+  String _prettify(String key) => _legacyLabels[key] ?? key;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TabScaffold(
+      headerColor: const Color(0xff27AE60),
+      headerIcon: Icons.check_circle_outline_rounded,
+      headerTitle: 'Amount Paid',
+      headerSubtitle: 'Paid: ₹ ${record.totalPaid}',
+      child: _FeeTable(
+        rows: record.feePaid.entries
+            .map((e) => _FeeRow(label: _prettify(e.key), amount: e.value))
+            .toList(),
+        totalLabel: 'Total Paid',
+        totalAmount: record.totalPaid,
+        accentColor: const Color(0xff27AE60),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 4 – CONCESSION
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ConcessionTab extends StatelessWidget {
+  final FeeRecord record;
+  const _ConcessionTab({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = record.concession;
+    final discountLabel =
+    c.type == 'percentage' ? '${c.value}%' : '₹ ${c.value}';
+
+    return _TabScaffold(
+      headerColor: const Color(0xff8E44AD),
+      headerIcon: Icons.card_giftcard_rounded,
+      headerTitle: 'Concession',
+      headerSubtitle: c.isApplied ? 'Applied · $discountLabel off' : 'Not Applied',
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status chip
+            _InfoChip(
+              label: c.isApplied ? 'Concession Applied' : 'Not Applied',
+              color: c.isApplied
+                  ? const Color(0xff27AE60)
+                  : Colors.grey.shade400,
+              icon: c.isApplied
+                  ? Icons.check_circle
+                  : Icons.cancel_outlined,
+            ),
+            const SizedBox(height: 20),
+
+            _ConcessionDetailCard(
+              rows: [
+                _DetailRow(label: 'Type', value: c.type.capitalize ?? c.type),
+                _DetailRow(
+                    label: 'Discount',
+                    value: c.type == 'percentage'
+                        ? '${c.value}%'
+                        : '₹ ${c.value}'),
+                _DetailRow(
+                    label: 'Concession Amount', value: '₹ ${c.inAmount}'),
+                _DetailRow(
+                    label: 'Approved By',
+                    value: (c.approvedBy.isEmpty || c.approvedBy == 'null')
+                        ? 'Pending'
+                        : c.approvedBy),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            if (c.proofUrl.isNotEmpty) ...[
+              const Text('Proof Document',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xff8E44AD))),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _showFullScreenImage(context, c.proofUrl),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        c.proofUrl,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 100,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12)),
+                          child: const Text('Unable to load proof image'),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.zoom_out_map,
+                                color: Colors.white, size: 13),
+                            SizedBox(width: 4),
+                            Text('Tap to expand',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _showFullScreenImage(BuildContext context, String url) {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.black,
+      pageBuilder: (_, __, ___) => _FullScreenImageViewer(url: url),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+    ),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FULL SCREEN IMAGE VIEWER
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FullScreenImageViewer extends StatefulWidget {
+  final String url;
+  const _FullScreenImageViewer({required this.url});
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  final TransformationController _transformController =
+  TransformationController();
+
+  @override
+  void dispose() {
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _resetZoom() => _transformController.value = Matrix4.identity();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Proof Document',
+            style: TextStyle(color: Colors.white, fontSize: 15)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.zoom_out_map, color: Colors.white),
+            tooltip: 'Reset zoom',
+            onPressed: _resetZoom,
+          ),
+        ],
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          transformationController: _transformController,
+          minScale: 0.5,
+          maxScale: 5.0,
+          child: Image.network(
+            widget.url,
+            fit: BoxFit.contain,
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                      progress.expectedTotalBytes!
+                      : null,
+                  color: Colors.white,
+                ),
+              );
+            },
+            errorBuilder: (_, __, ___) => const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                SizedBox(height: 12),
+                Text('Unable to load image',
+                    style: TextStyle(color: Colors.white54)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Colored header card + scrollable body
+class _TabScaffold extends StatelessWidget {
+  final Color headerColor;
+  final IconData headerIcon;
+  final String headerTitle;
+  final String headerSubtitle;
+  final Widget child;
+
+  const _TabScaffold({
+    required this.headerColor,
+    required this.headerIcon,
+    required this.headerTitle,
+    required this.headerSubtitle,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Colored header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: headerColor.withOpacity(0.08),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: headerColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(headerIcon, color: headerColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(headerTitle,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: headerColor,
+                          fontSize: 15)),
+                  Text(headerSubtitle,
+                      style: TextStyle(
+                          color: headerColor.withOpacity(0.7),
+                          fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: SingleChildScrollView(child: child)),
+      ],
+    );
+  }
+}
+
+class _FeeRow {
+  final String label;
+  final int amount;
+  const _FeeRow({required this.label, required this.amount});
+}
+
+class _FeeTable extends StatelessWidget {
+  final List<_FeeRow> rows;
+  final String totalLabel;
+  final int totalAmount;
+  final Color accentColor;
+
+  const _FeeTable({
+    required this.rows,
+    required this.totalLabel,
+    required this.totalAmount,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4))
+          ],
+        ),
+        child: Column(
+          children: [
+            ...rows.map((r) => _buildRow(r.label, r.amount, false)),
+            const Divider(height: 1, thickness: 1),
+            _buildRow(totalLabel, totalAmount, true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(String label, int amount, bool isTotal) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: isTotal
+          ? BoxDecoration(
+        color: accentColor.withOpacity(0.06),
+        borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16)),
+      )
+          : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          Text('₹ $value', style: TextStyle(color: Colors.white, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, fontSize: isBold ? 16 : 14)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: isTotal ? 14 : 13,
+                  fontWeight:
+                  isTotal ? FontWeight.bold : FontWeight.normal,
+                  color: isTotal ? accentColor : Colors.black87)),
+          Text(
+            '₹ $amount',
+            style: TextStyle(
+                fontSize: isTotal ? 16 : 14,
+                fontWeight:
+                isTotal ? FontWeight.bold : FontWeight.w500,
+                color: isTotal ? accentColor : Colors.black87),
+          ),
         ],
       ),
     );
   }
+}
+
+class _ConcessionDetailCard extends StatelessWidget {
+  final List<_DetailRow> rows;
+  const _ConcessionDetailCard({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        children: rows
+            .map(
+              (r) => ListTile(
+            dense: true,
+            title: Text(r.label,
+                style: const TextStyle(
+                    color: Colors.grey, fontSize: 12)),
+            trailing: Text(r.value,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 14)),
+          ),
+        )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _DetailRow {
+  final String label;
+  final String value;
+  const _DetailRow({required this.label, required this.value});
+}
+
+class _InfoChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData icon;
+  const _InfoChip(
+      {required this.label, required this.color, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TabMeta {
+  final IconData icon;
+  final String label;
+  const _TabMeta({required this.icon, required this.label});
 }

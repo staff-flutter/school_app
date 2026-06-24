@@ -32,6 +32,7 @@ class FeeCollectionWidget extends StatelessWidget {
     final authController = Get.find<AuthController>();
     await controller.collectFee(
       schoolId: authController.user.value?.schoolId ?? '',
+      studentName: 'akshay',
       studentId: 'student123',
       classId: 'class456',
       sectionId: 'sectionA',

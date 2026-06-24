@@ -13,6 +13,7 @@ class ApiTestExamples {
   final String studentId = "69450a91db9ab895d44128d3";
   final String classId = "6942a94da9deee103814fba0";
   final String sectionId = "6943a30b65f72f3b5201c7a7";
+  final String studentName ="akshay";
 
   // ==================== STUDENT RECORD API TESTS ====================
 
@@ -33,8 +34,8 @@ class ApiTestExamples {
       remark: "Financial hardship concession",
       proofFile: proofFile,
       newOld: "new",
-      isBusApplicable: true,
-      busPoint: "Main Gate",
+      //isBusApplicable: true,
+     // busPoint: "Main Gate",
     );
 
   }
@@ -43,6 +44,7 @@ class ApiTestExamples {
   Future<void> testCollectFeeCashManual() async {
 
     final result = await _studentRecordController.collectFee(
+      studentName: studentName,
       schoolId: schoolId,
       studentId: studentId,
       classId: classId,
@@ -57,7 +59,7 @@ class ApiTestExamples {
         {"label": "500", "count": 10}
       ],
       remarks: "First term fee payment",
-      isBusApplicable: true,
+      //isBusApplicable: true,
     );
 
   }
@@ -66,6 +68,7 @@ class ApiTestExamples {
   Future<void> testCollectFeeChequeAuto() async {
 
     final result = await _studentRecordController.collectFee(
+      studentName: studentName,
       schoolId: schoolId,
       studentId: studentId,
       classId: classId,

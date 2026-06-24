@@ -320,3 +320,44 @@ class AppTheme {
     );
   }
 }
+
+
+abstract final class AppColors {
+  static const red = Color(0xFFF20D1B);
+  static const navy = Color(0xFF071B3D);
+  static const green = Color(0xFF18B96B);
+  static const blue = Color(0xFF2F80ED);
+  static const amber = Color(0xFFFFB000);
+  static const bg = Color(0xFFFFFFFF);
+  static const surface = Color(0xFFF7F9FC);
+  static const border = Color(0xFFE8ECF2);
+  static const muted = Color(0xFF66748A);
+}
+
+abstract final class AppTheme1 {
+  static ThemeData get light => ThemeData(
+    useMaterial3: true,
+    scaffoldBackgroundColor: AppColors.bg,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.red,
+      primary: AppColors.red,
+      brightness: Brightness.light,
+    ),
+    textTheme: const TextTheme(
+      headlineMedium: TextStyle(
+        color: AppColors.navy,
+        fontWeight: FontWeight.w800,
+        fontSize: 28,
+      ),
+      titleLarge: TextStyle(
+        color: AppColors.navy,
+        fontWeight: FontWeight.w800,
+        fontSize: 22,
+      ),
+      bodyLarge: TextStyle(
+        color: AppColors.muted,
+        height: 1.5,
+      ),
+    ),
+  );
+}

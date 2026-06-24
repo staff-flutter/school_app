@@ -148,7 +148,8 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
         preferredSize: const Size.fromHeight(70),
         child: Container(
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            color: Color(0xFF2563EB),
+            // gradient: AppTheme.primaryGradient,
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
@@ -275,62 +276,121 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
 
   // ─── Filter card ───────────────────────────────────────────────────────────
   Widget _buildFilterCard(BuildContext context, bool isTablet) {
-    final isLandscape = MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppTheme.cardGradient,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        boxShadow: [BoxShadow(
-            color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(8),
+    return Row(children: [
+      // Class chip
+      GestureDetector(
+        onTap: () => _showClassSheet(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: selectedClassId != null
+                ? const Color(0xFF2563EB).withOpacity(0.1)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: selectedClassId != null
+                  ? const Color(0xFF2563EB)
+                  : Colors.grey.shade300,
+              width: selectedClassId != null ? 1.5 : 1,
             ),
-            child: const Icon(Icons.filter_list, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Select Class & Section', style: TextStyle(
-                fontSize: isTablet ? 18 : 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryText)),
-            const SizedBox(height: 4),
-            Text('Choose your assigned class and section to view students',
-                style: TextStyle(fontSize: isTablet ? 14 : 12, color: AppTheme.mutedText)),
-          ])),
-        ]),
-        const SizedBox(height: 20),
-
-        // Class + Section selectors
-        isLandscape && isTablet
-            ? Row(children: [
-          Expanded(child: _buildClassSelector(context)),
-          const SizedBox(width: 16),
-          if (selectedClassId != null) Expanded(child: _buildSectionSelector(context)),
-        ])
-            : Column(children: [
-          _buildClassSelector(context),
-          if (selectedClassId != null) ...[
-            const SizedBox(height: 16),
-            _buildSectionSelector(context),
-            if (selectedSectionId != null) ...[
-              const SizedBox(height: 12),
-              _buildSectionInfoBanner(isTablet),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
             ],
-          ],
-        ]),
-      ]),
-    );
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.class_rounded,
+                size: 14,
+                color: selectedClassId != null
+                    ? const Color(0xFF2563EB)
+                    : Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              selectedClassId != null
+                  ? (schoolController.classes
+                  .firstWhereOrNull((c) => c.id == selectedClassId)
+                  ?.name ??
+                  'Class')
+                  : 'Select Class',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selectedClassId != null
+                    ? const Color(0xFF2563EB)
+                    : Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                size: 14,
+                color: selectedClassId != null
+                    ? const Color(0xFF2563EB)
+                    : Colors.grey.shade500),
+          ]),
+        ),
+      ),
+      const SizedBox(width: 8),
+      // Section chip
+      if (selectedClassId != null)
+        GestureDetector(
+          onTap: () => _showSectionSheet(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: selectedSectionId != null
+                  ? const Color(0xFF2563EB).withOpacity(0.1)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: selectedSectionId != null
+                    ? const Color(0xFF2563EB)
+                    : Colors.grey.shade300,
+                width: selectedSectionId != null ? 1.5 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.group_rounded,
+                  size: 14,
+                  color: selectedSectionId != null
+                      ? const Color(0xFF2563EB)
+                      : Colors.grey.shade500),
+              const SizedBox(width: 6),
+              Text(
+                selectedSectionId != null
+                    ? (sectionsForSelectedClass
+                    .firstWhereOrNull((s) => s['id'] == selectedSectionId)
+                ?['name'] ??
+                    'Section')
+                    : 'Select Section',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selectedSectionId != null
+                      ? const Color(0xFF2563EB)
+                      : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: selectedSectionId != null
+                      ? const Color(0xFF2563EB)
+                      : Colors.grey.shade500),
+            ]),
+          ),
+        ),
+    ]);
   }
-
   Widget _buildSectionInfoBanner(bool isTablet) {
     final selectedSection = sectionsForSelectedClass
         .firstWhereOrNull((s) => s['id'] == selectedSectionId);
@@ -361,17 +421,18 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        gradient: AppTheme.successGradient,
+        // gradient: AppTheme.successGradient,
+        color: Color(0xFF2563EB),
         borderRadius: BorderRadius.circular(AppTheme.radius),
       ),
       child: Row(children: [
         Icon(Icons.people_outline, color: Colors.white, size: isTablet ? 24 : 20),
         const SizedBox(width: 12),
         Expanded(child: Text('Students ($count)', style: TextStyle(
-            color: Colors.white, fontSize: isTablet ? 20 : 18, fontWeight: FontWeight.w600))),
+            color: Colors.white, fontSize: isTablet ? 20 : 14, fontWeight: FontWeight.w600))),
         IconButton(
           onPressed: _loadStudents,
-          icon: const Icon(Icons.refresh, color: Colors.white),
+          icon: const Icon(Icons.refresh, color: Colors.white,size: 18,),
           tooltip: 'Refresh',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -393,8 +454,8 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
-          width: isTablet ? 50 : 45,
-          height: isTablet ? 50 : 45,
+          width: isTablet ? 50 : 35,
+          height: isTablet ? 50 : 35,
           decoration: BoxDecoration(gradient: AppTheme.primaryGradient, shape: BoxShape.circle),
           child: Center(child: Text(
             student.rollNumber ?? student.name?.substring(0, 1).toUpperCase() ?? '?',
@@ -402,7 +463,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
           )),
         ),
         title: Text(student.name ?? 'Student', style: TextStyle(
-            fontSize: isTablet ? 16 : 15,
+            fontSize: isTablet ? 16 : 13,
             fontWeight: FontWeight.w600,
             color: AppTheme.primaryText)),
         subtitle: Text('Roll: ${student.rollNumber ?? 'N/A'}',
@@ -582,10 +643,11 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
         preferredSize: const Size.fromHeight(70),
         child: Container(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ),
+            // gradient: const LinearGradient(
+            //   colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+            //   begin: Alignment.topLeft, end: Alignment.bottomRight,
+            // ),
+            color: Color(0xFF2563EB),
             borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
@@ -621,10 +683,11 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
+              // gradient: LinearGradient(
+              //   colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+              //   begin: Alignment.topLeft, end: Alignment.bottomRight,
+              // ),
+              color: Color(0xFF2563EB),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.school_outlined, size: 48, color: Colors.white),
@@ -661,5 +724,200 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
       return 999;
     }
     return priority(a).compareTo(priority(b));
+  }
+
+  void _showClassSheet(BuildContext context) {
+    final classIds = teacherAssignments
+        .map((a) => _extractClassId(a['classId']))
+        .whereType<String>()
+        .toSet();
+
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Class',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A2A3A))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: Icon(Icons.close_rounded,
+                    color: Colors.grey.shade400, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: ListView(
+              shrinkWrap: true,
+              children: classIds.map((id) {
+                final cls = schoolController.classes
+                    .firstWhereOrNull((c) => c.id == id);
+                final name = cls?.name ?? 'Class';
+                final isSelected = selectedClassId == id;
+                return ListTile(
+                  leading: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF2563EB).withOpacity(0.1)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.class_rounded,
+                        size: 18,
+                        color: isSelected
+                            ? const Color(0xFF2563EB)
+                            : Colors.grey.shade500),
+                  ),
+                  title: Text(name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF1A2A3A),
+                      )),
+                  trailing: isSelected
+                      ? const Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF2563EB), size: 20)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      selectedClassId = id;
+                      selectedSectionId = null;
+                    });
+                    Get.back();
+                    // Auto-select first section
+                    if (sectionsForSelectedClass.isNotEmpty) {
+                      setState(() =>
+                      selectedSectionId =
+                      sectionsForSelectedClass.first['id']);
+                      _loadStudents();
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _showSectionSheet(BuildContext context) {
+    final sections = sectionsForSelectedClass;
+
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              const Text('Select Section',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A2A3A))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: Icon(Icons.close_rounded,
+                    color: Colors.grey.shade400, size: 22),
+              ),
+            ]),
+          ),
+          const Divider(height: 1),
+          if (sections.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text('No sections available',
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 13)),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: ListView(
+                shrinkWrap: true,
+                children: sections.map((sec) {
+                  final isSelected = selectedSectionId == sec['id'];
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF2563EB).withOpacity(0.1)
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.group_rounded,
+                          size: 18,
+                          color: isSelected
+                              ? const Color(0xFF2563EB)
+                              : Colors.grey.shade500),
+                    ),
+                    title: Text(sec['name']!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF1A2A3A),
+                        )),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                        color: Color(0xFF2563EB), size: 20)
+                        : null,
+                    onTap: () {
+                      setState(() => selectedSectionId = sec['id']);
+                      Get.back();
+                      _loadStudents();
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
   }
 }

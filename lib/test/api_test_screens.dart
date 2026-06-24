@@ -13,7 +13,9 @@ class FeeCollectionScreen extends StatefulWidget {
 class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
   final StudentRecordController controller = Get.put(StudentRecordController());
   final _formKey = GlobalKey<FormState>();
-  
+
+
+  final studentNameController = TextEditingController(text :"Aksay");
   final schoolIdController = TextEditingController(text: "6942923ab194c60dc810cc6b");
   final studentIdController = TextEditingController(text: "69450a91db9ab895d44128d3");
   final classIdController = TextEditingController(text: "6942a94da9deee103814fba0");
@@ -232,6 +234,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
     if (!_formKey.currentState!.validate()) return;
     
     await controller.collectFee(
+      studentName: studentNameController.text ,
       schoolId: schoolIdController.text,
       studentId: studentIdController.text,
       classId: classIdController.text,
@@ -244,7 +247,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
       referenceNumber: paymentMode == 'cheque' ? referenceController.text : null,
       bankName: paymentMode == 'cheque' ? bankController.text : null,
       chequeDate: paymentMode == 'cheque' ? chequeDateController.text : null,
-      isBusApplicable: isBusApplicable,
+     // isBusApplicable: isBusApplicable,
       remarks: remarksController.text,
     );
   }
