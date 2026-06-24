@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/auth_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../controllers/my_children_controller.dart';
@@ -224,15 +225,15 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String? _getToken() {
-    try { return Get.find<UserSession>().token; } catch (_) { return null; }
+    try { return Get.find<AuthController>().storage.read('token'); } catch (_) { return null; }
   }
 
   String? _getUserId() {
-    try { return Get.find<UserSession>().parentId; } catch (_) { return null; }
+    try { return Get.find<AuthController>().user.value?.id; } catch (_) { return null; }
   }
 
   String? _getSchoolId() {
-    try { return Get.find<UserSession>().schoolId; } catch (_) { return null; }
+    try { return Get.find<AuthController>().schoolId; } catch (_) { return null; }
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -565,6 +566,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final token  = _getToken();
     final userId = _getUserId();
+    final schoolid = _getSchoolId();
+       print('token:$token');
+       print('userId:$userId');
+       print('schoolid:$schoolid');
+
 
     if (token == null || userId == null) {
       setState(() => _savingFields.remove(label));

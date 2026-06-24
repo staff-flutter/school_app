@@ -4,12 +4,14 @@ import 'package:school_app/bindings/bill_admission_binding.dart';
 import 'package:school_app/bindings/marks_upload_binding.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_controller.dart';
+import 'package:school_app/screens/fee_set_up_view.dart';
 import '../bindings/feestructure_binding.dart';
 import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
 import '../screens/accounting_dashboard_with_api_integration.dart';
 import '../screens/admin_attendance.dart';
 import '../screens/admission_book.dart';
+import '../screens/admission_form_detail_view.dart';
 import '../screens/admission_forms.dart';
 import '../screens/bill_book_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
@@ -160,6 +162,12 @@ class AppPages {
       binding: BillAdmissionBinding(),
     ),
     GetPage(
+      name: AppRoutes.ADMISSION_FORM_DETAIL_VIEW,
+      page: () => RoleAwareWrapper(child: AdmissionFormDetailView(admissionFormId: '',)),
+      binding: BillAdmissionBinding(),
+    ),
+
+    GetPage(
       name: AppRoutes.ADMISSION_BOOK,
       page: () => RoleAwareWrapper(child: AdmissionBookSetupView()),
       binding: BillAdmissionBinding(),
@@ -185,6 +193,12 @@ class AppPages {
     GetPage(
       name: AppRoutes.FEE_STRUCTURE,
       page: () => RoleAwareWrapper(child: FeeStructureView()),
+      binding: AccountingBinding(),
+      middlewares: [RoleGuard()],
+    ),
+    GetPage(
+      name: AppRoutes.FEE_SETUP,
+      page: () => RoleAwareWrapper(child: FeeSetupView()),
       binding: AccountingBinding(),
       middlewares: [RoleGuard()],
     ),

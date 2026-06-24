@@ -167,22 +167,22 @@ class FeeStructureController extends GetxController {
         return false;
       }
 
-      final feeHeadNames = feeHeads
-          .map((h) => h['feeName']?.toString() ?? '')
-          .where((n) => n.isNotEmpty)
-          .toList();
-
-      debugPrint('🔵 ensureFeeConfig with names: $feeHeadNames');
-
-      if (feeHeadNames.isNotEmpty) {
-        final configOk = await ensureFeeConfig(
-          schoolId: schoolId,
-          feeHeads: feeHeadNames,
-          isActive: true,
-        );
-        debugPrint('🔵 ensureFeeConfig result: $configOk');
-        if (!configOk) return false;
-      }
+      // final feeHeadNames = feeHeads
+      //     .map((h) => h['feeName']?.toString() ?? '')
+      //     .where((n) => n.isNotEmpty)
+      //     .toList();
+      //
+      // debugPrint('🔵 ensureFeeConfig with names: $feeHeadNames');
+      //
+      // if (feeHeadNames.isNotEmpty) {
+      //   final configOk = await ensureFeeConfig(
+      //     schoolId: schoolId,
+      //     feeHeads: feeHeadNames,
+      //     isActive: true,
+      //   );
+      //   debugPrint('🔵 ensureFeeConfig result: $configOk');
+      //   if (!configOk) return false;
+      // }
 
       // Build feeHeads map — ensure amounts are doubles not strings
       final feeHeadsMap = <String, dynamic>{};
@@ -347,50 +347,50 @@ class FeeStructureController extends GetxController {
     }
   }
 
+// ══════════════════════════════════════════════════════════════
+  // FEE CONFIG (v1)  →  POST /api/fee-config/v1/set/:schoolId
   // ══════════════════════════════════════════════════════════════
-  // FEE CONFIG  →  POST /api/fee-config/set/:schoolId
-  // ══════════════════════════════════════════════════════════════
-  Future<bool> ensureFeeConfig({
+
+  /// Fetch the school's current fee-config head objects as-is
+  /// (each: { _id, feeHead, associatedTerm, isTerm }).
+  Future<List<Map<String, dynamic>>> getFeeConfigHeads(String schoolId) async {
+    try {
+      final response = await _apiService.get('/api/fee-config/get/$schoolId');
+      if (response.data != null && response.data['ok'] == true) {
+        debugPrint('📥 fee-config/get raw: ${response.data}');
+        final data = response.data['data'];
+        if (data != null && data['feeHeads'] is List) {
+          return List<Map<String, dynamic>>.from(data['feeHeads']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('⚠️ getFeeConfigHeads error: $e');
+      return [];
+    }
+  }
+
+  /// Create/update fee config using the new v1 (term-aware) endpoint.
+  /// [feeHeads] entries: { feeHead, associatedTerm, isTerm, _id? }
+  /// — include '_id' for heads that already exist so the backend
+  /// updates them instead of duplicating.
+  Future<bool> ensureFeeConfigV1({
     required String schoolId,
-    required List<String> feeHeads,
+    required List<Map<String, dynamic>> feeHeads,
     bool isActive = true,
   }) async {
     try {
-      debugPrint('📤 ensureFeeConfig: schoolId=$schoolId, feeHeads=$feeHeads');
+      debugPrint('📤 ensureFeeConfigV1: schoolId=$schoolId, feeHeads=$feeHeads');
 
-      // ── Step 1: GET existing fee config first ─────────────────
-      List<String> existingHeads = [];
-      try {
-        final getResponse = await _apiService.get(
-          '/api/fee-config/get/$schoolId',
-        );
-        debugPrint('📥 existing fee config: ${getResponse.data}');
-
-        if (getResponse.data != null && getResponse.data['ok'] == true) {
-          final data = getResponse.data['data'];
-          if (data != null && data['feeHeads'] is List) {
-            existingHeads = List<String>.from(data['feeHeads']);
-          }
-        }
-      } catch (e) {
-        debugPrint('⚠️ Could not fetch existing fee config (may not exist yet): $e');
-      }
-
-      // ── Step 2: Merge new heads with existing ones ─────────────
-      final mergedHeads = {...existingHeads, ...feeHeads}.toList();
-      debugPrint('📤 merged feeHeads to save: $mergedHeads');
-
-      // ── Step 3: Save the merged list ───────────────────────────
       final response = await _apiService.post(
-        '/api/fee-config/set/$schoolId',
+        '/api/fee-config/v1/set/$schoolId',
         data: {
-          'schoolId': schoolId,
-          'feeHeads': mergedHeads,
+          'feeHeads': feeHeads,
           'isActive': isActive,
         },
       );
 
-      debugPrint('📥 ensureFeeConfig response: ${response.data}');
+      debugPrint('📥 ensureFeeConfigV1 response: ${response.data}');
 
       if (response.data['ok'] == true) {
         return true;
@@ -404,17 +404,16 @@ class FeeStructureController extends GetxController {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['message'] ?? e.response?.data.toString())
           : e.response?.data?.toString();
-      debugPrint('❌ ensureFeeConfig 400 body: ${e.response?.data}');
+      debugPrint('❌ ensureFeeConfigV1 400 body: ${e.response?.data}');
       _showSnackbar('Error',
           serverMessage ?? 'Failed to configure fee heads', AppTheme.errorRed);
       return false;
     } catch (e) {
-      debugPrint('❌ ensureFeeConfig error: $e');
+      debugPrint('❌ ensureFeeConfigV1 error: $e');
       _showSnackbar('Error', 'Failed to configure fee heads', AppTheme.errorRed);
       return false;
     }
   }
-
   // ══════════════════════════════════════════════════════════════
   // CUSTOM FEE HEADS  →  POST /api/feestructure/v1/set
   // ══════════════════════════════════════════════════════════════
@@ -434,13 +433,13 @@ class FeeStructureController extends GetxController {
       }
 
       // Step 1: ensure fee config exists for the school
-      final feeName = feeHead['feeName']?.toString() ?? '';
-      final configOk = await ensureFeeConfig(
-        schoolId: schoolId,
-        feeHeads: [feeName],
-        isActive: true,
-      );
-      if (!configOk) return false;
+      // final feeName = feeHead['feeName']?.toString() ?? '';
+      // final configOk = await ensureFeeConfig(
+      //   schoolId: schoolId,
+      //   feeHeads: [feeName],
+      //   isActive: true,
+      // );
+      // if (!configOk) return false;
 
       // Step 2: set the actual fee head on the class
       final payload = {

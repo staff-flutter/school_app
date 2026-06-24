@@ -28,12 +28,19 @@ class AppRoutes {
   static const String ACCOUNTING_DASHBOARD = '/accounting-dashboard';
   static const String FEE_COLLECTION      = '/fee-collection';
   static const String EXPENSES            = '/expenses';
+
+
   static const String FEE_STRUCTURE       = '/fee-structure';
   static const String FEE_CONFIGURATION   = '/fee-configuration';
+  //replacing the above two routes with one which is below
+  static const String FEE_SETUP           = '/fee-setup';
+
   static const String BILL_BOOK           = '/bill-book';
   static const String ADMISSION_FORMS_VIEW = '/admission-forms-view';
   static const String ADMISSION_BOOK       = '/admission-book';
   static const String STUDENT_DETAILS     = '/student-details';
+  static const String ADMISSION_FORM_DETAIL_VIEW = '/admission-Form-DetailView';
+
 
   static const String REPORTS             = '/reports';
   static const String STUDENT_MANAGEMENT  = '/student-management';

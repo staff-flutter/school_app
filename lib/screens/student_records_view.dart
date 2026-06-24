@@ -24,6 +24,8 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/screens/concession_detail_view.dart';
 import 'package:school_app/screens/student_receipts_view.dart';
 
+import '../core/utils/academic_year_utils.dart';
+
 const _kPrimary = Color(0xFF2563EB);
 
 class StudentRecordsView extends StatefulWidget {
@@ -37,6 +39,8 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   final recordController = Get.put(StudentRecordController());
   final schoolController = Get.find<SchoolController>();
   final authController = Get.find<AuthController>();
+  final _academicYearController =
+  TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
 
   final studentRecords = <Map<String, dynamic>>[].obs;
   final isLoading = false.obs;
@@ -1732,6 +1736,7 @@ class _ConcessionsTab extends StatelessWidget {
                           sectionId: record['sectionId'],
                           concessionType: concessionType,
                           concessionValue: double.tryParse(valueController.text) ?? 0,
+                          academicYear:  record['academicYear'] ?? AcademicYearUtils.getCurrentAcademicYear(),
                         );
                         Get.back();
                         if (success) onSuccess();
@@ -2203,6 +2208,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
           remark: remarkController.text,
           proofFile: proofFile,
           newOld: newOld,
+          academicYear:AcademicYearUtils.getCurrentAcademicYear(),
         );
         if (success) widget.onSuccess();
       } finally {

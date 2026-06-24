@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 
+import '../core/utils/academic_year_utils.dart';
+
 // 1. Usage in Fee Collection Tab
 class FeeCollectionWidget extends StatelessWidget {
   const FeeCollectionWidget({super.key});
@@ -10,6 +12,8 @@ class FeeCollectionWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final recordController = Get.put(StudentRecordController());
+    final _academicYearController =
+    TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
     
     return Column(
       children: [
@@ -137,6 +141,7 @@ class ConcessionWidget extends StatelessWidget {
       concessionValue: 10.0,
       remark: 'Merit scholarship',
       newOld: 'new',
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
     );
   }
 
@@ -149,6 +154,7 @@ class ConcessionWidget extends StatelessWidget {
       sectionId: 'sectionA',
       concessionType: 'percentage',
       concessionValue: 15.0,
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
     );
   }
 }

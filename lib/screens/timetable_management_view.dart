@@ -1954,7 +1954,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           children: [
             _iconBox(Icons.calendar_today_rounded, size: 16),
             const SizedBox(width: 10),
-            const Text('Add Day to Timetable'),
+            const Text('Add Day '),
           ],
         ),
         content: StatefulBuilder(
