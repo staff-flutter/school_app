@@ -199,6 +199,65 @@ class BillAdmissionController extends GetxController {
   }
 
   // ---------------------------------------------------------------------
+  // Bill Record Endpoints
+  // ---------------------------------------------------------------------
+
+  final billRecords = <Map<String, dynamic>>[].obs;
+
+  // api no: 182 - GET /api/school-config/bill-record/get
+  // Returns paginated bill records with student, bill book, and receipt details.
+  Future<Map<String, dynamic>> getBillRecords({
+    required String schoolId,
+    String? academicYear,
+    String? billBookId,
+    String? billNumber,
+    int? page,
+    int? limit,
+  }) async {
+    try {
+      isLoading.value = true;
+
+      final queryParams = {
+        'schoolId': schoolId,
+        if (academicYear != null) 'academicYear': academicYear,
+        if (billBookId != null) 'billBookId': billBookId,
+        if (billNumber != null) 'billNumber': billNumber,
+        'page': (page ?? 1).toString(),
+        'limit': (limit ?? 10).toString(),
+      };
+
+      final response = await _apiService.get(
+        '/api/school-config/bill-record/get',
+        queryParameters: queryParams,
+      );
+
+      if (response.data['ok'] == true) {
+        final backendData = response.data['data'] ?? {};
+        // ⚠️ verify the actual key name with your dev — guessing 'records'
+        final list = List<Map<String, dynamic>>.from(backendData['records'] ?? []);
+        billRecords.value = list;
+        return {
+          'data': list,
+          'totalRecords': backendData['totalRecords'],
+          'totalPages': backendData['totalPages'],
+          'currentPage': backendData['currentPage'],
+          'limit': backendData['limit'],
+          'hasNextPage': backendData['hasNextPage'],
+          'hasPrevPage': backendData['hasPrevPage'],
+        };
+      } else {
+        _showSnackbar('Error', response.data['message'] ?? 'Failed to load bill records', AppTheme.errorRed);
+        return {'data': <Map<String, dynamic>>[]};
+      }
+    } catch (e) {
+      _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading bill records'), AppTheme.errorRed);
+      return {'data': <Map<String, dynamic>>[]};
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Admission Book Endpoints
   // ---------------------------------------------------------------------
 

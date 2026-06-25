@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/auth_controller.dart';
 import '../core/utils/responsive_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toggle_switch/toggle_switch.dart';
@@ -22,7 +23,7 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-  final session = Get.find<UserSession>();
+  final _AuthCtrl = Get.find<AuthController>();
 
   DateTime _focusDay = DateTime.now();
   DateTime? _selectedDay;
@@ -49,6 +50,8 @@ class _AttendancePageState extends State<AttendancePage> {
 
   //  Map for O(1) lookup: {DateTime: "present"}
   Map<DateTime, String> _attendanceMap = {};
+  Map<String, int> _attendanceTotals = {'present': 0, 'absent': 0}; // ← add this
+
 
   Future<void> _initializeAttendance() async {
    // await loginAndGetToken();
@@ -59,7 +62,10 @@ class _AttendancePageState extends State<AttendancePage> {
       for (var record in records)
         DateTime(record.date.year, record.date.month, record.date.day): record.status
     };
-
+    _attendanceTotals = {
+      'present': records.where((r) => r.status == 'present').length,
+      'absent': records.where((r) => r.status == 'absent').length,
+    };
     setState(() {});
   }
 
@@ -68,15 +74,42 @@ class _AttendancePageState extends State<AttendancePage> {
 //------------------------------------------ THE FETCH ATTENDANCE FUNCTION ----------------------------------------
 
 
+  /// Computes attendance totals from the studentAttendance API response.
+  /// Expects response.data['data'] to be a List of records, each with a 'status' field.
+  Map<String, int> computeAttendanceTotals(List<dynamic> attendanceRecords) {
+    int presentCount = 0;
+    int absentCount = 0;
+    int otherCount = 0; // catches any status that isn't present/absent (e.g. "leave", "holiday")
 
+    for (final record in attendanceRecords) {
+      final status = (record['status'] ?? '').toString().toLowerCase();
+      switch (status) {
+        case 'present':
+          presentCount++;
+          break;
+        case 'absent':
+          absentCount++;
+          break;
+        default:
+          otherCount++;
+      }
+    }
+
+    return {
+      'present': presentCount,
+      'absent': absentCount,
+      'other': otherCount,
+      'total': attendanceRecords.length,
+    };
+  }
   Future<List<AttendanceRecord>> fetchAttendance() async {
     String baseUrl = ApiConstants.baseUrl;
 
     final controller = Get.find<MyChildrenController>();
     final selectedStudent = Get.find<MyChildrenController>().selectedChild;
 
-    final String? token =session.token;
-    final String? schoolId =session.schoolId??'';
+    final String? token =_AuthCtrl.storage.read('token');
+    final String? schoolId =_AuthCtrl.user.value?.schoolId??'';
     final String? classId = controller.selectedChild['classId']?? 'null';
     final String? studentId = controller.selectedChild['_id']?? 'null';
     final String? sectionId =selectedStudent['sectionId']?? 'null';
@@ -105,6 +138,7 @@ class _AttendancePageState extends State<AttendancePage> {
     );
 
     if (response.statusCode == 200) {
+      print('studentAttendance:${response.body}');
       final Map<String, dynamic> decodedData = jsonDecode(response.body);
       final List<dynamic> list = decodedData['data'] ?? [];
       return list.map((data) => AttendanceRecord.fromJson(data)).toList();
@@ -123,7 +157,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
     //final SharedPreferences prefs = await SharedPreferences.getInstance();
    // String? token = prefs.getString('user_token');
-    final String? token = session.token;
+    final String? token = _AuthCtrl.storage.read('token');
 
     final uri = Uri.parse('$baseUrl/api/calendar/getall');
 
@@ -177,8 +211,10 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   Widget build(BuildContext context) {
-    final absentCount = _attendanceMap.values.where((s) => s == 'absent').length;
-    final presentCount = _attendanceMap.values.where((s) => s == 'present').length;
+   // final absentCount = _attendanceMap.values.where((s) => s == 'absent').length;
+   // final presentCount = _attendanceMap.values.where((s) => s == 'present').length;
+    final absentCount = _attendanceTotals['absent'] ?? 0;
+    final presentCount = _attendanceTotals['present'] ?? 0;
     final List<NumberColorItem> dynamicStats = [
       NumberColorItem(
           number: absentCount,

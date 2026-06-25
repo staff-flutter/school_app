@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/school_controller.dart';
 
 import '../constants/api_constants.dart';
+import '../controllers/auth_controller.dart';
 import '../services/user_session.dart';
+
 
 // ── Model ─────────────────────────────────────────────────────────
 class PendingProfileRequest {
@@ -70,12 +74,36 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
   bool _isLoading = true;
   final Set<String> _processingIds = {};
 
+  String? _lastFetchedSchoolId;
+  Worker? _schoolWatcher;
+
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 1. Initial fetch
       _fetchRequests();
+
+      try {
+        final schoolController = Get.find<SchoolController>();
+
+        // 2. Watch for subsequent changes
+        _schoolWatcher = ever(schoolController.selectedSchool, (school) {
+          if (!mounted) return;
+          debugPrint('🔄 Sidebar school changed to: ${school?.id}. Refetching requests...');
+          final newId = school?.id;
+          final role = Get.find<AuthController>().user.value?.role?.toLowerCase();
+
+          if (role == 'correspondent' && newId != _lastFetchedSchoolId && newId != null) {
+            debugPrint('🔄 School changed in sidebar to: $newId. Refetching...');
+            _fetchRequests();
+          }
+        });
+      } catch (e) {
+        debugPrint('SchoolController missing: $e');
+      }
     });
   }
 
@@ -83,29 +111,46 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
   void dispose() {
     _tabCtrl.dispose();
     _noteCtrl.dispose();
+    _schoolWatcher?.dispose();
     super.dispose();
   }
 
   String? _getToken() {
-    try { return Get.find<UserSession>().token; } catch (_) { return null; }
+    try { return Get.find<AuthController>().storage.read('token'); } catch (_) { return null; }
   }
 
   String? _getSchoolId() {
-    try { return Get.find<UserSession>().schoolId; } catch (_) { return null; }
+    try {
+      final userObj = Get.find<AuthController>().user.value;
+      final role = userObj?.role?.toLowerCase();
+
+      if (role == 'correspondent') {
+        final selectedId = Get.find<SchoolController>().selectedSchool.value?.id;
+        // If the sidebar selection is empty or uninitialized, fall back to the user's main schoolId
+        return (selectedId != null && selectedId.isNotEmpty) ? selectedId : userObj?.schoolId;
+      }
+
+      return userObj?.schoolId;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _fetchRequests() async {
     if (!mounted) return;
-
+ //final String schoolId = _getSchoolId();
     final token    = _getToken();
     final schoolId = _getSchoolId();
+    print('schoolid: $schoolId');
+    print('token: $token');
+
 
     if (token == null || schoolId == null) {
       setState(() => _isLoading = false);
       _snack('Session expired or invalid. Please log in again.', Colors.red.shade700);
       return;
     }
-
+    _lastFetchedSchoolId = schoolId;
     setState(() => _isLoading = true);
 
     try {
@@ -121,11 +166,11 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
         'status': 'resolved',
       });
 
-      // 💡 DIAGNOSTIC LOG: Print parameters out to verify they look valid
       debugPrint('--- AUTH DIAGNOSTICS ---');
-      // Add this print statement to check your active role
       debugPrint('Active User Role: ${Get.find<UserSession>().role}');
       debugPrint('Requesting SchoolID: $schoolId');
+      debugPrint('Pending URI : $pendingUri');
+      debugPrint('Resolved URI: $resolvedUri');
       debugPrint('Token snippet: ${token.length > 20 ? token.substring(0, 20) : token}...');
       debugPrint('------------------------');
 
@@ -134,19 +179,36 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
         'Accept': 'application/json',
       };
 
-      final responses = await Future.wait([
-        http.get(pendingUri,  headers: headers),
-        http.get(resolvedUri, headers: headers),
-      ]);
+      // .timeout() added — without this, a hung/unresponsive server just
+      // sits on `await` forever with zero logging, which is exactly what
+      // was happening. Each request now fails loudly after 15s instead.
+      debugPrint('▶ sending GET $pendingUri ...');
+      final pendingResponse = await http
+          .get(pendingUri, headers: headers)
+          .timeout(const Duration(seconds: 15));
+      debugPrint('◀ PENDING  status=${pendingResponse.statusCode} body=${pendingResponse.body}');
+
+      debugPrint('▶ sending GET $resolvedUri ...');
+      final resolvedResponse = await http
+          .get(resolvedUri, headers: headers)
+          .timeout(const Duration(seconds: 15));
+      debugPrint('◀ RESOLVED status=${resolvedResponse.statusCode} body=${resolvedResponse.body}');
 
       List<PendingProfileRequest> parse(http.Response r) {
         if (r.statusCode != 200) {
-          // 💡 DIAGNOSTIC LOG: This will print the error object explaining the 403 restriction
           debugPrint('API Error Status [${r.statusCode}]: ${r.body}');
           return [];
         }
         final decoded = jsonDecode(r.body);
+        if (decoded is! Map<String, dynamic>) {
+          debugPrint('✗ Unexpected response shape: ${decoded.runtimeType}');
+          return [];
+        }
+        if (decoded['ok'] != true) {
+          debugPrint('✗ ok!=true — message: ${decoded['message']}');
+        }
         final list = decoded['data'] as List? ?? [];
+        debugPrint('▶ parsed ${list.length} item(s)');
         return list
             .map((j) => PendingProfileRequest.fromJson(j as Map<String, dynamic>))
             .toList();
@@ -154,13 +216,19 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
 
       if (mounted) {
         setState(() {
-          _pending  = parse(responses[0]);
-          _resolved = parse(responses[1]);
+          _pending  = parse(pendingResponse);
+          _resolved = parse(resolvedResponse);
           _isLoading = false;
         });
       }
-    } catch (e) {
-      debugPrint('Fetch requests error: $e');
+    } on TimeoutException catch (e) {
+      debugPrint('✗ Request TIMED OUT: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _snack('Server took too long to respond. Check your connection / API.', Colors.red.shade700);
+      }
+    } catch (e, st) {
+      debugPrint('Fetch requests error: $e\n$st');
       if (mounted) setState(() => _isLoading = false);
     }
   }

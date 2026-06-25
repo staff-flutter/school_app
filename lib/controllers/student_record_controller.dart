@@ -40,6 +40,7 @@ class StudentRecordController extends GetxController {
     required String concessionType,
     required double concessionValue,
     required String remark,
+    required String academicYear,
     File? proofFile,
    // String? busPoint,
     //bool? isBusApplicable,
@@ -57,6 +58,7 @@ class StudentRecordController extends GetxController {
         'concessionValue': concessionValue,
         'remark': remark,
         'newOld': newOld, // Required parameter
+        'academicYear': academicYear,
         if (studentName != null) 'studentName': studentName,
        // if (busPoint != null) 'busPoint': busPoint,
         //if (isBusApplicable != null) 'isBusApplicable': isBusApplicable,
@@ -347,6 +349,7 @@ class StudentRecordController extends GetxController {
     required String sectionId,
     required String concessionType,
     required double concessionValue,
+    required String academicYear,
   }) async {
     try {
       isLoading.value = true;
@@ -358,6 +361,7 @@ class StudentRecordController extends GetxController {
         'sectionId': sectionId,
         'concessionType': concessionType,
         'concessionValue': concessionValue,
+        'academicYear': academicYear,
       };
 
       final response = await _apiService.put(ApiConstants.updateConcessionValue, data: formData);

@@ -243,10 +243,10 @@ class _SetFeeConfigurationPageState extends State<SetFeeConfigurationPage> {
                         _isLoading.value = true;
                         try {
                           // Register globally
-                          await feeController.ensureFeeConfig(
-                            schoolId: sid,
-                            feeHeads: [..._feeHeadNames, name],
-                          );
+                          // await feeController.ensureFeeConfig(
+                          //   schoolId: sid,
+                          //   feeHeads: [..._feeHeadNames, name],
+                          // );
                           await _loadFeeHeadNames(sid);
                         } finally {
                           _isLoading.value = false;
@@ -397,10 +397,10 @@ class _SetFeeConfigurationPageState extends State<SetFeeConfigurationPage> {
                         // Replace old name with new name in the global list
                         final updated = _feeHeadNames.toList();
                         updated[index] = newName;
-                        await feeController.ensureFeeConfig(
-                          schoolId: sid,
-                          feeHeads: updated,
-                        );
+                        // await feeController.ensureFeeConfig(
+                        //   schoolId: sid,
+                        //   feeHeads: updated,
+                        // );
                         await _loadFeeHeadNames(sid);
                       } finally {
                         _isLoading.value = false;
@@ -466,10 +466,10 @@ class _SetFeeConfigurationPageState extends State<SetFeeConfigurationPage> {
             _isLoading.value = true;
             try {
               final updated = _feeHeadNames.toList()..removeAt(index);
-              await feeController.ensureFeeConfig(
-                schoolId: sid,
-                feeHeads: updated,
-              );
+              // await feeController.ensureFeeConfig(
+              //   schoolId: sid,
+              //   feeHeads: updated,
+              // );
               await _loadFeeHeadNames(sid);
             } finally {
               _isLoading.value = false;

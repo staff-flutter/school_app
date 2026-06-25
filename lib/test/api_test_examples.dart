@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
 import 'package:school_app/controllers/attendance_controller.dart' as old_attendance;
 
+import '../core/utils/academic_year_utils.dart';
+
 class ApiTestExamples {
   final StudentRecordController _studentRecordController = Get.find<StudentRecordController>();
   final old_attendance.AttendanceController _attendanceController = Get.find<old_attendance.AttendanceController>();
@@ -34,6 +36,7 @@ class ApiTestExamples {
       remark: "Financial hardship concession",
       proofFile: proofFile,
       newOld: "new",
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
       //isBusApplicable: true,
      // busPoint: "Main Gate",
     );
