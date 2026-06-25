@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/attendance_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import '../core/utils/responsive_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toggle_switch/toggle_switch.dart';
@@ -24,7 +26,7 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage> {
   final _AuthCtrl = Get.find<AuthController>();
-
+  final AttendanceController _attendanceCtrl = Get.put(AttendanceController());
   DateTime _focusDay = DateTime.now();
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.month;
@@ -32,11 +34,8 @@ class _AttendancePageState extends State<AttendancePage> {
   int _currentPageIndex=0;
   final PageController _pageController = PageController();
 
-  final List<FestivalTiles> festivalList=[
-    FestivalTiles(festivalName: 'Diwali', dateAndMonth: '14th November', dayName: 'Saturday'),
-    FestivalTiles(festivalName: 'Govardhan puja', dateAndMonth: '15th November', dayName: 'sunday'),
-    FestivalTiles(festivalName: 'Bhaiya dooj', dateAndMonth: '16th November' , dayName: 'Monday')
-  ];
+  List<FestivalTiles> _holidayList = [];
+  bool _loadingHolidays = false;
   final List<NumberColorItem> attendanceFestivalsHolidays = [
     NumberColorItem(number:01,colorDarker: Color(0xFFC62828),colorLight: Color(0xFFFF6961),title:'Absent'),
     NumberColorItem(number: 02,colorDarker:  Color(0xFF159A46),colorLight: Color(0xFF81EE53),title: 'Festivals&Holidays'),
@@ -46,8 +45,53 @@ class _AttendancePageState extends State<AttendancePage> {
     // TODO: implement dispose
     super.dispose();
     _pageController.dispose();
+    _inspectControllerResponses();
   }
+// Add this helper method inside your _AttendancePageState class:
+  void _inspectControllerResponses() async {
+    final controller = Get.find<MyChildrenController>();
+    final selectedStudent = Get.find<MyChildrenController>().selectedChild;
+    print("------- 🔍 STARTING ATTENDANCE INSPECTION 🔍 -------");
 
+    final String currentSchoolId = _AuthCtrl.user.value?.schoolId ?? '';
+    // Replace these with sample IDs that actually exist in your database for testing
+    final String sampleClassId = controller.selectedChild['classId'] ?? 'null';
+    final String sampleSectionId =  selectedStudent['sectionId'] ?? 'null';
+    final String sampleDate = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+
+    // 1. Inspect getAttendanceSheet Response
+    try {
+      print("🚀 Calling getAttendanceSheet...");
+      await _attendanceCtrl.getAttendanceSheet(
+        schoolId: currentSchoolId,
+        classId: sampleClassId,
+        date: sampleDate, academicYear: AcademicYearUtils.getCurrentAcademicYear(),
+      );
+
+      // Since it's a GetX RxList, .value or .toList() prints the underlying raw list data clearly
+      print("📦 Attendance Sheet Saved State: ${_attendanceCtrl.attendanceSheet.value}");
+    } catch (e) {
+      print("❌ Error calling getAttendanceSheet: $e");
+    }
+
+    // 2. Inspect getAttendanceHistory Response
+    try {
+      print("🚀 Calling getAttendanceHistory...");
+      await _attendanceCtrl.getAttendanceHistory(
+        schoolId: currentSchoolId,
+        classId: sampleClassId,
+        sectionId: sampleSectionId,
+        startDate: '01-06-2026',
+        endDate: '25-06-2026'
+      );
+
+      print("📦 Attendance History Saved State: ${_attendanceCtrl.attendanceHistory.value}");
+    } catch (e) {
+      print("❌ Error calling getAttendanceHistory: $e");
+    }
+
+    print("------- 🔍 INSPECTION COMPLETE 🔍 -------");
+  }
   //  Map for O(1) lookup: {DateTime: "present"}
   Map<DateTime, String> _attendanceMap = {};
   Map<String, int> _attendanceTotals = {'present': 0, 'absent': 0}; // ← add this
@@ -102,43 +146,36 @@ class _AttendancePageState extends State<AttendancePage> {
       'total': attendanceRecords.length,
     };
   }
-  Future<List<AttendanceRecord>> fetchAttendance() async {
+  Future<List<AttendanceRecord>> fetchAttendance({DateTime? month}) async {
     String baseUrl = ApiConstants.baseUrl;
+    final targetMonth = month ?? _focusDay;
 
     final controller = Get.find<MyChildrenController>();
     final selectedStudent = Get.find<MyChildrenController>().selectedChild;
 
-    final String? token =_AuthCtrl.storage.read('token');
-    final String? schoolId =_AuthCtrl.user.value?.schoolId??'';
-    final String? classId = controller.selectedChild['classId']?? 'null';
-    final String? studentId = controller.selectedChild['_id']?? 'null';
-    final String? sectionId =selectedStudent['sectionId']?? 'null';
-
+    final String? token = _AuthCtrl.storage.read('token');
+    final String? schoolId = _AuthCtrl.user.value?.schoolId ?? '';
+    final String? classId = controller.selectedChild['classId'] ?? 'null';
+    final String? studentId = controller.selectedChild['_id'] ?? 'null';
+    final String? sectionId = selectedStudent['sectionId'] ?? 'null';
 
     final Map<String, String> queryParameters = {
-      if(schoolId!= null)
-        "schoolId": schoolId,
-        "classId":'$classId',
-        "sectionId":"$sectionId",
-        "academicYear":"2025-2026",
-         "date": "2025-12-27",
+      if (schoolId != null) "schoolId": schoolId,
+      "classId": '$classId',
+      "sectionId": "$sectionId",
+      "month": "${targetMonth.month}",
+      "year": "${targetMonth.year}",
     };
 
-    print("schoolId:$schoolId");
-    print("classId:$classId");
-    print("sectionId:$sectionId");
-    final uri = Uri.parse('$baseUrl/api/attendance/student/$studentId').replace(queryParameters: queryParameters);
+    final uri = Uri.parse('$baseUrl/api/attendance/student/$studentId')
+        .replace(queryParameters: queryParameters);
 
-    final response = await http.get(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
-    );
+    final response = await http.get(uri, headers: {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+    });
 
     if (response.statusCode == 200) {
-      print('studentAttendance:${response.body}');
       final Map<String, dynamic> decodedData = jsonDecode(response.body);
       final List<dynamic> list = decodedData['data'] ?? [];
       return list.map((data) => AttendanceRecord.fromJson(data)).toList();
@@ -146,8 +183,62 @@ class _AttendancePageState extends State<AttendancePage> {
     return [];
   }
 
+  Future<void> _fetchHolidayCalendar() async {
+    setState(() => _loadingHolidays = true);
+    try {
+      final baseUrl = ApiConstants.baseUrl;
+      final String? token = _AuthCtrl.storage.read('token');
+      final String? schoolId = _AuthCtrl.user.value?.schoolId ?? '';
 
+      final uri = Uri.parse('$baseUrl/api/calendar/getall').replace(
+        queryParameters: {
+          if (schoolId != null && schoolId.isNotEmpty) 'schoolId': schoolId,
+        },
+      );
 
+      final response = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final List<dynamic> list = decoded is Map
+            ? (decoded['data'] ?? [])
+            : (decoded is List ? decoded : []);
+
+        final tiles = list.map((e) {
+          final from = DateTime.parse(e['startDate'] ?? e['fromDate'] ?? e['date']);
+          return FestivalTiles(
+            festivalName: e['title'] ?? e['name'] ?? 'Event',
+            dateAndMonth: _ordinalDate(from),
+            dayName: _weekdayName(from),
+          );
+        }).toList();
+
+        setState(() => _holidayList = tiles);
+      }
+    } catch (e) {
+      debugPrint('⚠️ fetchHolidayCalendar error: $e');
+    } finally {
+      if (mounted) setState(() => _loadingHolidays = false);
+    }
+  }
+
+  String _ordinalDate(DateTime d) {
+    const months = ['January','February','March','April','May','June',
+      'July','August','September','October','November','December'];
+    final day = d.day;
+    final suffix = (day >= 11 && day <= 13)
+        ? 'th'
+        : switch (day % 10) { 1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th' };
+    return '$day$suffix ${months[d.month - 1]}';
+  }
+
+  String _weekdayName(DateTime d) {
+    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    return days[d.weekday - 1];
+  }
 //----------------------------------------------- THE FETCH CALENDER FUNCTION ----------------------------------------
 
 
@@ -196,7 +287,8 @@ class _AttendancePageState extends State<AttendancePage> {
     // TODO: implement initState
     super.initState();
     _initializeAttendance();
-    // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    _fetchHolidayCalendar();
+  // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     //   statusBarColor: Colors.black, // transparent so AppBar image shows through
     //   statusBarIconBrightness: Brightness.light, // dark icons (visible on light bg)
     //   // or Brightness.light if your header image is dark
@@ -345,6 +437,19 @@ class _AttendancePageState extends State<AttendancePage> {
                             _buildCalendarCell(day) ?? _buildStatusContainer(day, Colors.green),
                             holidayBuilder: (context, day, focusedDay) => _buildCalendarCell(day),
                           ),
+                          onPageChanged: (focusedDay) async {
+                            _focusDay = focusedDay;
+                            final records = await fetchAttendance(month: focusedDay);
+                            _attendanceMap = {
+                              for (var r in records)
+                                DateTime(r.date.year, r.date.month, r.date.day): r.status
+                            };
+                            _attendanceTotals = {
+                              'present': records.where((r) => r.status == 'present').length,
+                              'absent': records.where((r) => r.status == 'absent').length,
+                            };
+                            setState(() {});
+                          },
                         ),
 
 
@@ -437,10 +542,17 @@ class _AttendancePageState extends State<AttendancePage> {
 
 
                       Expanded(
-                        child: ListView.builder(
-                          itemCount: festivalList.length,
+                        child: _loadingHolidays
+                            ? const Center(child: CircularProgressIndicator())
+                            : _holidayList.isEmpty
+                            ? const Center(
+                          child: Text('No holidays added yet',
+                              style: TextStyle(color: Colors.grey)),
+                        )
+                            : ListView.builder(
+                          itemCount: _holidayList.length,
                           itemBuilder: (context, index) {
-                            return FestivalListContainer(festivalTiles: festivalList[index]);
+                            return FestivalListContainer(festivalTiles: _holidayList[index]);
                           },
                         ),
                       ),

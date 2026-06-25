@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:collection/collection.dart';
 import 'package:school_app/controllers/clubs_controller.dart';
 import 'package:school_app/controllers/student_controller.dart' show StudentController;
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/widgets/clubs_dialogue_in_students_tab.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
@@ -3443,7 +3444,9 @@ class _AttendanceTabState extends State<_AttendanceTab> {
   List<Map<String, dynamic>> attendanceRecords = [];
   List<Map<String, dynamic>> historyRecords = [];
   SchoolClass? selectedClass;
-  String get academicYear => "${_startYearController.text}-${_endYearController.text}";
+  //String get academicYear => "${_startYearController.text}-${_endYearController.text}";
+  String get academicYear => AcademicYearUtils.getCurrentAcademicYear();
+
 
   @override
   void initState() {

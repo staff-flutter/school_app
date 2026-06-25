@@ -6,6 +6,7 @@ import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/homework_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/rbac/api_rbac.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/screens/homework_detail_view.dart';
 
@@ -90,7 +91,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     return '$startYear-${startYear + 1}';
   }
 
-  final academicYearCtrl = TextEditingController(text: _currentAcademicYear());
+  final academicYearCtrl = TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
   List<PlatformFile> selectedFiles = [];
 
   @override

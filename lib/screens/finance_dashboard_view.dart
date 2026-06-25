@@ -6,6 +6,7 @@ import 'package:school_app/controllers/finance_ledger_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/widgets/responsive_wrapper.dart';
 
 class FinanceDashboardView extends StatefulWidget {
@@ -527,7 +528,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                           child: _dropdown(
                               'Academic year',
                               controller.selectedAcademicYear,
-                              ['2023-2024', '2024-2025', '2025-2026'])),
+                              AcademicYearUtils.getRecentAcademicYears(3))),
                       const SizedBox(width: 10),
                       Expanded(
                           child: _dropdown(

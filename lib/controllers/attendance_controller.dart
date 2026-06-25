@@ -5,6 +5,8 @@ import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/services/api_service.dart';
 
+import '../core/utils/academic_year_utils.dart';
+
 class AttendanceController extends GetxController {
   final ApiService _apiService = Get.find();
   final isLoading = false.obs;
@@ -28,35 +30,39 @@ class AttendanceController extends GetxController {
 
   Future<List<Map<String, dynamic>>?> getStudentAttendance({
     required String studentId,
-}) async{
+    int? month,
+    int? year,
+  }) async {
     try {
       isLoading.value = true;
 
+      final now = DateTime.now();
       final queryParams = {
-        'studentId':studentId
+        'month': (month ?? now.month).toString(),
+        'year': (year ?? now.year).toString(),
       };
 
+      final String endpoint = '/api/attendance/student/$studentId';
+
       final response = await _apiService.get(
-        ApiConstants.getStudentAttendance,
+        endpoint,
         queryParameters: queryParams,
       );
 
+      if (response != null && response is Map) {
+        final Map<String, dynamic> responseMap = Map<String, dynamic>.from(response.data);
+        final List<dynamic> list = responseMap['data'] ?? [];
+        return list.cast<Map<String, dynamic>>();
+      }
 
-      if (response.data['ok'] == true) {
-      final data = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
-      attendanceHistory.value = data;
-      return data;
-    } else {
-      _showSnackbar('Error', response.data['message'] ?? 'Failed to load attendance of Student', AppTheme.errorRed);
+      return [];
+    } catch (e) {
+      _showSnackbar('Error', 'Failed to load student attendance: $e', AppTheme.errorRed);
       return null;
+    } finally {
+      isLoading.value = false;
     }
-  } catch (e) {
-  _showSnackbar('Error', 'An error occurred while loading attendance of a Student', AppTheme.errorRed);
-  return null;
-  } finally {
-  isLoading.value = false;
   }
-}
 
   // Fetch Attendance Sheet
   Future<List<Map<String, dynamic>>?> getAttendanceSheet({
@@ -83,6 +89,7 @@ class AttendanceController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
+        print('getAttendanceSheet:${response.data}');
         final data = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
         attendanceSheet.value = data;
         return data;
@@ -171,6 +178,7 @@ class AttendanceController extends GetxController {
 
       
       if (response.data['ok'] == true) {
+        print('getAttendanceHistory:${response.data}');
         final data = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
         attendanceHistory.value = data;
         return data;

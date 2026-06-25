@@ -6,6 +6,7 @@ import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/services/api_service.dart';
 
@@ -40,7 +41,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   // ── Filter state ──────────────────────────────────────────────────────────
   SchoolClass? _class;
   Section?     _section;
-  String       _academicYear = '2026-2027';
+  String       _academicYear = AcademicYearUtils.getCurrentAcademicYear();
   bool         _showFilters  = true;
 
   // ── Config state ──────────────────────────────────────────────────────────

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/app_theme.dart'; // Retained your project path imports
 import '../routes/app_routes.dart';
 import '../widgets/primary_button.dart';
 import 'login_page_for_daily_grades.dart';
+import 'login_view.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -27,7 +29,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void finish() {
     Get.offNamed(AppRoutes.ACCOUNTING_DASHBOARD);
   }
+  Future<void> _completeOnboarding() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isFirstTime', false); // Mark onboarding as complete
 
+    // Navigate to Login Page
+    Get.offAll(() => const LoginView());
+  }
   @override
   Widget build(BuildContext context) {
     final last = page == onboardingPages.length - 1;

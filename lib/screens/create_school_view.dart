@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:school_app/controllers/auth_controller.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 
 class CreateSchoolView extends GetView<AuthController> {
   CreateSchoolView({super.key});
@@ -12,7 +13,7 @@ class CreateSchoolView extends GetView<AuthController> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _academicYearController = TextEditingController(text: '2024-2025');
+  final _academicYearController = TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
   final selectedLogo = Rxn<File>();
 
   // App color constants

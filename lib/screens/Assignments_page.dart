@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import '../constants/api_constants.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
@@ -95,7 +96,7 @@ class _AssignmentUIState extends State<AssignmentUI> {
     final String? schoolId = auth_ctrl.user.value?.schoolId;
     final String? classId = controller.selectedChild['classId'] ?? 'null';
     final String? sectionId = selectedStudent['sectionId'] ?? 'null';
-    final academicYear = await _resolveAcademicYear();
+    final academicYear = AcademicYearUtils.getCurrentAcademicYear();
 
     final Map<String, String> queryParameters = {
       if (schoolId != null) "schoolId": '$schoolId',

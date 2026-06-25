@@ -25,6 +25,7 @@ class AppRoutes {
   static const String CREATE_SCHOOL       = '/create-school';
   static const String SCHOOL_MANAGEMENT   = '/school-management';
   static const String DASHBOARD           = '/accounting-dashboard';
+  static const String ATTENDANCE_DASHBOARD = '/attendance-dashboard';
   static const String ACCOUNTING_DASHBOARD = '/accounting-dashboard';
   static const String FEE_COLLECTION      = '/fee-collection';
   static const String EXPENSES            = '/expenses';

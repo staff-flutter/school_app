@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/bindings/attendance_binding.dart';
 import 'package:school_app/bindings/bill_admission_binding.dart';
 import 'package:school_app/bindings/marks_upload_binding.dart';
 import 'package:school_app/controllers/school_controller.dart';
@@ -13,6 +14,7 @@ import '../screens/admin_attendance.dart';
 import '../screens/admission_book.dart';
 import '../screens/admission_form_detail_view.dart';
 import '../screens/admission_forms.dart';
+import '../screens/attendance_dashboard.dart';
 import '../screens/bill_book_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
 import '../screens/create_student_profile_page.dart';
@@ -166,7 +168,11 @@ class AppPages {
       page: () => RoleAwareWrapper(child: AdmissionFormDetailView(admissionFormId: '',)),
       binding: BillAdmissionBinding(),
     ),
-
+    GetPage(
+      name: AppRoutes.ATTENDANCE_DASHBOARD,
+      page: () => RoleAwareWrapper(child: AttendanceHistoryDashboardPage()),
+      binding: AttendanceBinding(),
+    ),
     GetPage(
       name: AppRoutes.ADMISSION_BOOK,
       page: () => RoleAwareWrapper(child: AdmissionBookSetupView()),

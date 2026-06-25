@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/widgets/admin_sidebar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -1028,7 +1029,7 @@ class _CommunicationsViewState extends State<CommunicationsView> {
               
               controller.createAnnouncement(
                 schoolId: school.id,
-                academicYear: '2024-25',
+                academicYear: AcademicYearUtils.getCurrentAcademicYear(),
                 title: titleController.text.trim(),
                 description: descriptionController.text.trim(),
                 type: selectedType,
@@ -1593,7 +1594,7 @@ class _AnnouncementsList extends StatelessWidget {
             onPressed: () async {
               final success = await controller.updateAnnouncement(
                 id: announcementId,
-                academicYear: announcement['academicYear'] ?? '2025-2026',
+                academicYear: announcement['academicYear'] ?? AcademicYearUtils.getCurrentAcademicYear(),
                 title: titleController.text.trim(),
                 description: descriptionController.text.trim(),
                 type: selectedType,

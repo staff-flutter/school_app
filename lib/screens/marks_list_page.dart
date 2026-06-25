@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:school_app/controllers/auth_controller.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import '../core/utils/responsive_helper.dart';
 
 import '../controllers/my_children_controller.dart';
@@ -212,7 +213,7 @@ class _MarksListState extends State<MarksList> {
           controller.selectedChild['name']?.toString() ??
               controller.selectedChild['studentName']?.toString() ??
               '';
-      final academicYear = await _resolveAcademicYear();
+      final academicYear = AcademicYearUtils.getCurrentAcademicYear();
 
       final uri = Uri.parse(
         '$baseUrl/api/markreport/v1/get/student/$studentId',

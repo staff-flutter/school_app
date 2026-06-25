@@ -600,6 +600,8 @@ class _MenuBody extends StatelessWidget {
               ApiPermissions.canCreateAnnouncement(role))
             _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
           _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+          _Item('Attendance', Icons.how_to_reg_rounded, AppRoutes.TEACHER_ATTENDANCE),
+
 
         ]),
         _Section('Finance', [
@@ -654,7 +656,7 @@ class _MenuBody extends StatelessWidget {
     if (role == 'accountant') {
       return [
         _Section('Menu', [
-          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
         ]),
         _Section('Finance', [
           if (RoleModules.hasModule(role, 'feeCollection'))
@@ -680,7 +682,7 @@ class _MenuBody extends StatelessWidget {
     if (role == 'administrator') {
       return [
         _Section('Menu', [
-          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('School', Icons.business_rounded, AppRoutes.SCHOOL_MANAGEMENT),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
         ]),
@@ -714,7 +716,7 @@ class _MenuBody extends StatelessWidget {
     if (role == 'principal') {
       return [
         _Section('Menu', [
-          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
         ]),
         _Section('Finance', [
@@ -744,7 +746,7 @@ class _MenuBody extends StatelessWidget {
     if (role == 'viceprincipal') {
       return [
         _Section('Menu', [
-          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
         ]),
         _Section('Manage', [
@@ -768,7 +770,7 @@ class _MenuBody extends StatelessWidget {
     if (role == 'teacher') {
       return [
         _Section('Menu', [
-          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
         ]),
         _Section('My Work', [

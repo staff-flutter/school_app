@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/controllers/auth_controller.dart';
 import '../constants/api_constants.dart';
+import '../core/utils/academic_year_utils.dart';
 import '../services/user_session.dart';
 import '../controllers/school_controller.dart';
 
@@ -15,12 +17,14 @@ class StudentAttendanceItem {
   final String name;
   final String rollNumber;
   String status; // 'present' | 'absent' | 'leave'
+  String remark;
 
   StudentAttendanceItem({
     required this.id,
     required this.name,
     required this.rollNumber,
     this.status = 'present',
+    this.remark='',
   });
 
   factory StudentAttendanceItem.fromJson(Map<String, dynamic> json) {
@@ -55,21 +59,32 @@ class CalendarEvent {
     return CalendarEvent(
       id: json['_id'],
       name: json['title'] ?? json['name'] ?? '',
-      fromDate: DateTime.parse(json['fromDate'] ?? json['date']),
-      toDate: DateTime.parse(json['toDate'] ?? json['date']),
+      fromDate: DateTime.parse(json['startDate'] ?? json['fromDate'] ?? json['date']),
+      toDate: DateTime.parse(json['endDate'] ?? json['toDate'] ?? json['date']),
       type: json['type'] ?? 'holiday',
       description: json['description'],
-      academicYear: json['academicYear'] ?? '2025-2026',
+      academicYear: json['academicYear'] ?? AcademicYearUtils.getCurrentAcademicYear(),
     );
   }
 
-  Map<String, dynamic> toJson() => {
+  /// Body for CREATE (114). schoolId is added by the caller.
+  Map<String, dynamic> toCreateJson() => {
     'title': name,
-    'fromDate': fromDate.toIso8601String(),
-    'toDate': toDate.toIso8601String(),
+    'startDate': fromDate.toIso8601String(),
+    'endDate': toDate.toIso8601String(),
     'type': type,
     if (description != null) 'description': description,
-    'academicYear': academicYear,
+    if (academicYear.isNotEmpty) 'academicYear': academicYear,
+  };
+
+  /// Body for UPDATE (115). id goes in the URL, not the body.
+  Map<String, dynamic> toUpdateJson() => {
+    'title': name,
+    'startDate': fromDate.toIso8601String(),
+    'endDate': toDate.toIso8601String(),
+    'type': type,
+    if (description != null) 'description': description,
+    if (academicYear.isNotEmpty) 'academicYear': academicYear,
   };
 }
 
@@ -87,12 +102,13 @@ class AdminAttendanceView extends StatefulWidget {
 class _AdminAttendanceViewState extends State<AdminAttendanceView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final session = Get.find<UserSession>();
+  //final session = Get.find<UserSession>();
+  final _AuthCtrl = Get.find<AuthController>();
 
   // ── Attendance state ────────────────────────────────────────────────────────
   String? _selectedClassId;
   String? _selectedSectionId;
-  String _selectedYear = '2025-2026';
+  String _selectedYear = AcademicYearUtils.getCurrentAcademicYear();
   DateTime _selectedDate = DateTime.now();
   bool _loadingStudents = false;
   bool _submitting = false;
@@ -111,9 +127,10 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   DateTime _eventFrom = DateTime.now();
   DateTime _eventTo = DateTime.now();
   String _eventType = 'holiday';
-  String _eventYear = '2025-2026';
+  String _eventYear = AcademicYearUtils.getCurrentAcademicYear();
+  String? _editingEventId;
 
-  static const _years = ['2024-2025', '2025-2026', '2026-2027'];
+  static final _years = AcademicYearUtils.getRecentAcademicYears(3);
 
   @override
   void initState() {
@@ -213,18 +230,33 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     setState(() => _submitting = true);
     try {
       final sc = Get.find<SchoolController>();
-      final schoolId = sc.selectedSchool.value?.id ?? session.schoolId ?? '';
-      final token = session.token ?? '';
 
-      final records = _students
-          .map((s) => {
-        'studentId': s.id,
-        'status': s.status,
-      })
-          .toList();
+      print('selectedSchool: ${sc.selectedSchool.value}');
+      String schoolId = '';
+      try {
+        schoolId = sc.selectedSchool.value?.id ?? _AuthCtrl.user.value?.schoolId ?? '';
+      } catch (e) {
+        print('schoolId getter threw: $e');
+        schoolId = _AuthCtrl.user.value?.schoolId ?? '';
+      }
+      print('schoolId resolved: $schoolId');
 
-      final uri =
-      Uri.parse('${ApiConstants.baseUrl}/api/attendance/bulk');
+      final token = _AuthCtrl.storage.read('token') ?? '';
+      print('token: $token');
+      print('classId: $_selectedClassId, sectionId: $_selectedSectionId');
+
+      final records = _students.map((s) {
+        print('mapping student id=${s.id} name=${s.name} status=${s.status}');
+        return {
+          'studentId': s.id,
+          'studentName': s.name,
+          'status': s.status,
+          'remark': s.remark,
+        };
+      }).toList();
+
+      final uri = Uri.parse('${ApiConstants.baseUrl}/api/attendance/mark'); // fixed endpoint
+
       final response = await http.post(
         uri,
         headers: {
@@ -241,6 +273,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         }),
       );
 
+      print('Mark attendance response (${response.statusCode}): ${response.body}'); // temp debug log
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         Get.snackbar('Success', 'Attendance submitted successfully',
             backgroundColor: Colors.green, colorText: Colors.white);
@@ -250,7 +284,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             backgroundColor: Colors.red, colorText: Colors.white);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to submit attendance',
+      print('Submit attendance exception: $e'); // temp debug log
+      Get.snackbar('Error', 'Failed to submit attendance: $e', // include $e temporarily
           backgroundColor: Colors.red, colorText: Colors.white);
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -271,8 +306,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     setState(() => _loadingEvents = true);
     try {
       final sc = Get.find<SchoolController>();
-      final schoolId = sc.selectedSchool.value?.id ?? session.schoolId ?? '';
-      final token = session.token ?? '';
+      final schoolId = sc.selectedSchool.value?.id ?? _AuthCtrl.user.value?.schoolId ?? '';
+      final token = _AuthCtrl.storage.read('token') ?? '';
 
       final uri = Uri.parse(
           '${ApiConstants.baseUrl}/api/calendar/getall?schoolId=$schoolId');
@@ -310,8 +345,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     setState(() => _savingEvent = true);
     try {
       final sc = Get.find<SchoolController>();
-      final schoolId = sc.selectedSchool.value?.id ?? session.schoolId ?? '';
-      final token = session.token ?? '';
+      final schoolId = sc.selectedSchool.value?.id ?? _AuthCtrl.user.value?.schoolId ?? '';
+      final token = _AuthCtrl.storage.read('token') ?? '';
 
       final event = CalendarEvent(
         name: _eventNameCtrl.text.trim(),
@@ -324,26 +359,44 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         academicYear: _eventYear,
       );
 
-      final uri =
-      Uri.parse('${ApiConstants.baseUrl}/api/calendar/create');
-      final response = await http.post(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({...event.toJson(), 'schoolId': schoolId}),
-      );
+      http.Response response;
+
+      if (_editingEventId == null) {
+        // CREATE — api no 114
+        final uri = Uri.parse('${ApiConstants.baseUrl}/api/calendar/create');
+        response = await http.post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({...event.toCreateJson(), 'schoolId': schoolId}),
+        );
+      } else {
+        // UPDATE — api no 115
+        final uri = Uri.parse('${ApiConstants.baseUrl}/api/calendar/update/$_editingEventId');
+        response = await http.put(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(event.toUpdateJson()),
+        );
+      }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        Get.snackbar('Success', 'Event added successfully',
-            backgroundColor: Colors.green, colorText: Colors.white);
-        _eventNameCtrl.clear();
-        _eventDescCtrl.clear();
+        Get.snackbar(
+          'Success',
+          _editingEventId == null ? 'Event added successfully' : 'Event updated successfully',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+        _resetEventForm();
         await _loadCalendarEvents();
       } else {
         final err = jsonDecode(response.body);
-        Get.snackbar('Error', err['message'] ?? 'Failed to add event',
+        Get.snackbar('Error', err['message'] ?? 'Failed to save event',
             backgroundColor: Colors.red, colorText: Colors.white);
       }
     } catch (e) {
@@ -354,17 +407,44 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     }
   }
 
+  void _resetEventForm() {
+    _eventNameCtrl.clear();
+    _eventDescCtrl.clear();
+    setState(() {
+      _editingEventId = null;
+      _eventFrom = DateTime.now();
+      _eventTo = DateTime.now();
+      _eventType = 'holiday';
+      _eventYear = AcademicYearUtils.getCurrentAcademicYear();
+    });
+  }
+
+  void _startEditEvent(CalendarEvent event) {
+    setState(() {
+      _editingEventId = event.id;
+      _eventNameCtrl.text = event.name;
+      _eventDescCtrl.text = event.description ?? '';
+      _eventFrom = event.fromDate;
+      _eventTo = event.toDate;
+      _eventType = event.type;
+      _eventYear = event.academicYear;
+    });
+  }
+
   Future<void> _deleteEvent(CalendarEvent event) async {
     if (event.id == null) return;
     try {
-      final token = session.token ?? '';
+      final token = _AuthCtrl.storage.read('token') ?? '';
       final uri = Uri.parse(
           '${ApiConstants.baseUrl}/api/calendar/delete/${event.id}');
       final response = await http.delete(uri, headers: {
         'Authorization': 'Bearer $token',
       });
       if (response.statusCode == 200) {
-        setState(() => _events.removeWhere((e) => e.id == event.id));
+        setState(() {
+          _events.removeWhere((e) => e.id == event.id);
+          if (_editingEventId == event.id) _editingEventId = null;
+        });
         Get.snackbar('Deleted', 'Event removed',
             backgroundColor: Colors.blue, colorText: Colors.white);
       }
@@ -763,11 +843,15 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   }
 
   Widget _addEventCard() {
+    final isEditing = _editingEventId != null;
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardTitle(Icons.add_circle_outline_rounded, 'Add calendar event'),
+          _cardTitle(
+            isEditing ? Icons.edit_calendar_rounded : Icons.add_circle_outline_rounded,
+            isEditing ? 'Edit calendar event' : 'Add calendar event',
+          ),
           _field(label: 'Event name', controller: _eventNameCtrl,
               hint: 'e.g. Diwali, Christmas break…'),
           const SizedBox(height: 10),
@@ -794,13 +878,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   label: 'Type',
                   value: _eventType,
                   items: const [
-                    DropdownMenuItem(
-                        value: 'holiday',
-                        child: Text('Public holiday')),
-                    DropdownMenuItem(
-                        value: 'leave', child: Text('School leave')),
-                    DropdownMenuItem(
-                        value: 'exam', child: Text('Exam block')),
+                    DropdownMenuItem(value: 'holiday', child: Text('Public holiday')),
+                    DropdownMenuItem(value: 'leave', child: Text('School leave')),
+                    DropdownMenuItem(value: 'exam', child: Text('Exam block')),
                   ],
                   onChanged: (v) => setState(() => _eventType = v!),
                 ),
@@ -811,8 +891,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   label: 'Academic year',
                   value: _eventYear,
                   items: _years
-                      .map((y) =>
-                      DropdownMenuItem(value: y, child: Text(y)))
+                      .map((y) => DropdownMenuItem(value: y, child: Text(y)))
                       .toList(),
                   onChanged: (v) => setState(() => _eventYear = v!),
                 ),
@@ -825,27 +904,45 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
               controller: _eventDescCtrl,
               hint: 'Short note…'),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _savingEvent ? null : _saveCalendarEvent,
-              icon: _savingEvent
-                  ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.add_rounded, size: 16),
-              label: Text(_savingEvent ? 'Saving…' : 'Add event',
-                  style: const TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+          Row(
+            children: [
+              if (isEditing) ...[
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _savingEvent ? null : _resetEventForm,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey.shade700,
+                      side: BorderSide(color: Colors.grey.shade300),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                flex: isEditing ? 2 : 1,
+                child: ElevatedButton.icon(
+                  onPressed: _savingEvent ? null : _saveCalendarEvent,
+                  icon: _savingEvent
+                      ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Icon(isEditing ? Icons.check_rounded : Icons.add_rounded, size: 16),
+                  label: Text(
+                      _savingEvent ? 'Saving…' : (isEditing ? 'Update event' : 'Add event'),
+                      style: const TextStyle(fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -931,6 +1028,13 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           ),
           _typeBadge(event.type),
           const SizedBox(width: 6),
+          IconButton(
+            onPressed: () => _startEditEvent(event),
+            icon: const Icon(Icons.edit_rounded, color: Color(0xFF2563EB), size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             onPressed: () => _confirmDelete(event),
             icon: const Icon(Icons.delete_outline_rounded,
