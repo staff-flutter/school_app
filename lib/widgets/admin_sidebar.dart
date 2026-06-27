@@ -891,7 +891,7 @@ class _NavItem extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
-                mainAxisAlignment: progress > 0.5
+                mainAxisAlignment: progress > 0.4
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
                 children: [

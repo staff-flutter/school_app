@@ -199,6 +199,6 @@ class ApiConstants {
  static const String deleteAdmissionForm = '/api/school/admission-form';                                 //api no: 177   { QueryParams  AdmissionFormId }
  static const String updateAdmissionFormStatus = '/api/school/admission-form/status';                    //api no: 179   { QueryParams  AdmissionFormId }  there is no 178 in pdf
  static const String updateAdmissionFormAfterSubmission = '/api/school/admission-form/details';          //api no: 180   { QueryParams  AdmissionFormId(optional) ,StudentId(optional) either studentId or AdmissionFormId should provide}
- static const String linkAdmissionFormToStudent     = '/api/school/admission-form/:id/linkstudent';      //api no: 181   { QueryParams  AdmissionFormId }
+ static const String linkAdmissionFormToStudent     = '/api/school/admission-form/:id/link-student';      //api no: 181   { QueryParams  AdmissionFormId }
 
 }

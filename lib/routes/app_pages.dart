@@ -139,7 +139,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.STUDENT_DETAILS,
       page: () => RoleAwareWrapper(child: StudentDetailView()),
-
+        binding:BindingsBuilder(() {
+          BillAdmissionBinding().dependencies();
+          MarksUploadBinding().dependencies();
+          }),
     ),
     GetPage(
       name: '/teacher-classes',

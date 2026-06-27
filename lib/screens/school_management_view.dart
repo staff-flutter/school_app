@@ -1244,7 +1244,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
                         color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
                     const SizedBox(width: 6),
                     Text(
-                      selectedSectionVal?.name ?? 'All Sections',
+                      selectedSectionVal?.name ?? 'Sections',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

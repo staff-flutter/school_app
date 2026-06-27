@@ -83,12 +83,18 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
 
   Future<void> _openDetail(Map<String, dynamic> form) async {
     final id = (form['_id'] ?? form['id'] ?? form['admissionFormId'])?.toString();
+    final studentId = (form['studentId'] ?? form['studentId'] ?? form['studentId'])?.toString();
+
     if (id == null) return;
 
     final result = await Get.to(() => AdmissionFormDetailView(
       admissionFormId: id,
       initialData: form,
-    ));
+      prefillStudentId: studentId,
+    ),binding: BindingsBuilder(() {
+      Get.lazyPut(() => BillAdmissionController());
+    }),
+    );
 
     if (result == true) {
       _fetchForms(resetPage: false);

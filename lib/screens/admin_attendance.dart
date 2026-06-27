@@ -108,6 +108,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   // ── Attendance state ────────────────────────────────────────────────────────
   String? _selectedClassId;
   String? _selectedSectionId;
+  bool _classHasSections = false;
   String _selectedYear = AcademicYearUtils.getCurrentAcademicYear();
   DateTime _selectedDate = DateTime.now();
   bool _loadingStudents = false;
@@ -185,6 +186,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             .map((s) => {'id': s.id, 'name': s.name})
             .toList();
         _selectedSectionId = null;
+        _classHasSections = _sections.isNotEmpty;
       });
     } catch (_) {}
   }
@@ -192,8 +194,13 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   // ── Load students ────────────────────────────────────────────────────────────
 
   Future<void> _loadStudents() async {
-    if (_selectedClassId == null || _selectedSectionId == null) {
-      Get.snackbar('Error', 'Please select class and section',
+    if (_selectedClassId == null ) {
+      Get.snackbar('Error', 'Please select class',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
+    if (_classHasSections && _selectedSectionId == null) {
+      Get.snackbar('Error', 'Please select a section',
           backgroundColor: Colors.red, colorText: Colors.white);
       return;
     }
@@ -203,7 +210,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       await sc.getAllStudents(
         schoolId: sc.selectedSchool.value?.id,
         classId: _selectedClassId,
-        sectionId: _selectedSectionId,
+        sectionId: _classHasSections ? _selectedSectionId : null,
       );
       if (!mounted) return;
       setState(() {
@@ -549,15 +556,20 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _dropdown(
+                child: _classHasSections
+                    ? _dropdown(
                   label: 'Section',
                   value: _selectedSectionId,
                   items: _sections
-                      .map((s) =>
-                      DropdownMenuItem(value: s['id'], child: Text(s['name']!)))
+                      .map((s) => DropdownMenuItem(value: s['id'], child: Text(s['name']!)))
                       .toList(),
-                  onChanged: (v) =>
-                      setState(() => _selectedSectionId = v),
+                  onChanged: (v) => setState(() => _selectedSectionId = v),
+                )
+                    : _dropdown(
+                  label: 'Section',
+                  value: null,
+                  items: const [],
+                  onChanged: (_) {}, // no-op, dropdown effectively disabled
                 ),
               ),
             ],

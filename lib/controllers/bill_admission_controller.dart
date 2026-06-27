@@ -511,8 +511,6 @@ class BillAdmissionController extends GetxController {
         if (admissionFormId != null) 'id': admissionFormId,
         if (studentId != null) 'studentId': studentId,
       };
-         print('studentId:$studentId');
-      print('admissionFormId:$admissionFormId');
 
       final response = await _apiService.get(ApiConstants.getSingleAdmissionForm, queryParameters: queryParams);
 
@@ -523,10 +521,17 @@ class BillAdmissionController extends GetxController {
         _showSnackbar('Error', response.data['message'] ?? 'Failed to load admission form', AppTheme.errorRed);
         return null;
       }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // No admission form exists for this student — not an error, just empty.
+        currentAdmissionForm.value = null;
+        return null;
+      }
+      _showSnackbar('Error', 'An error occurred while loading the admission form.', AppTheme.errorRed);
+      return null;
     } catch (e) {
       print("DEBUG ERROR: $e");
-      //_showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission form'), AppTheme.errorRed);
-      _showSnackbar('Error', e.toString(), AppTheme.errorRed);
+      _showSnackbar('Error', 'An unexpected error occurred.', AppTheme.errorRed);
       return null;
     } finally {
       isLoading.value = false;
@@ -698,7 +703,7 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final url = ApiConstants.linkAdmissionFormToStudent.replaceFirst(':id', admissionFormId);
-
+      print('🔗 PATCH url: $url');
       final response = await _apiService.patch(url, data: {'studentId': studentId});
 
       if (response.data['ok'] == true) {

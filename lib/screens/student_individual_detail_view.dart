@@ -5,6 +5,7 @@ import 'package:school_app/controllers/user_management_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/club_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/models/student_model.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/services/api_service.dart';
@@ -655,8 +656,9 @@ class StudentIndividualDetailView extends StatelessWidget {
   void _showAssignToClassDialog(BuildContext context, Student student, SchoolController schoolController) {
     SchoolClass? selectedClass;
     Section? selectedSection;
+    bool classHasSections = false;
     final rollNumberController = TextEditingController();
-    final academicYearController = TextEditingController(text: '2025-2026');
+    final academicYearController = TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
     bool isBusApplicable = false;
     bool isLoadingSections = false;
 
@@ -687,6 +689,7 @@ class StudentIndividualDetailView extends StatelessWidget {
                         selectedSection = null;
                         schoolController.sections.clear();
                         isLoadingSections = cls != null;
+                        classHasSections = false;
                       });
 
                       if (cls != null) {
@@ -698,6 +701,7 @@ class StudentIndividualDetailView extends StatelessWidget {
                         // populated with this class's sections.
                         setState(() {
                           isLoadingSections = false;
+                          classHasSections = schoolController.sections.isNotEmpty;
                         });
                       }
                     },
@@ -755,17 +759,26 @@ class StudentIndividualDetailView extends StatelessWidget {
           TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
-              if (selectedClass != null && selectedSection != null) {
+              if (selectedClass == null) {
+                Get.snackbar('Error', 'Please select a class',
+                    backgroundColor: Colors.red, colorText: Colors.white);
+                return;
+              }
+              if (classHasSections && selectedSection == null) {
+                Get.snackbar('Error', 'Please select a section',
+                    backgroundColor: Colors.red, colorText: Colors.white);
+                return;
+              }
                 final studentController = Get.put(StudentManagementController());
                 final success = await studentController.assignStudentToClass({
                   'schoolId': schoolId,
                   'studentId': student.id,
                   'classId': selectedClass!.id,
-                  'sectionId': selectedSection!.id,
+                  'sectionId': selectedSection?.id ?? '',
                   'academicYear': academicYearController.text,
                   'newOld': 'new',
                   'rollNumber': rollNumberController.text,
-                  'sectionName': selectedSection!.name,
+                  'sectionName': selectedSection?.name ?? '',
                   'className': selectedClass!.name,
                   'isBusApplicable': isBusApplicable,
                   'studentName': student.name,
@@ -774,8 +787,11 @@ class StudentIndividualDetailView extends StatelessWidget {
                   Navigator.of(context).pop();
                   // Refresh the current page by rebuilding the widget
                   (context as Element).markNeedsBuild();
+                }else {
+                  Get.snackbar('Error', 'Failed to assign class',
+                      backgroundColor: Colors.red, colorText: Colors.white);
                 }
-              }
+
             },
             child: const Text('Assign'),
           ),

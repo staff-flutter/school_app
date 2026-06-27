@@ -5,11 +5,13 @@ import 'package:school_app/controllers/bill_admission_controller.dart';
 class AdmissionFormDetailView extends StatefulWidget {
   final String admissionFormId;
   final Map<String, dynamic>? initialData;
+  final String? prefillStudentId;
 
   const AdmissionFormDetailView({
     super.key,
     required this.admissionFormId,
     this.initialData,
+    this.prefillStudentId,
   });
 
   @override
@@ -52,11 +54,17 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
 
   @override
   void initState() {
+
     super.initState();
     if (widget.initialData != null) {
       _formData = widget.initialData;
       _populateControllers(widget.initialData!);
       _loading = false;
+    }
+    // If a studentId was passed in from navigation, prefill it
+    if (widget.prefillStudentId != null && widget.prefillStudentId!.isNotEmpty) {
+      _studentIdController.text = widget.prefillStudentId!;
+      print('prefillStudentId:${widget.prefillStudentId}');
     }
     _loadForm();
   }
@@ -108,7 +116,15 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
     _motherNameController.text = data['motherName']?.toString() ?? '';
     _motherEducationController.text = data['motherEducation']?.toString() ?? '';
     _motherOccupationController.text = data['motherOccupation']?.toString() ?? '';
-    _studentIdController.text = (data['studentId'] ?? '').toString();
+   // _studentIdController.text = (data['studentId'] ?? '').toString();
+    final fetchedStudentId = data['studentId']?.toString() ?? '';
+    if (fetchedStudentId.isNotEmpty) {
+      _studentIdController.text = fetchedStudentId;
+    } else if (widget.prefillStudentId != null && widget.prefillStudentId!.isNotEmpty) {
+      _studentIdController.text = widget.prefillStudentId!;
+    } else {
+      _studentIdController.text = '';
+    }
   }
 
   Future<void> _loadForm() async {
@@ -210,9 +226,12 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
     }
 
     final success = await _controller.linkAdmissionFormToStudent(
-      admissionFormId: widget.admissionFormId,
+      admissionFormId: '${widget.admissionFormId}',
       studentId: studentId,
     );
+    String? admissionformid='${widget.admissionFormId}';
+    print('admissionformid:$admissionformid');
+    print('studentid:$studentId');
     if (success) {
       _changed = true;
       _loadForm();
@@ -234,6 +253,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    print('admissionformId:$widget.admissionFormId');
     return WillPopScope(
       onWillPop: () async {
         Get.back(result: _changed);
