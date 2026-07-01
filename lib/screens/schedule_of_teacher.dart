@@ -17,7 +17,65 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
   final authController = Get.find<AuthController>();
   final schoolController = Get.find<SchoolController>();
   final timetableController = Get.put(TimetableController());
+  static const _dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  /// Extracts "Class · Section" from a schedule-level object — the object
+  /// containing `classId`, `sectionId`, `weeklySchedule`, etc. — NOT a period.
+  /// classId/sectionId come back as nested maps: {_id, name}.
+  String? _extractClassLabelFromSchedule(Map schedule) {
+    final classMap = schedule['classId'];
+    final sectionMap = schedule['sectionId'];
+    final className = classMap is Map ? classMap['name']?.toString() : classMap?.toString();
+    final sectionName = sectionMap is Map ? sectionMap['name']?.toString() : sectionMap?.toString();
+
+    if (className == null || className.isEmpty) return null;
+    if (sectionName != null && sectionName.isNotEmpty) return '$className · $sectionName';
+    return className;
+  }
+  Map<String, dynamic> _buildMergedSchedule(List<Map<String, dynamic>> schedules) {
+    final grid = <String, Map<int, Map<String, dynamic>>>{};
+    final daysPresent = <String>{};
+
+    for (final schedule in schedules) {
+      final classLabel = _extractClassLabelFromSchedule(schedule);
+      final weeklySchedule = schedule['weeklySchedule'] as List? ?? [];
+
+      for (final ws in weeklySchedule) {
+        final day = ws['day']?.toString();
+        if (day == null) continue;
+        daysPresent.add(day);
+        grid.putIfAbsent(day, () => {});
+
+        final periods = ws['periods'] as List? ?? [];
+        for (final p in periods) {
+          final periodNumber = p['periodNumber'] as int?;
+          if (periodNumber == null) continue;
+          final isYourPeriod = p['isYourPeriod'] == true;
+          final existing = grid[day]![periodNumber];
+
+          if (isYourPeriod) {
+            // Always wins — unambiguous which class/section this period
+            // belongs to (may overwrite a break/free placeholder from
+            // another schedule at the same day+period slot).
+            grid[day]![periodNumber] = {
+              ...Map<String, dynamic>.from(p),
+              'classLabel': classLabel,
+            };
+          } else if (existing == null) {
+            // Break / free slot — only fill if nothing has claimed this
+            // day+period yet.
+            grid[day]![periodNumber] = {
+              ...Map<String, dynamic>.from(p),
+              'classLabel': null,
+            };
+          }
+        }
+      }
+    }
+
+    final orderedDays = _dayOrder.where(daysPresent.contains).toList();
+    return {'grid': grid, 'days': orderedDays};
+  }
   static const _primary = Color(0xFF2563EB);
   static const _primaryDark = Color(0xFF0284C7);
   static const _primarySoft = Color(0xFFE0F2FE);
@@ -81,9 +139,11 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
         schoolId: schoolId,
         teacherId: teacherId,
       );
+      print('TEACHER SCHEDULE COUNT: ${timetableController.teacherSchedule.length}');
     } catch (e) {
       setState(() => _error = 'Failed to load your schedule.');
     } finally {
+
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -116,18 +176,10 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
 
   Widget _buildBody(BuildContext context, bool isTablet) {
     if (_loading) {
-      return SizedBox(
-        height: 300,
-        child: Center(child: CircularProgressIndicator(color: _primary)),
-      );
+      return SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: _primary)));
     }
-
     if (_error != null) {
-      return _emptyState(
-        icon: Icons.error_outline_rounded,
-        title: 'Something went wrong',
-        subtitle: _error!,
-      );
+      return _emptyState(icon: Icons.error_outline_rounded, title: 'Something went wrong', subtitle: _error!);
     }
 
     return Obx(() {
@@ -139,24 +191,20 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
         );
       }
 
-      final schedule = timetableController.teacherSchedule.first;
-      final weeklySchedule = schedule['weeklySchedule'] as List? ?? [];
-      final addedDays = weeklySchedule.map((ws) => ws['day'] as String).toList();
+      final merged = _buildMergedSchedule(timetableController.teacherSchedule);
+      final grid = merged['grid'] as Map<String, Map<int, Map<String, dynamic>>>;
+      final addedDays = merged['days'] as List<String>;
 
-      // Count today's periods + total periods this week, for the summary header.
       final todayName = _todayName();
-      final todaySchedule = weeklySchedule.firstWhereOrNull((ws) => ws['day'] == todayName);
+      final todayPeriods = grid[todayName];
+
       int todayCount = 0;
       int weekCount = 0;
-      if (todaySchedule != null) {
-        final periods = (todaySchedule['periods'] as List? ?? [])
-            .where((p) => (p['isYourPeriod'] ?? false) == true && (p['isBreak'] ?? false) != true);
-        todayCount = periods.length;
+      if (todayPeriods != null) {
+        todayCount = todayPeriods.values.where((p) => p['isYourPeriod'] == true).length;
       }
-      for (final ws in weeklySchedule) {
-        final periods = (ws['periods'] as List? ?? [])
-            .where((p) => (p['isYourPeriod'] ?? false) == true && (p['isBreak'] ?? false) != true);
-        weekCount += periods.length;
+      for (final dayPeriods in grid.values) {
+        weekCount += dayPeriods.values.where((p) => p['isYourPeriod'] == true).length;
       }
 
       return Column(
@@ -164,6 +212,10 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
         children: [
           _buildSummaryRow(context, isTablet, todayCount, weekCount),
           const SizedBox(height: 16),
+          if (todayPeriods != null && todayCount > 0) ...[
+            _buildTodayList(todayPeriods),
+            const SizedBox(height: 16),
+          ],
           _buildLegend(),
           const SizedBox(height: 12),
           Container(
@@ -173,13 +225,66 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
               border: Border.all(color: _border),
             ),
             padding: const EdgeInsets.all(12),
-            child: _buildGrid(context, weeklySchedule, addedDays, isTablet),
+            child: _buildGrid(context, grid, addedDays, isTablet),
           ),
         ],
       );
     });
   }
+  Widget _buildTodayList(Map<int, Map<String, dynamic>> todayPeriods) {
+    final periods = todayPeriods.values
+        .where((p) => p['isYourPeriod'] == true)
+        .toList()
+      ..sort((a, b) => (a['periodNumber'] as int).compareTo(b['periodNumber'] as int));
 
+    if (periods.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Today's Classes", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _textPrimary)),
+          const SizedBox(height: 10),
+          ...periods.map((p) {
+            final classLabel = p['classLabel']?.toString() ?? 'Class not set';
+            final subject = p['subjectName']?.toString() ?? '-';
+            final start = p['startTime']?.toString() ?? '';
+            final end = p['endTime']?.toString() ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44, height: 44, alignment: Alignment.center,
+                    decoration: BoxDecoration(color: _successSoft, borderRadius: BorderRadius.circular(10)),
+                    child: Text('P${p['periodNumber']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: _success)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(subject, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _textPrimary)),
+                        Text(classLabel, style: const TextStyle(fontSize: 12, color: _textMuted)),
+                      ],
+                    ),
+                  ),
+                  if (start.isNotEmpty)
+                    Text('$start–$end', style: const TextStyle(fontSize: 11, color: _textMuted, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
   Widget _buildSummaryRow(BuildContext context, bool isTablet, int todayCount, int weekCount) {
     return Row(
       children: [
@@ -275,7 +380,11 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
   }
 
   // ── Grid rendering (teacher-personal version of _TimetableGrid) ───────────
-  Widget _buildGrid(BuildContext context, List weeklySchedule, List<String> addedDays, bool isTablet) {
+  Widget _buildGrid(
+      BuildContext context,
+      Map<String, Map<int, Map<String, dynamic>>> grid,
+      List<String> addedDays,
+      bool isTablet) {
     final cellWidth = isTablet ? 140.0 : 108.0;
     final cellHeight = isTablet ? 72.0 : 62.0;
     final periodColWidth = isTablet ? 80.0 : 68.0;
@@ -340,24 +449,22 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
                   const SizedBox(width: 6),
                   ...List.generate(addedDays.length, (dayIndex) {
                     final day = addedDays[dayIndex];
-                    final daySchedule = (weeklySchedule).firstWhereOrNull((ws) => ws['day'] == day);
+                    final periodData = grid[day]?[periodNumber];
 
                     String subject = '-';
                     bool isBreak = false;
                     bool isYourPeriod = false;
                     String startTime = '';
                     String endTime = '';
+                    String? classLabel;
 
-                    if (daySchedule != null) {
-                      final periods = daySchedule['periods'] as List? ?? [];
-                      final periodData = periods.firstWhereOrNull((p) => p['periodNumber'] == periodNumber);
-                      if (periodData != null) {
-                        isBreak = periodData['isBreak'] ?? false;
-                        subject = periodData['subjectName'] ?? '-';
-                        isYourPeriod = periodData['isYourPeriod'] ?? false;
-                        startTime = periodData['startTime']?.toString() ?? '';
-                        endTime = periodData['endTime']?.toString() ?? '';
-                      }
+                    if (periodData != null) {
+                      isBreak = periodData['isBreak'] == true;
+                      subject = periodData['subjectName']?.toString() ?? '-';
+                      isYourPeriod = periodData['isYourPeriod'] == true;
+                      startTime = periodData['startTime']?.toString() ?? '';
+                      endTime = periodData['endTime']?.toString() ?? '';
+                      classLabel = periodData['classLabel']?.toString();
                     }
 
                     return Padding(
@@ -368,6 +475,7 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
                         isYourPeriod: isYourPeriod,
                         startTime: startTime,
                         endTime: endTime,
+                        classLabel: classLabel,
                         width: cellWidth,
                         height: cellHeight,
                       ),
@@ -388,6 +496,7 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
     required bool isYourPeriod,
     required String startTime,
     required String endTime,
+    String? classLabel,
     required double width,
     required double height,
   }) {
@@ -434,6 +543,15 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
             textAlign: TextAlign.center,
             maxLines: 2,
           ),
+          if (isYourPeriod && classLabel != null) ...[
+            const SizedBox(height: 1),
+            Text(
+              classLabel,
+              style: TextStyle(fontSize: 10, color: fg.withOpacity(0.85), fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ],
           if (isYourPeriod && startTime.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text('$startTime–$endTime',

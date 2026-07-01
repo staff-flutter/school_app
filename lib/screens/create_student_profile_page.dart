@@ -285,6 +285,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final _school = Get.find<SchoolController>();
   final billFiles = <PlatformFile>[].obs;
   final workPhotoFiles = <PlatformFile>[].obs;
+  String? _selectedStudentType;
+  final List<String> _studentTypeOptions = ['New', 'Old'];
 
   String? get _resolvedSchoolId {
     final argSchoolId = Get.arguments?['schoolId'] as String?;
@@ -845,14 +847,14 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       options: dio.Options(headers: {'x-school-id': schoolId}),
     );
 
-    debugPrint('[STUDENT UPLOAD] status=${resp.statusCode} ok=${resp.data['ok']}');
-    debugPrint('[STUDENT UPLOAD] 📦 FULL RESPONSE: ${resp.data}');
+    print('[STUDENT UPLOAD] status=${resp.statusCode} ok=${resp.data['ok']}');
+    print('[STUDENT UPLOAD] 📦 FULL RESPONSE: ${resp.data}');
     final verifyResp = await apiService.get('${ApiConstants.getStudent}/$studentId');
-    debugPrint('[STUDENT UPLOAD] 🔍 Re-fetched student: ${verifyResp.data}');
+    print('[STUDENT UPLOAD] 🔍 Re-fetched student: ${verifyResp.data}');
     final jsonStr = verifyResp.data.toString();
     const chunkSize = 800;
     for (var i = 0; i < jsonStr.length; i += chunkSize) {
-      debugPrint('🔍 CHUNK: ${jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize)}');
+      print('🔍 CHUNK: ${jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize)}');
     }
     if (resp.data['ok'] != true) {
       throw Exception('File upload failed: ${resp.data['message']}');
@@ -931,7 +933,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       // (work-photo files are uploaded separately after save — see below)
 
       // Debug: log every field
-      debugPrint('[STUDENT PAYLOAD FIELDS]');
+      print('[STUDENT PAYLOAD FIELDS]');
       for (final f in formData.fields) {
         debugPrint('  ${f.key} = ${f.value}');
       }
@@ -970,8 +972,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       if (responseData?['ok'] == true) {
         final studentId = responseData?['data']?['_id']?.toString() ??
             responseData?['student']?['_id']?.toString();
-        debugPrint('[STUDENT SUCCESS] studentId=$studentId');
-
+        print('[STUDENT SUCCESS] studentId=$studentId');
+         print('response:${responseData}');
         // Upload work-photo files via the dedicated endpoint AFTER save.
         if (studentId != null && workPhotoFiles.isNotEmpty) {
           debugPrint(
@@ -1001,7 +1003,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               'studentId': studentId,
               'classId': _pickedClassId,
               'sectionId': _pickedSectionId,
-              'newOld': _resolvedIsEdit  ? 'old' : 'new',
+              'newOld': (_selectedStudentType ?? (_resolvedIsEdit ? 'Old' : 'New')).toLowerCase(),
               'rollNumber': _rollNoCtrl.text.trim(),
               'className': _pickedClassName ?? '',
               'sectionName': _pickedSectionName ?? '',
@@ -1422,6 +1424,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             ]),
           ),
           const SizedBox(height: 16),
+          // ACTIVE TOGGLE ROW CARD
           _FormCard(
             child: Row(children: [
               Expanded(
@@ -1446,6 +1449,57 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                 activeColor: _AppColors.primary,
               ),
             ]),
+          ),
+          const SizedBox(height: 16),
+          // NEW SEPARATE DROPDOWN CARD FOR STUDENT TYPE
+          _FormCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Student Type *',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedStudentType,
+                  hint: const Text('Select Student Type'),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: _AppColors.surface, // Uses your file's background token
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                  items: _studentTypeOptions.map((String type) {
+                    return DropdownMenuItem<String>(
+                      value: type,
+                      child: Text(type),
+                    );
+                  }).toList(),
+                  validator: (value) => value == null ? 'Please select student type' : null,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedStudentType = newValue;
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
         ]),
       ),
