@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../controllers/marks_controller.dart';
+import '../controllers/student_record_controller.dart';
+import '../core/utils/academic_year_utils.dart';
 import '../core/utils/class_utils.dart';
 import '../constants/api_constants.dart';
 import '../controllers/auth_controller.dart';
@@ -74,6 +77,12 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   final TextEditingController _searchController = TextEditingController();
   final MarksController _marksController = Get.find<MarksController>();
 
+  final StudentRecordController _studentRecordController = Get.find<StudentRecordController>();
+
+  List<Map<String, dynamic>> _studentDocuments = [];
+  String? _profileImageUrl;
+  bool _isLoadingDocuments = false;
+  bool _documentsFetched = false;
   List<Map<String, dynamic>> _examPerformance = []; // {examName, percentage, grade, isAbsent}
   bool _isLoadingAcademics = false;
   bool _academicsFetched = false;
@@ -248,6 +257,14 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       final Map<String, dynamic> m = doc['mandatory'] ?? {};
       final Map<String, dynamic> n = doc['nonMandatory'] ?? {};
 
+      final rawDocs = (doc['documents'] as List?) ?? [];
+      final parsedDocs = rawDocs
+          .whereType<Map>()
+          .map((d) => Map<String, dynamic>.from(d))
+          .toList();
+
+      final studentImageMap = doc['studentImage'] as Map<String, dynamic>?;
+      final profileImageUrl = studentImageMap?['url']?.toString();
       // Helper to read nested values safely without catching null or string 'null' literals
       String v(String key) {
         for (final src in [m, n, doc]) {
@@ -261,7 +278,8 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       if (mounted) {
         setState(() {
           _hasSearched1 = true;
-
+          _studentDocuments = parsedDocs;
+          _profileImageUrl = profileImageUrl;
           // ─── MANDATORY CORES ─────────────────────────────────────────────────
           // Name defaults to 'Unknown Student' if missing entirely
           final rawName = v('studentName').isNotEmpty ? v('studentName') : v('aadhaarName');
@@ -449,6 +467,48 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         _isLoadingAdmission = false;
         _admissionFetched = true;
       });
+    }
+  }
+  Future<void> _fetchStudentDocuments() async {
+    if (selectedStudent.value == null || _resolvedSchoolId == null) return;
+    setState(() => _isLoadingDocuments = true);
+
+    try {
+      final data = await _studentRecordController.getStudentRecord(
+        _resolvedSchoolId!,
+        selectedStudent.value!.id,
+        academicYear: AcademicYearUtils.getCurrentAcademicYear(),
+      );
+
+      print('📄 getStudentRecord raw response: $data');   // ← add this
+
+      if (data != null && mounted) {
+        final rawDocs = (data['documents'] as List?) ?? (data['files'] as List?) ?? [];
+        final jsonStr = data.toString();
+        const chunkSize = 800;
+        for (var i = 0; i < jsonStr.length; i += chunkSize) {
+          print('📄 CHUNK: ${jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize)}');
+        }        setState(() {
+          _studentDocuments = rawDocs.map((d) => d as Map<String, dynamic>).toList();
+          final studentObj = data['studentId'] as Map<String, dynamic>?;
+          final studentImage = studentObj?['studentImage'] as Map<String, dynamic>?;
+          _profileImageUrl = studentImage?['url']?.toString();
+          _documentsFetched = true;
+        });
+        final studentImage = data['studentImage'] as Map<String, dynamic>?;
+        setState(() {
+          _profileImageUrl = studentImage?['url']?.toString();
+          _studentDocuments = []; // confirmed: this endpoint has no documents array
+          _documentsFetched = true;
+        });
+      } else if (mounted) {
+        print('📄 getStudentRecord returned null');   // ← add this
+        setState(() => _documentsFetched = true);
+      }
+    } catch (e) {
+      debugPrint('Document fetch error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingDocuments = false);
     }
   }
   @override
@@ -973,11 +1033,12 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       selectedStudent.value = student;
       // Map parameters or perform API calls for profiles if needed
       _studentId = student.id;
-      print("ssssssssssstudentidddddd:$_studentId");
+      print("StudentId:$_studentId");
       _fetchStudentProfile();
       _fetchFeeDetails();
       _fetchAdmissionForm();
       _fetchAcademicPerformance();
+      //_fetchStudentDocuments();
     },
               ),
           );
@@ -1192,8 +1253,84 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       default:
         return _DS.warning;
     }
-  }  Widget _buildDocumentsTab(BuildContext context) => Container();
-  Widget _buildAcademicsTab(BuildContext context) {
+  }
+  Widget _buildDocumentsTab(BuildContext context) {
+    if (_isLoadingProfile) return const Center(child: CircularProgressIndicator());
+
+    final hasImage = _profileImageUrl != null && _profileImageUrl!.isNotEmpty;
+    final hasDocs = _studentDocuments.isNotEmpty;
+
+    if (!_hasSearched1 || (!hasImage && !hasDocs)) {
+      return _emptyState(
+        icon: Icons.folder_off_outlined,
+        title: 'No Documents',
+        subtitle: 'No photo or documents have been uploaded for this student yet.',
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.all(_Responsive.padding(context)),
+      children: [
+        if (hasImage) ...[
+          const Text('Student Photo',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _DS.textPrimary)),
+          const SizedBox(height: 10),
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              border: Border.all(color: _DS.border),
+              borderRadius: BorderRadius.circular(_DS.radius),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: Image.network(
+                _profileImageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined)),
+              ),
+            ),
+          ),
+        ],
+        if (hasDocs) ...[
+          const Text('Uploaded Documents',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _DS.textPrimary)),
+          const SizedBox(height: 10),
+          ..._studentDocuments.map((doc) {
+            final name = doc['originalName']?.toString() ?? doc['name']?.toString() ?? 'Document';
+            final url = doc['url']?.toString() ?? '';
+            final type = doc['type']?.toString() ?? '';
+            final isImage = type == 'image';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: _DS.surface,
+                border: Border.all(color: _DS.border),
+                borderRadius: BorderRadius.circular(_DS.radius),
+              ),
+              child: ListTile(
+                leading: Icon(
+                  isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined,
+                  color: _DS.primary,
+                ),
+                title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 18, color: _DS.textMuted),
+                onTap: url.isEmpty ? null : () => _openDocument(url),
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+  Future<void> _openDocument(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }  Widget _buildAcademicsTab(BuildContext context) {
     if (_isLoadingAcademics) return const Center(child: CircularProgressIndicator());
 
     if (!_academicsFetched || _examPerformance.isEmpty) {

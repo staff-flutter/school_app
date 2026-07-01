@@ -273,11 +273,38 @@ class StudentRecordController extends GetxController {
   }
 
   // Get Student Record
-  Future<Map<String, dynamic>?> getStudentRecord(String schoolId, String studentId) async {
+  // Future<Map<String, dynamic>?> getStudentRecord(String schoolId, String studentId) async {
+  //   try {
+  //     isLoading.value = true;
+  //     final response = await _apiService.get('${ApiConstants.getStudentRecord}/$schoolId/$studentId');
+  //
+  //     if (response.data['ok'] == true) {
+  //       currentStudentRecord.value = response.data['data'];
+  //       return response.data['data'];
+  //     } else {
+  //       _showSnackbar('Error', response.data['message'] ?? 'Failed to load student record', AppTheme.errorRed);
+  //       return null;
+  //     }
+  //   } catch (e) {
+  //     _showSnackbar('Error', 'An error occurred while loading student record', AppTheme.errorRed);
+  //     return null;
+  //   } finally {
+  //     isLoading.value = false;
+  //   }
+  // }
+
+  Future<Map<String, dynamic>?> getStudentRecord(
+      String schoolId,
+      String studentId, {
+        String? academicYear,
+      }) async {
     try {
       isLoading.value = true;
-      final response = await _apiService.get('${ApiConstants.getStudentRecord}/$schoolId/$studentId');
-      
+      final response = await _apiService.get(
+        '${ApiConstants.getStudentRecord}/$schoolId/$studentId',
+        queryParameters: academicYear != null ? {'academicYear': academicYear} : null,
+      );
+
       if (response.data['ok'] == true) {
         currentStudentRecord.value = response.data['data'];
         return response.data['data'];

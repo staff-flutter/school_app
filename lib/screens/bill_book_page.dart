@@ -69,7 +69,18 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     final startYear = now.month >= 6 ? now.year : now.year - 1;
     return '$startYear-${startYear + 1}';
   }
+  @override
+  void initState() {
+    super.initState();
+    _ensureSchoolLoaded();
+  }
 
+  Future<void> _ensureSchoolLoaded() async {
+    if (_schoolController.selectedSchool.value == null) {
+      await _schoolController.getAllSchools();
+      if (mounted) setState(() {});
+    }
+  }
   @override
   void dispose() {
     _studentNameController.dispose();
@@ -156,6 +167,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
    // final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: schoolId);
     final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: resolvedSchoolId);
     if (linkResult == null) return; // controller already showed the error
+    debugPrint('🔍 generateNewAdmissionFormLink result: $linkResult');
 
     final newAdmissionFormId = linkResult['_id'] ?? linkResult['id'] ?? linkResult['admissionFormId'];
     final newFormNumber = linkResult['formNumber'];
@@ -166,6 +178,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       );
       return;
     }
+    debugPrint('📝 Submitting payload: $_formPayload');
 
     // Step 2: submit the filled-in details against that form id.
     final submitted = await _controller.submitAdmissionForm(
@@ -274,39 +287,51 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   }
 
   Widget _buildBookHeader() {
-    return Column(
-      children: [
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [_buildFormNumberBadge()]),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF0F2042), width: 2),
-                shape: BoxShape.circle,
+    return Obx(() {
+      final school = _schoolController.selectedSchool.value;
+      final schoolName = school?.name ?? 'School Name Not Set';
+      final schoolAddress = school?.address ?? '';
+      //final schoolPhone = school?.phone ?? ''; // adjust field name to match your School model
+
+      return Column(
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [_buildFormNumberBadge()]),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF0F2042), width: 2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.shield_rounded, size: 30, color: Color(0xFF0F2042)),
               ),
-              child: const Icon(Icons.shield_rounded, size: 30, color: Color(0xFF0F2042)),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('ABC INTERNATIONAL SCHOOL',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F2042), letterSpacing: 0.5)),
-                  Text('A21 Basic Road, New Delhi, India | Contact: +91 9876543210',
-                      style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
-                  SizedBox(height: 6),
-                  Text('REGISTRATION & ADMISSION MASTER RECORD',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A))),
-                ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(schoolName.toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F2042), letterSpacing: 0.5)),
+                    Text(
+                      [
+                        if (schoolAddress.isNotEmpty) schoolAddress,
+                       // if (schoolPhone.isNotEmpty) 'Contact: $schoolPhone',
+                      ].join(' | '),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text('REGISTRATION & ADMISSION MASTER RECORD',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A))),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
+            ],
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildFormNumberBadge() {

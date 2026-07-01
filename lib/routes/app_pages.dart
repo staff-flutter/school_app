@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:school_app/bindings/SchoolBinding.dart';
 import 'package:school_app/bindings/attendance_binding.dart';
 import 'package:school_app/bindings/bill_admission_binding.dart';
 import 'package:school_app/bindings/marks_upload_binding.dart';
@@ -26,6 +27,7 @@ import '../screens/attendance_view.dart';
 import '../screens/login_page_for_daily_grades.dart';
 import '../screens/login_view.dart';
 import '../screens/onboarding screen1.dart';
+import '../screens/schedule_of_teacher.dart';
 import '../screens/set_fee_configuration_page.dart';
 import '../screens/simple_communications_view.dart';
 import '../screens/Assignments_page.dart';
@@ -36,7 +38,7 @@ import '../screens/fee_details_page.dart';
 import '../screens/marks_list_page.dart';
 import '../screens/parent_profile_page.dart';
 import '../screens/profile_selection_page.dart';
-import '../screens/spash_screen.dart';
+import '../screens/splash_screen_for_daily_grades.dart';
 import '../screens/splash_screen1.dart';
 import '../screens/student_complete_details_page.dart';
 import '../screens/student_form_dialog.dart';
@@ -142,6 +144,7 @@ class AppPages {
         binding:BindingsBuilder(() {
           BillAdmissionBinding().dependencies();
           MarksUploadBinding().dependencies();
+          StudentRecordBinding().dependencies();
           }),
     ),
     GetPage(
@@ -149,6 +152,15 @@ class AppPages {
       page: () => RoleAwareWrapper(child: const TeacherClassesView()),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => StudentManagementController());
+        Get.lazyPut(() => SchoolController());
+      }),
+    ),
+    GetPage(
+      name: AppRoutes.SCHEDULE_OF_TEACHER,
+      page: () => RoleAwareWrapper(child: const TeacherMySchedule()),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => StudentManagementController());
+        Get.lazyPut(() => SchoolController());
       }),
     ),
     GetPage(
@@ -174,7 +186,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.ATTENDANCE_DASHBOARD,
       page: () => RoleAwareWrapper(child: AttendanceHistoryDashboardPage()),
-      binding: AttendanceBinding(),
+      binding: BindingsBuilder(() {
+        AttendanceBinding().dependencies();
+        SchoolBinding().dependencies();
+  }),
     ),
     GetPage(
       name: AppRoutes.ADMISSION_BOOK,
@@ -184,19 +199,29 @@ class AppPages {
     GetPage(
       name: AppRoutes.FEE_COLLECTION,
       page: () => RoleAwareWrapper(child: FeeCollectionTabbedView()),
-      binding: AccountingBinding(),
+      binding:  BindingsBuilder(() {
+      AccountingBinding().dependencies();
+        SchoolBinding().dependencies();
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
       name: AppRoutes.EXPENSES,
       page: () => RoleAwareWrapper(child: ExpensesView()),
-      binding: AccountingBinding(),
+      binding: BindingsBuilder(() {
+        AccountingBinding().dependencies();
+        SchoolBinding().dependencies();
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
       name: AppRoutes.FEE_CONFIGURATION,
       page: () => RoleAwareWrapper(child: SetFeeConfigurationPage()),
-      binding: FeestructureBinding(),
+      binding: BindingsBuilder(() {
+        FeestructureBinding().dependencies();
+        SchoolBinding().dependencies();
+
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
@@ -365,6 +390,7 @@ class AppPages {
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AuthController());
         Get.lazyPut(() => StudentController());
+        Get.lazyPut(() => SchoolController());
       }),
     ),
 
@@ -458,6 +484,7 @@ class AppPages {
         } catch (_) {}
         return RoleAwareWrapper(child: AssignmentUI());
       },
+      binding: SchoolBinding(),
       middlewares: [RoleGuard()],
     ),
     GetPage(

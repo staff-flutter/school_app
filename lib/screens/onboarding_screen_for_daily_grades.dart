@@ -27,15 +27,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void finish() {
-    Get.offNamed(AppRoutes.ACCOUNTING_DASHBOARD);
+   // Get.offNamed(AppRoutes.ACCOUNTING_DASHBOARD);
+    _completeOnboarding();
   }
   Future<void> _completeOnboarding() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isFirstTime', false); // Mark onboarding as complete
-
-    // Navigate to Login Page
-    Get.offAll(() => const LoginView());
+    Get.offAll(() => const DailyGradesLoginScreen());
   }
+  // Future<void> _completeOnboarding() async {
+  //   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   await prefs.setBool('isFirstTime', false); // Mark onboarding as complete
+  //
+  //   // Navigate to Login Page
+  //   Get.offAll(() => const LoginView());
+  // }
   @override
   Widget build(BuildContext context) {
     final last = page == onboardingPages.length - 1;
@@ -81,7 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // 3. Single Global Page Indicator Dots Tracker
             Row(
@@ -103,12 +109,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // 4. Single Global Custom Navigation Action Button
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(8.0),
               child: PrimaryButton(
                 label: last ? 'Get Started' : 'Next',
                 onPressed: () {
                   if (last) {
-                    DailyGradesLoginScreen();
+                    _completeOnboarding();   // ← was `DailyGradesLoginScreen();` (did nothing)
                   } else {
                     controller.nextPage(
                       duration: const Duration(milliseconds: 350),

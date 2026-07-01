@@ -842,12 +842,18 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     final resp = await apiService.dio.post(
       '${ApiConstants.uploadStudentFiles}/$studentId',
       data: formData,
-      options: dio.Options(headers: {'x-school-id': schoolId}), // ← required
+      options: dio.Options(headers: {'x-school-id': schoolId}),
     );
 
-    debugPrint(
-        '[STUDENT UPLOAD] status=${resp.statusCode} ok=${resp.data['ok']}');
-
+    debugPrint('[STUDENT UPLOAD] status=${resp.statusCode} ok=${resp.data['ok']}');
+    debugPrint('[STUDENT UPLOAD] 📦 FULL RESPONSE: ${resp.data}');
+    final verifyResp = await apiService.get('${ApiConstants.getStudent}/$studentId');
+    debugPrint('[STUDENT UPLOAD] 🔍 Re-fetched student: ${verifyResp.data}');
+    final jsonStr = verifyResp.data.toString();
+    const chunkSize = 800;
+    for (var i = 0; i < jsonStr.length; i += chunkSize) {
+      debugPrint('🔍 CHUNK: ${jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize)}');
+    }
     if (resp.data['ok'] != true) {
       throw Exception('File upload failed: ${resp.data['message']}');
     }

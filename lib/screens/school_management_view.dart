@@ -456,13 +456,13 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         {'title': 'Users',      'icon': Icons.person,           'builder': _buildUsersTab},
       if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/teacher/assignments/manage'))
         {'title': 'Teachers',   'icon': Icons.assignment_ind,   'builder': _buildTeacherAssignmentTab},
-      if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/feestructure/set') ||
-          ApiPermissions.hasApiAccess(currentUserRole, 'GET /api/feestructure/getbyclass'))
-        {'title': 'Fees',       'icon': Icons.payment,          'builder': _buildFeeStructureTab},
-      if (ApiPermissions.hasApiAccess(currentUserRole, 'GET /api/attendance/sheet') ||
-          ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/attendance/mark') ||
-          ApiPermissions.hasApiAccess(currentUserRole, 'GET /api/attendance/getallclass'))
-        {'title': 'Attendance', 'icon': Icons.how_to_reg,       'builder': _buildAttendanceTab},
+      // if (ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/feestructure/set') ||
+      //     ApiPermissions.hasApiAccess(currentUserRole, 'GET /api/feestructure/getbyclass'))
+      //   {'title': 'Fees',       'icon': Icons.payment,          'builder': _buildFeeStructureTab},
+      // if (ApiPermissions.hasApiAccess(currentUserRole, 'GET /api/attendance/sheet') ||
+      //     ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/attendance/mark') ||
+      //     ApiPermissions.hasApiAccess(currentUserRole, 'GET /api/attendance/getallclass'))
+      //   {'title': 'Attendance', 'icon': Icons.how_to_reg,       'builder': _buildAttendanceTab},
     ];
   }
 
@@ -2005,7 +2005,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     );
   }
   // ─── Attendance Tab ────────────────────────────────────────────────────────
-  Widget _buildAttendanceTab() => SingleChildScrollView(child: _AttendanceTab());
+ // Widget _buildAttendanceTab() => SingleChildScrollView(child: _AttendanceTab());
 
   // ─── Shared helpers ────────────────────────────────────────────────────────
   Widget _readonlySchoolChip({String? name}) {

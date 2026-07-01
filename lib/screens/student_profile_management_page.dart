@@ -174,8 +174,8 @@ class _StudentProfileManagementPageState
         if (_search.isNotEmpty) 'search': _search,
       };
 
-      debugPrint('[MGMT] GET ${ApiConstants.getAllStudentRecordsV1}: $q');
-      final resp = await _api.get(ApiConstants.getAllStudentRecordsV1,
+      debugPrint('[MGMT] GET ${ApiConstants.getAllStudents}: $q');
+      final resp = await _api.get(ApiConstants.getAllStudents,
           queryParameters: q);
 
       debugPrint('[MGMT] ok=${resp.data['ok']} '

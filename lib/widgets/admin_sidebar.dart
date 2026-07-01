@@ -606,8 +606,8 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Finance', [
           _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
-          _Item('Bill Book', Icons.menu_book, AppRoutes.BILL_BOOK),
-          _Item('Admission Forms', Icons.receipt, AppRoutes.ADMISSION_FORMS_VIEW),
+          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
+          _Item('Admission Forms', Icons.menu_book, AppRoutes.ADMISSION_FORMS_VIEW),
           if (RoleModules.hasModule(role, 'feeCollection'))
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           if (RoleModules.hasModule(role, 'feeStructure'))
@@ -618,8 +618,8 @@ class _MenuBody extends StatelessWidget {
             _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
             _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
-          if (RoleModules.hasModule(role, 'reports'))
-            _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
+          // if (RoleModules.hasModule(role, 'reports'))
+          //   _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
         ]),
         _Section('Manage', [
           // ── Student: Create then Manage ──────────────────────────────
@@ -628,9 +628,9 @@ class _MenuBody extends StatelessWidget {
           _Item('Student Profile Management', Icons.manage_accounts_rounded,
               AppRoutes.STUDENT_PROFILE_MANAGEMENT),          // ← NEW
           // ────────────────────────────────────────────────────────────
-          if (RoleModules.hasModule(role, 'attendance'))
-            _Item('Student Attendance', Icons.how_to_reg_rounded,
-                '${AppRoutes.ATTENDANCE}/student'),
+          // if (RoleModules.hasModule(role, 'attendance'))
+          //   _Item('Student Attendance', Icons.how_to_reg_rounded,
+          //       '${AppRoutes.ATTENDANCE}/student'),
           if (RoleModules.hasModule(role, 'clubs'))
             _Item('Clubs & Activities', Icons.account_balance_rounded,
                 AppRoutes.CLUBS_ACTIVITIES),
@@ -666,8 +666,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
             _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
-          if (RoleModules.hasModule(role, 'reports'))
-            _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
+         // if (RoleModules.hasModule(role, 'reports'))
+           // _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
           if (RoleModules.hasModule(role, 'studentRecords'))
             _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
         ]),
@@ -695,11 +695,11 @@ class _MenuBody extends StatelessWidget {
           _Item('Student Management', Icons.manage_accounts_rounded,
               AppRoutes.STUDENT_PROFILE_MANAGEMENT),          // ← NEW
           // ────────────────────────────────────────────────────────────
-          _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
+         // _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
           _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
           _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
           if (canUploadMarks)
-            _Item('Students Performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
+          //  _Item('Students Performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
           _Item('Profile Verification', Icons.perm_contact_calendar_outlined,
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
@@ -721,11 +721,11 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
-          _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
+          //_Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
           _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
         ]),
         _Section('Manage', [
-          _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
+       //   _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
           _Item('Student Attendance', Icons.how_to_reg_rounded,
               '${AppRoutes.ATTENDANCE}/student'),
           _Item('Timetable', Icons.edit_calendar_rounded, AppRoutes.TIMETABLE_MANAGEMENT1),
@@ -774,13 +774,14 @@ class _MenuBody extends StatelessWidget {
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
         ]),
         _Section('My Work', [
-          _Item('My Classes', Icons.class_rounded, '/teacher-classes'),
+         // _Item('My Classes', Icons.class_rounded, '/teacher-classes'),
+          _Item('My Schedule', Icons.class_rounded, AppRoutes.SCHEDULE_OF_TEACHER),
           _Item('Attendance', Icons.how_to_reg_rounded, AppRoutes.TEACHER_ATTENDANCE),
           _Item('Clubs & Activities', Icons.groups_rounded, AppRoutes.CLUBS_ACTIVITIES),
           _Item('Timetable', Icons.calendar_today_rounded, AppRoutes.TIMETABLE_MANAGEMENT),
           _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
-          _Item('Students Performance', Icons.mark_chat_read_outlined,
-              AppRoutes.STUDENT_MARKS_LIST),
+          //_Item('Students Performance', Icons.mark_chat_read_outlined,
+           //   AppRoutes.STUDENT_MARKS_LIST),
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
         ]),
         _Section('Other', [

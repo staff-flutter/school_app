@@ -38,7 +38,7 @@ class TimetableController extends GetxController {
 
   //-----------------------------------
   final ApiService _apiService = Get.find<ApiService>();
-  
+
   final isLoading = false.obs;
   final timetables = <Map<String, dynamic>>[].obs;
   final teacherSchedule = <Map<String, dynamic>>[].obs;
@@ -47,10 +47,10 @@ class TimetableController extends GetxController {
   void onInit() {
     super.onInit();
     //----My changes--------
-    if (Get.arguments != null) {
-      weeklyScheduleId.value = Get.arguments;
-      getAllTimetables(weeklyScheduleId: Get.arguments);
-    }
+    // if (Get.arguments != null) {
+    //   weeklyScheduleId.value = Get.arguments;
+    //   getAllTimetables(weeklyScheduleId: Get.arguments);
+    // }
     //------------------------
   }
 
@@ -63,9 +63,9 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
+
+
+
       final data = {
         'schoolId': schoolId,
         'classId': classId,
@@ -74,11 +74,11 @@ class TimetableController extends GetxController {
       if (sectionId != null && sectionId.isNotEmpty) {
         data['sectionId'] = sectionId;
       }
-      
+
       final response = await _apiService.post('/api/timetable/addday', data: data);
-      
-      
-      
+
+
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         Navigator.pop(Get.context!);
         Get.snackbar('Success', 'Day added to timetable successfully');
@@ -88,10 +88,10 @@ class TimetableController extends GetxController {
       }
       return false;
     } catch (e) {
-      
+
       if (e is DioException) {
-        
-        
+
+
         final errorMsg = e.response?.data?['message'] ?? 'Failed to add day';
         Navigator.pop(Get.context!);
         Get.snackbar('Error', errorMsg);
@@ -113,17 +113,17 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
+
+
+
       final response = await _apiService.put('/api/timetable/updateday', data: {
         'schoolId': schoolId,
         'weeklyScheduleId': weeklyScheduleId,
         'day': day,
       });
-      
-      
-      
+
+
+
       if (response.statusCode == 200) {
         Navigator.pop(Get.context!);
         Get.snackbar('Success', 'Day updated successfully');
@@ -131,10 +131,10 @@ class TimetableController extends GetxController {
       }
       return false;
     } catch (e) {
-      
+
       if (e is DioException) {
-        
-        
+
+
         final errorMsg = e.response?.data?['message'] ?? 'Failed to update day';
         Navigator.pop(Get.context!);
         Get.snackbar('Error', errorMsg);
@@ -157,28 +157,28 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
+
+
+
       final response = await _apiService.delete('/api/timetable/deleteday', queryParameters: {
         'schoolId': schoolId,
         'classId': classId,
         if (sectionId != null) 'sectionId': sectionId,
         'weeklyScheduleId': weeklyScheduleId,
       });
-      
-      
-      
+
+
+
       if (response.statusCode == 200) {
         Get.snackbar('Success', 'Day deleted successfully');
         return true;
       }
       return false;
     } catch (e) {
-      
+
       if (e is DioException) {
-        
-        
+
+
         final errorMsg = e.response?.data?['message'] ?? 'Failed to delete day';
         Navigator.pop(Get.context!);
         Get.snackbar('Error', errorMsg);
@@ -203,10 +203,6 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
-      
       final response = await _apiService.put('/api/timetable/updateperiod', data: {
         'schoolId': schoolId,
         'classId': classId,
@@ -215,25 +211,18 @@ class TimetableController extends GetxController {
         'day': day,
         'periodData': periodData,
       });
-      
-      
-      
+
       if (response.statusCode == 200) {
         Get.snackbar('Success', 'Period updated successfully');
         return true;
       }
       return false;
     } catch (e) {
-      
       if (e is DioException) {
-        
-        
         final errorMsg = e.response?.data?['message'] ?? 'Failed to update period';
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', errorMsg);
+        Get.snackbar('Error', errorMsg);   // FIX: no Navigator.pop — dialog is already closed by the caller
       } else {
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', 'Failed to update period');
+        Get.snackbar('Error', 'Failed to update period');   // FIX: same
       }
       return false;
     } finally {
@@ -251,26 +240,34 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
-      final response = await _apiService.delete('/api/timetable/deleteperiod', queryParameters: {
-        'schoolId': schoolId,
-        'classId': classId,
-        if (sectionId != null) 'sectionId': sectionId,
-        'weeklyScheduleId': weeklyScheduleId,
-        'periodId': periodId,
-      });
-      
-      
-      
+
+
+
+      final response = await _apiService.delete(
+        '/api/timetable/deleteperiod',
+        data: {
+          "schoolId": schoolId,
+          "classId": classId,
+          if (sectionId != null) "sectionId": sectionId,
+          "weeklyScheduleId": weeklyScheduleId,
+          "periodId": periodId,
+        },
+      );
+      print("schoolId: $schoolId");
+      print("classId: $classId");
+      print("sectionId: $sectionId");
+      print("weeklyScheduleId: $weeklyScheduleId");
+      print("periodId: $periodId");
+
+      print(response.statusCode);
+      print(response.data);
       if (response.statusCode == 200) {
         Get.snackbar('Success', 'Period deleted successfully');
         return true;
       }
       return false;
     } catch (e) {
-      
+
       Get.snackbar('Error', 'Failed to delete period: ${e.toString()}');
       return false;
     } finally {
@@ -287,12 +284,12 @@ class TimetableController extends GetxController {
     String? day,
   }) async {
     try {
-      
+
       print('schoolId:$schoolId');
       print('classId:$classId');
       print('sectionId:$sectionId');
       isLoading.value = true;
-      
+
       final queryParams = <String, dynamic>{};
       if (weeklyScheduleId != null) {
         queryParams['weeklyScheduleId'] = weeklyScheduleId;
@@ -302,30 +299,30 @@ class TimetableController extends GetxController {
         if (sectionId != null) queryParams['sectionId'] = sectionId;
         if (day != null) queryParams['day'] = day;
       }
-      
-      
+
+
       final response = await _apiService.get('/api/timetable/getall', queryParameters: queryParams);
-      
-      
-      
+
+
+
       if (response.statusCode == 200 && response.data != null) {
         print("DEBUG TIMETABLE RESPONSE: ${response.data}");
         final data = response.data;
         if (data is Map && data['timetables'] is List) {
           timetables.value = List<Map<String, dynamic>>.from(data['timetables']);
-          
+
         } else if (data is Map && data['data'] is List) {
           timetables.value = List<Map<String, dynamic>>.from(data['data']);
-          
+
         }
       }
     } catch (e) {
-      
+
       if (e is DioException) {
-        
-        
+
+
         if (e.response?.statusCode == 403) {
-          
+
           Get.snackbar('Access Denied', 'You do not have permission to view timetables');
         } else {
           Get.snackbar('Error', 'Failed to fetch timetables: ${e.toString()}');
@@ -335,7 +332,7 @@ class TimetableController extends GetxController {
       }
     } finally {
       isLoading.value = false;
-      
+
     }
   }
 
@@ -346,9 +343,9 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
+
+
+
       final response = await _apiService.get(
         '/api/timetable/teacherschedule',
         queryParameters: {
@@ -356,19 +353,19 @@ class TimetableController extends GetxController {
           'teacherId': teacherId,
         },
       );
-      
-      
-      
+
+
+
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is Map && data['data'] is List) {
           teacherSchedule.value = List<Map<String, dynamic>>.from(data['data']);
-          
-          
+
+
         }
       }
     } catch (e) {
-      
+
       Get.snackbar('Error', 'Failed to fetch teacher schedule: ${e.toString()}');
     } finally {
       isLoading.value = false;
@@ -387,9 +384,9 @@ class TimetableController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      
-      
-      
+
+
+
       final response = await _apiService.put(
         '/api/timetable/assignteacher?mode=$mode',
         data: {
@@ -401,16 +398,16 @@ class TimetableController extends GetxController {
           'teacherId': teacherId,
         },
       );
-      
-      
-      
+
+
+
       if (response.statusCode == 200) {
         Get.snackbar('Success', 'Teacher ${mode == "add" ? "assigned" : "removed"} successfully');
         return true;
       }
       return false;
     } catch (e) {
-      
+
       Get.snackbar('Error', 'Failed to assign teacher: ${e.toString()}');
       return false;
     } finally {
@@ -422,20 +419,20 @@ class TimetableController extends GetxController {
   Future<bool> deleteTimetable(String timetableId) async {
     try {
       isLoading.value = true;
-      
-      
-      
+
+
+
       final response = await _apiService.delete('/api/timetable/delete/$timetableId');
-      
-      
-      
+
+
+
       if (response.statusCode == 200) {
         Get.snackbar('Success', 'Timetable deleted successfully');
         return true;
       }
       return false;
     } catch (e) {
-      
+
       Get.snackbar('Error', 'Failed to delete timetable: ${e.toString()}');
       return false;
     } finally {

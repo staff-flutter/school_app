@@ -97,10 +97,15 @@ class _FeeSetupViewState extends State<FeeSetupView> {
     for (final h in heads) {
       final name = (h['feeName'] ?? '').toString();
       final amount = (h['feeAmount'] as num?)?.toDouble() ?? 0.0;
+
       _amountControllers[name] = TextEditingController(
         text: amount == 0.0 ? '' : (amount % 1 == 0 ? amount.toInt().toString() : amount.toStringAsFixed(2)),
       );
-      built.add({'name': name, 'amount': amount});
+
+      // FIX: Only treat it as selected (checked) if it has a saved amount > 0
+      if (amount > 0) {
+        built.add({'name': name, 'amount': amount});
+      }
     }
     _classHeads.assignAll(built);
   }

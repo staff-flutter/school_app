@@ -6,8 +6,8 @@ import '../controllers/auth_controller.dart';
 import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
 import 'login_page_for_daily_grades.dart';
-import 'onboarding_screen.dart';
-
+import 'onboarding_screen_for_daily_grades.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class SplashScreen1 extends StatefulWidget {
@@ -60,8 +60,19 @@ class _SplashScreenState extends State<SplashScreen1> with SingleTickerProviderS
   }
   Future<void> _checkAuthAndNavigate() async {
     await _authFuture; // Wait for state resolution to finish safely
-    final controller = Get.find<AuthController>();
 
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstTime = prefs.getBool('isFirstTime') ?? true;
+
+    // First-ever launch → always show onboarding, skip auth check entirely
+    if (isFirstTime) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
+      return;
+    }
+
+    final controller = Get.find<AuthController>();
     try {
       final token = controller.storage.read('token');
       final userData = controller.storage.read('user');
@@ -81,15 +92,13 @@ class _SplashScreenState extends State<SplashScreen1> with SingleTickerProviderS
           return;
         }
       }
-      // If unauthenticated, fallback safely into your Onboarding loop or Login
-      // Using standard Navigator to fit SplashScreen1's native design pattern:
+      // Not authenticated → go straight to login (onboarding already shown/skipped above)
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const DailyGradesLoginScreen()),
       );
     } catch (e) {
-      // Fallback redirection on error
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        MaterialPageRoute(builder: (_) => const DailyGradesLoginScreen()),
       );
     }
   }

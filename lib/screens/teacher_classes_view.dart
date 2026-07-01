@@ -23,6 +23,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
   String? selectedClassId;
   String? selectedSectionId;
   bool _initialized = false;
+  bool _sectionChosen = false;
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -115,19 +116,22 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
     if (assignedClasses.isNotEmpty && mounted)
       setState(() => selectedClassId = assignedClasses.first['id']);
     if (sectionsForSelectedClass.isNotEmpty && mounted) {
-      setState(() => selectedSectionId = sectionsForSelectedClass.first['id']);
+      setState(() {
+        selectedSectionId = sectionsForSelectedClass.first['id'];
+        _sectionChosen = true;   // ← add
+      });
       _loadStudents();
     }
   }
 
   Future<void> _loadStudents() async {
     if (selectedClassId == null ||
-        selectedSectionId == null ||
+        !_sectionChosen ||                     // ← was: selectedSectionId == null
         schoolController.selectedSchool.value == null) return;
     await studentController.getStudentsByClassAndSection(
       schoolId: schoolController.selectedSchool.value!.id,
       classId: selectedClassId!,
-      sectionId: selectedSectionId!,
+      sectionId: selectedSectionId!, // pass null through fine here — your controller/API presumably already handles null sectionId as "all sections", since that's the existing sentinel convention
     );
   }
 
@@ -199,7 +203,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
               ),
 
               // ── Student list header ─────────────────────────────────────
-              if (selectedClassId != null && selectedSectionId != null)
+              if (selectedClassId != null && _sectionChosen)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -208,7 +212,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                 ),
 
               // ── Loading ─────────────────────────────────────────────────
-              if (selectedClassId != null && selectedSectionId != null && loading)
+              if (selectedClassId != null && _sectionChosen && loading)
                 SliverFillRemaining(
                   child: Center(child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -229,7 +233,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                 ),
 
               // ── Empty state ─────────────────────────────────────────────
-              if (selectedClassId != null && selectedSectionId != null && !loading && students.isEmpty)
+              if (selectedClassId != null && _sectionChosen && !loading && students.isEmpty)
                 SliverFillRemaining(
                   child: Center(child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -243,7 +247,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                 ),
 
               // ── Student list ────────────────────────────────────────────
-              if (selectedClassId != null && selectedSectionId != null && !loading && students.isNotEmpty)
+              if (selectedClassId != null && _sectionChosen && !loading && students.isNotEmpty)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                   sliver: SliverList(
@@ -255,7 +259,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                 ),
 
               // ── Prompt to select class/section ──────────────────────────
-              if (selectedClassId == null || selectedSectionId == null)
+              if (selectedClassId == null || !_sectionChosen)
                 SliverFillRemaining(
                   child: Center(child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -340,15 +344,15 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
-              color: selectedSectionId != null
+              color:_sectionChosen
                   ? const Color(0xFF2563EB).withOpacity(0.1)
                   : Colors.white,
               borderRadius: BorderRadius.circular(100),
               border: Border.all(
-                color: selectedSectionId != null
+                color:_sectionChosen
                     ? const Color(0xFF2563EB)
                     : Colors.grey.shade300,
-                width: selectedSectionId != null ? 1.5 : 1,
+                width: _sectionChosen ? 1.5 : 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -361,12 +365,12 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.group_rounded,
                   size: 14,
-                  color: selectedSectionId != null
+                  color: _sectionChosen
                       ? const Color(0xFF2563EB)
                       : Colors.grey.shade500),
               const SizedBox(width: 6),
               Text(
-                selectedSectionId != null
+                _sectionChosen
                     ? (sectionsForSelectedClass
                     .firstWhereOrNull((s) => s['id'] == selectedSectionId)
                 ?['name'] ??
@@ -375,7 +379,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: selectedSectionId != null
+                  color: _sectionChosen
                       ? const Color(0xFF2563EB)
                       : Colors.grey.shade600,
                 ),
@@ -383,7 +387,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
               const SizedBox(width: 4),
               Icon(Icons.keyboard_arrow_down_rounded,
                   size: 14,
-                  color: selectedSectionId != null
+                  color:_sectionChosen
                       ? const Color(0xFF2563EB)
                       : Colors.grey.shade500),
             ]),
@@ -532,9 +536,12 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
         items: items,
         isTablet: isTablet,
         onChanged: (value) {
-          setState(() { selectedClassId = value; selectedSectionId = null; });
+          setState(() { selectedClassId = value; selectedSectionId = null; _sectionChosen = false; });
           if (sectionsForSelectedClass.isNotEmpty) {
-            setState(() => selectedSectionId = sectionsForSelectedClass.first['id']);
+            setState(() {
+              selectedSectionId = sectionsForSelectedClass.first['id'];
+              _sectionChosen = true;   // ← add
+            });
             _loadStudents();
           }
         },
@@ -559,7 +566,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
               style: TextStyle(fontSize: isTablet ? 15 : 14, fontWeight: FontWeight.w500)),
         )).toList(),
         onChanged: (value) {
-          setState(() => selectedSectionId = value);
+          setState(() { selectedSectionId = value; _sectionChosen = true; });   // ← add flag
           _loadStudents();
         },
       );
@@ -806,13 +813,15 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                     setState(() {
                       selectedClassId = id;
                       selectedSectionId = null;
+                      _sectionChosen = false;
                     });
                     Get.back();
                     // Auto-select first section
                     if (sectionsForSelectedClass.isNotEmpty) {
-                      setState(() =>
-                      selectedSectionId =
-                      sectionsForSelectedClass.first['id']);
+                      setState(() {
+                        selectedSectionId = sectionsForSelectedClass.first['id'];
+                        _sectionChosen = true;   // ← add
+                      });
                       _loadStudents();
                     }
                   },
@@ -906,7 +915,7 @@ class _TeacherClassesViewState extends State<TeacherClassesView> {
                         color: Color(0xFF2563EB), size: 20)
                         : null,
                     onTap: () {
-                      setState(() => selectedSectionId = sec['id']);
+                      setState(() { selectedSectionId = sec['id']; _sectionChosen = true; });   // ← add flag
                       Get.back();
                       _loadStudents();
                     },

@@ -80,8 +80,19 @@ class ApiService extends GetxService {
     return await _dio.put(path, data: data, queryParameters: queryParameters);
   }
 
-  Future<Response> delete(String path, {Map<String, dynamic>? queryParameters}) async {
-    return await _dio.delete(path, queryParameters: queryParameters);
+  // Future<Response> delete(String path, {Map<String, dynamic>? queryParameters}) async {
+  //   return await _dio.delete(path, queryParameters: queryParameters);
+  // }
+  Future<Response> delete(
+      String url, {
+        Map<String, dynamic>? queryParameters,
+        dynamic data,
+      }) {
+    return dio.delete(
+      url,
+      queryParameters: queryParameters,
+      data: data,
+    );
   }
 
   Future<Response> patch(String path, {dynamic data, Map<String, dynamic>? queryParameters}) async {

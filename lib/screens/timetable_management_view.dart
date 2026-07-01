@@ -347,6 +347,8 @@ Widget _timetableCell({
   bool isAssigned = false,
   bool isHighlight = false,
   int dayIndex = 0,
+  String? startTime,
+  String? endTime,
 }) {
   final cellWidth = _Responsive.timetableCellWidth(context);
 
@@ -429,6 +431,13 @@ Widget _timetableCell({
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
+            ),
+          ],
+          if (startTime != null && startTime.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              endTime != null && endTime.isNotEmpty ? '$startTime–$endTime' : startTime,
+              style: TextStyle(fontSize: 8, color: textColor.withOpacity(0.6), fontWeight: FontWeight.w500),
             ),
           ],
           if (isInteractive && !isAssigned && !isBreak) ...[
@@ -781,6 +790,7 @@ class _TimetableGrid extends StatelessWidget {
   final void Function(String day, int period)? onCellTap;
   final bool showTeacher;
   final bool isTeacherView;
+  final int totalPeriods;
 
   const _TimetableGrid({
     required this.weeklySchedule,
@@ -790,6 +800,7 @@ class _TimetableGrid extends StatelessWidget {
     this.onCellTap,
     this.showTeacher = true,
     this.isTeacherView = false,
+    this.totalPeriods = 8,
   });
 
   @override
@@ -797,7 +808,7 @@ class _TimetableGrid extends StatelessWidget {
     final cellWidth = _Responsive.timetableCellWidth(context);
     final cellHeight = _Responsive.timetableCellHeight(context);
     final periodColWidth = _Responsive.periodColWidth(context);
-    final totalPeriods = 8;
+    final totalPeriods = this.totalPeriods;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -891,7 +902,7 @@ class _TimetableGrid extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          _periodTime(periodNumber),
+                          _timeLabelFor(periodNumber),
                           style: TextStyle(
                             fontSize: 8,
                             color: _DS.textMuted,
@@ -911,6 +922,7 @@ class _TimetableGrid extends StatelessWidget {
                     String teacher = '-';
                     bool isBreak = false;
                     bool isYourPeriod = false;
+                    Map? periodData;
 
                     if (daySchedule != null) {
                       final periods = daySchedule['periods'] as List? ?? [];
@@ -925,9 +937,13 @@ class _TimetableGrid extends StatelessWidget {
                           final teacherData = periodData['teacherId'];
                           if (teacherData is Map) teacher = teacherData['userName'] ?? '-';
                         }
-                      }
-                    }
 
+
+                      }
+
+                    }
+                    final cellStartTime = periodData?['startTime']?.toString();   // ← add
+                    final cellEndTime = periodData?['endTime']?.toString();
                     return Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: isTeacherView
@@ -941,6 +957,8 @@ class _TimetableGrid extends StatelessWidget {
                         isBreak: isBreak,
                         isAssigned: !isBreak && subject != '-',
                         dayIndex: dayIndex,
+                        startTime: cellStartTime,
+                        endTime: cellEndTime,
                       ),
                     );
                   }),
@@ -996,7 +1014,17 @@ class _TimetableGrid extends StatelessWidget {
       ),
     );
   }
-}
+
+  String _timeLabelFor(int periodNumber) {
+    for (final ws in weeklySchedule) {
+      final periods = ws['periods'] as List? ?? [];
+      final p = periods.firstWhereOrNull((p) => p['periodNumber'] == periodNumber);
+      if (p != null && (p['startTime'] as String?)?.isNotEmpty == true) {
+        return p['startTime'].toString();
+      }
+    }
+    return '';
+  }}
 
 // ─── MAIN VIEW ────────────────────────────────────────────────────────────────
 class TimetableManagementView extends StatefulWidget {
@@ -1014,6 +1042,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
   SchoolClass? selectedClass;
   Section? selectedSection;
   String? selectedTeacherId;
+  final RxInt totalPeriods = 8.obs;
 
   final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -1316,6 +1345,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           children: [
             _buildCollapsibleSelectors(context, isLandscape, isTablet),
             const SizedBox(height: 16),
+            _buildPeriodCountSelector(context),
+            const SizedBox(height: 16),
             _buildTimetableGrid(context, isTablet),
           ],
         ),
@@ -1343,13 +1374,43 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           children: [
             _buildCollapsibleSelectors(context, isLandscape, isTablet),
             const SizedBox(height: 16),
+            _buildPeriodCountSelector(context),
+            const SizedBox(height: 16),
             _buildViewOnlyTimetable(context, isTablet),
           ],
         ),
       ),
     );
   }
-
+  Widget _buildPeriodCountSelector(BuildContext context) {
+    return Obx(() => Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _DS.surface,
+        borderRadius: BorderRadius.circular(_DS.radius),
+        border: Border.all(color: _DS.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.format_list_numbered_rounded, color: _DS.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('Periods per day: ${totalPeriods.value}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _DS.textPrimary)),
+          ),
+          IconButton(
+            onPressed: totalPeriods.value > 1 ? () => totalPeriods.value-- : null,
+            icon: const Icon(Icons.remove_circle_outline_rounded, color: _DS.primary),
+          ),
+          IconButton(
+            onPressed: totalPeriods.value < 30 ? () => totalPeriods.value++ : null,
+            icon: const Icon(Icons.add_circle_outline_rounded, color: _DS.primary),
+          ),
+        ],
+      ),
+    ));
+  }
   // ─── Teacher Tab ──────────────────────────────────────────────────────────
   Widget _buildTeacherTab(BuildContext context, bool isTablet, bool isLandscape) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1466,7 +1527,58 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
       ),
     );
   }
+  /// Returns true if [teacherId] already has an overlapping period on [day]
+  /// somewhere else, excluding the slot currently being edited
+  /// (identified by [excludeWeeklyScheduleId] + [excludePeriodNumber]).
+  Future<bool> _hasTeacherConflict({
+    required String teacherId,
+    required String day,
+    required String startTime,
+    required String endTime,
+    String? excludeWeeklyScheduleId,
+    int? excludePeriodNumber,
+  }) async {
+    await timetableController.getTeacherSchedule(
+      schoolId: schoolController.selectedSchool.value!.id,
+      teacherId: teacherId,
+    );
 
+    int toMinutes(String t) {
+      final parts = t.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    }
+
+    final hasTimes = startTime.isNotEmpty && endTime.isNotEmpty;
+    final newStart = hasTimes ? toMinutes(startTime) : null;
+    final newEnd = hasTimes ? toMinutes(endTime) : null;
+
+    for (final ws in timetableController.teacherSchedule) {
+      if (ws['day'] != day) continue;
+      final periods = ws['periods'] as List? ?? [];
+      for (final p in periods) {
+        if (excludeWeeklyScheduleId != null && ws['_id'] == excludeWeeklyScheduleId &&
+            excludePeriodNumber != null && p['periodNumber'] == excludePeriodNumber) {
+          continue;
+        }
+
+        final pStart = p['startTime']?.toString();
+        final pEnd = p['endTime']?.toString();
+        final existingHasTimes = pStart != null && pEnd != null && pStart.isNotEmpty && pEnd.isNotEmpty;
+
+        if (hasTimes && existingHasTimes) {
+          final existingStart = toMinutes(pStart);
+          final existingEnd = toMinutes(pEnd);
+          if (newStart! < existingEnd && existingStart < newEnd!) return true;
+        } else if (excludePeriodNumber != null && p['periodNumber'] == excludePeriodNumber) {
+          // FIX: when either side is missing explicit times, we can't compare
+          // intervals — fall back to same-period-number-on-same-day as a conflict
+          // instead of silently allowing it through.
+          return true;
+        }
+      }
+    }
+    return false;
+  }
   Future<void> _openClassSectionSheet(BuildContext context) async {
     if (schoolController.selectedSchool.value != null &&
         schoolController.classes.isEmpty &&
@@ -1780,14 +1892,14 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           icon: Icons.calendar_today_outlined,
           title: 'No Timetable Days Added',
           subtitle: 'Click "Add Day" to create your first timetable day',
-          action: ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/timetable/addday')
-              ? _primaryBtn(
-              context: context,
-              label: 'Add First Day',
-              icon: Icons.add_rounded,
-              onPressed: _showAddDayDialog,
-              fullWidth: false)
-              : null,
+          // action: ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/timetable/addday')
+          //     ? _primaryBtn(
+          //     context: context,
+          //     label: 'Add First Day',
+          //     icon: Icons.add_rounded,
+          //     onPressed: _showAddDayDialog,
+          //     fullWidth: false)
+          //     : null,
         );
       }
 
@@ -1802,6 +1914,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         isTablet: isTablet,
         isInteractive: ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/timetable/updateperiod'),
         onCellTap: _showEditPeriodDialog,
+        totalPeriods: totalPeriods.value,
       );
     });
   }
@@ -1877,6 +1990,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         isTablet: isTablet,
         isInteractive: ApiPermissions.hasApiAccess(currentUserRole, 'PUT /api/timetable/assignteacher'),
         onCellTap: _showAssignTeacherDialog,
+        totalPeriods: totalPeriods.value,
       );
     });
   }
@@ -1936,6 +2050,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                 isTablet: isTablet,
                 isInteractive: false,
                 isTeacherView: true,
+                totalPeriods: totalPeriods.value,
               ),
             ),
           ],
@@ -2061,7 +2176,21 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           .where((t) => (t['userName'] as String).toLowerCase().contains(query))
           .toList();
     });
-
+    String existingStartTime = '';
+    String existingEndTime = '';
+    if (timetableController.timetables.isNotEmpty) {
+      final timetable = timetableController.timetables.first;
+      final weeklySchedule = timetable['weeklySchedule'] as List? ?? [];
+      final daySchedule = weeklySchedule.firstWhereOrNull((ws) => ws['day'] == day);
+      if (daySchedule != null) {
+        final periods = daySchedule['periods'] as List? ?? [];
+        final periodData = periods.firstWhereOrNull((p) => p['periodNumber'] == period);
+        if (periodData != null) {
+          existingStartTime = periodData['startTime']?.toString() ?? '';
+          existingEndTime = periodData['endTime']?.toString() ?? '';
+        }
+      }
+    }
     Get.dialog(
       StatefulBuilder(
         builder: (context, dialogSetState) {
@@ -2163,7 +2292,20 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                         backgroundColor: _DS.danger, colorText: Colors.white);
                     return;
                   }
-
+                  final conflict = await _hasTeacherConflict(
+                    teacherId: localTeacherId!,
+                    day: day,
+                    startTime: existingStartTime,
+                    endTime: existingEndTime,
+                    excludeWeeklyScheduleId: dayId,
+                    excludePeriodNumber: period,
+                  );
+                  if (conflict) {
+                    Get.back();
+                    Get.snackbar('Conflict', 'This teacher is already assigned to another class at this time.',
+                        backgroundColor: _DS.danger, colorText: Colors.white);
+                    return;
+                  }
                   Get.back();
                   final success = await timetableController.assignTeacher(
                     mode: 'add',
@@ -2205,18 +2347,24 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
     String? existingTeacherId;
     String? existingStartTime;
     String? existingEndTime;
+    bool existingIsBreak = false;
     if (timetableController.timetables.isNotEmpty) {
+
       final timetable = timetableController.timetables.first;
       final weeklySchedule = timetable['weeklySchedule'] as List? ?? [];
       final daySchedule = weeklySchedule.firstWhereOrNull((ws) => ws['day'] == day);
       if (daySchedule != null) {
         final periods = daySchedule['periods'] as List? ?? [];
         final periodData = periods.firstWhereOrNull((p) => p['periodNumber'] == period);
+
+
         if (periodData != null) {
+          existingIsBreak = periodData['isBreak'] ?? false;
           existingSubject = periodData['subjectName'] ?? '';
           existingStartTime=periodData['startTime']??'';
           existingEndTime=periodData['endTime']??'';
           final teacherData = periodData['teacherId'];
+          existingIsBreak = periodData['isBreak'] ?? false;
           if (teacherData is Map) existingTeacherId = teacherData['_id'];
         }
       }
@@ -2226,7 +2374,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
     final subjectController = TextEditingController(text: existingSubject);
     final searchCtrl = TextEditingController();
     String? localTeacherId = existingTeacherId;
-
+    bool localIsBreak = existingIsBreak;
     // Initialize and filter teachers reactively
     final filteredTeachers = <Map<String, dynamic>>[].obs;
     filteredTeachers.value = schoolController.teachers;
@@ -2253,9 +2401,20 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _field(subjectController, 'Subject Name', context),
-                    const SizedBox(height: 12),
 
+
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text('Mark as Break', style: TextStyle(fontSize: 13)),
+                      value: localIsBreak,
+                      onChanged: (v) => dialogSetState(() => localIsBreak = v),
+                    ),
+                    const SizedBox(height: 8),
+                    if (!localIsBreak) ...[
+                      _field(subjectController, 'Subject Name', context),
+                      const SizedBox(height: 12),
+                    ],
 // ✅ Time range row
                     Row(
                       children: [
@@ -2355,28 +2514,66 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
             ),
             actions: [
               TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
-              if (ApiPermissions.hasApiAccess(
-                  currentUserRole, 'DELETE /api/timetable/deleteperiod'))
+              if (ApiPermissions.hasApiAccess(currentUserRole, 'DELETE /api/timetable/deleteperiod'))
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    // 1. Double check that we have timetable data loaded
+                    if (timetableController.timetables.isEmpty) return;
+
+                    final timetable = timetableController.timetables.first;
+                    final weeklySchedule = timetable['weeklySchedule'] as List? ?? [];
+
+                    // 2. Find the schedule for the current active day
+                    final daySchedule = weeklySchedule.firstWhereOrNull(
+                            (ws) => ws['day'].toString().trim().toLowerCase() == day.toString().trim().toLowerCase()
+                    );
+
+                    if (daySchedule == null) return;
+                    final dayId = daySchedule['_id'] as String?;
+                    if (dayId == null) return;
+
+                    // 3. Extract the unique _id assigned to this period block
+                    final periods = daySchedule['periods'] as List? ?? [];
+                    final periodData = periods.firstWhereOrNull((p) => p['periodNumber'] == period);
+                    final periodId = periodData?['_id'] as String?;
+
+                    if (periodId == null) {
+                      Get.snackbar(
+                        'Error',
+                        'Could not find the unique identification code for this period.',
+                        backgroundColor: _DS.danger,
+                        colorText: Colors.white,
+                      );
+                      return;
+                    }
+
+                    // 4. Close the open editing modal before proceeding
                     Get.back();
-                    Get.snackbar('Success', 'Period deleted',
-                        backgroundColor: _DS.success, colorText: Colors.white);
+
+                    // 5. Trigger the controller endpoint function to clear it from the database
+                    final success = await timetableController.deletePeriod(
+                      schoolId: schoolController.selectedSchool.value!.id,
+                      classId: selectedClass!.id,
+                      sectionId: selectedSection?.id,
+                      weeklyScheduleId: dayId,
+                      periodId: periodId,
+                    );
+
+                    // 6. Refresh grid display immediately if the process completes successfully
+                    if (success) {
+                      await timetableController.getAllTimetables(
+                        schoolId: schoolController.selectedSchool.value!.id,
+                        classId: selectedClass!.id,
+                        sectionId: selectedSection?.id,
+                      );
+                    }
                   },
                   child: const Text('Delete', style: TextStyle(color: _DS.danger)),
                 ),
               ElevatedButton(
                 onPressed: () async {
-                  if (subjectController.text.trim().isEmpty) {
-                    Get.snackbar('Error', 'Please enter a subject',
-                        backgroundColor: _DS.danger, colorText: Colors.white);
-                    return;
-                  }
-                  if (localTeacherId == null) {
-                    Get.snackbar('Error', 'Please select a teacher',
-                        backgroundColor: _DS.danger, colorText: Colors.white);
-                    return;
-                  }
+
+
                   if (schoolController.selectedSchool.value == null || selectedClass == null) {
                     Get.snackbar('Error', 'School and class must be selected',
                         backgroundColor: _DS.danger, colorText: Colors.white);
@@ -2390,10 +2587,13 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
 
                   final timetable = timetableController.timetables.first;
                   final weeklySchedule = timetable['weeklySchedule'] as List? ?? [];
-                  final daySchedule = weeklySchedule.firstWhereOrNull((ws) => ws['day'] == day);
 
+                //  final daySchedule = weeklySchedule.firstWhereOrNull((ws) => ws['day'] == day);
+                  final daySchedule = weeklySchedule.firstWhereOrNull(
+                          (ws) => ws['day'].toString().trim().toLowerCase() == day.toString().trim().toLowerCase()
+                  );
                   if (daySchedule == null) {
-                    Get.snackbar('Error', 'Day not found',
+                    Get.snackbar('Error', 'Day schedule dynamic layout for "$day" not found.',
                         backgroundColor: _DS.danger, colorText: Colors.white);
                     return;
                   }
@@ -2403,7 +2603,32 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                         backgroundColor: _DS.danger, colorText: Colors.white);
                     return;
                   }
-
+                  if (!localIsBreak) {
+                    if (subjectController.text.trim().isEmpty) {
+                      Get.snackbar('Error', 'Please enter a subject',
+                          backgroundColor: _DS.danger, colorText: Colors.white);
+                      return;
+                    }
+                    if (localTeacherId == null) {
+                      Get.snackbar('Error', 'Please select a teacher',
+                          backgroundColor: _DS.danger, colorText: Colors.white);
+                      return;
+                    }
+                    final conflict = await _hasTeacherConflict(
+                      teacherId: localTeacherId!,
+                      day: day,
+                      startTime: startTimeController.text,
+                      endTime: endTimeController.text,
+                      excludeWeeklyScheduleId: dayId,
+                      excludePeriodNumber: period,
+                    );
+                    if (conflict) {
+                      Get.back();
+                      Get.snackbar('Conflict', 'This teacher is already assigned to another class at this time.',
+                          backgroundColor: _DS.danger, colorText: Colors.white);
+                      return;
+                    }
+                  }
                   Get.back();
                   final success = await timetableController.updatePeriod(
                     schoolId: schoolController.selectedSchool.value!.id,
@@ -2413,6 +2638,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                     day: day,
                     periodData: {
                       'periodNumber': period,
+                      'isBreak': localIsBreak,
                       'subjectName': subjectController.text.trim(),
                       'teacherId': localTeacherId,
                        'startTime': startTimeController.text,

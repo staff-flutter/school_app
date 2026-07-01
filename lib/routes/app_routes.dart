@@ -29,6 +29,7 @@ class AppRoutes {
   static const String ACCOUNTING_DASHBOARD = '/accounting-dashboard';
   static const String FEE_COLLECTION      = '/fee-collection';
   static const String EXPENSES            = '/expenses';
+  static const String SCHEDULE_OF_TEACHER = '/schedule-of-teacher';
 
 
   static const String FEE_STRUCTURE       = '/fee-structure';

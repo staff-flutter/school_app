@@ -444,13 +444,14 @@ class BillAdmissionController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-
+      print('admissionFormId:$admissionFormId');
       final response = await _apiService.put(
         '${ApiConstants.submitAdmissionForm}/$admissionFormId',
         data: formData,
       );
 
       if (response.data['ok'] == true) {
+        print('responseOfSubmitAdmissionForm:${response.data}');
         _showSnackbar('Success', response.data['message'] ?? 'Admission form submitted successfully', AppTheme.successGreen);
         return true;
       } else {
@@ -678,6 +679,7 @@ class BillAdmissionController extends GetxController {
         queryParameters: queryParams,
         data: updatedData,
       );
+      print('🔎 updateAdmissionFormAfterSubmission response: ${response.data}');   // ← add this
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission form updated successfully', AppTheme.successGreen);
@@ -686,7 +688,12 @@ class BillAdmissionController extends GetxController {
         _showSnackbar('Error', response.data['message'] ?? 'Failed to update admission form', AppTheme.errorRed);
         return false;
       }
-    } catch (e) {
+    }catch (e) {
+      debugPrint('💥 updateAdmissionFormAfterSubmission EXCEPTION: $e');   // ← add this
+      if (e is DioException) {
+        debugPrint('💥 DioException status: ${e.response?.statusCode}');
+        debugPrint('💥 DioException body: ${e.response?.data}');
+      }
       _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while updating admission form'), AppTheme.errorRed);
       return false;
     } finally {
