@@ -30,6 +30,8 @@ class AppRoutes {
   static const String FEE_COLLECTION      = '/fee-collection';
   static const String EXPENSES            = '/expenses';
   static const String SCHEDULE_OF_TEACHER = '/schedule-of-teacher';
+  static const String CREATE_EMPLOYEE_PROFILE = '/create-employee-profile';
+  static const String EMPLOYEE_LIST       = '/employee-list';
 
 
   static const String FEE_STRUCTURE       = '/fee-structure';

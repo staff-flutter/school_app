@@ -201,4 +201,16 @@ class ApiConstants {
  static const String updateAdmissionFormAfterSubmission = '/api/school/admission-form/details';          //api no: 180   { QueryParams  AdmissionFormId(optional) ,StudentId(optional) either studentId or AdmissionFormId should provide}
  static const String linkAdmissionFormToStudent     = '/api/school/admission-form/:id/link-student';      //api no: 181   { QueryParams  AdmissionFormId }
 
+
+// Employee Profile apis
+  static const String createEmployeeProfile = '/api/employee-profile/create';
+  static const String getAllEmployeeDetails = '/api/employee-profile/getall';
+  static const String getOneEmployeeProfile = '/api/employee-profile/get';                          //api no: 185   Params: userId
+  static const String updateEmployeeProfile = '/api/employee-profile/update';                       //api no: 186   Params:   userId  Body: Enter all the employee profile schema structure fields that need to be updated.
+  static const String deleteEmployeeProfile = '/api/employee-profile/delete';                       //api no: 187     Params: userId
+  static const String addAdditionalDocuments = '/api/employee-profile/:userId/documents';                         //api no: 188   Params: userId Form Data: Upload multiple documents using files key.
+  static const String deleteSpecificDocument = '/api/employee-profile/:userId/documents/:documentId';                                //api no: 189   Params: userId, documentId
+  static const String createAndUpdate = '/api/employee-profile/:userId/upsert';                                 //api no: 190   Params: userId Form Data: Upload multiple documents  using documents key, and upload single salary file at a time using the salarySlipFile key.
+
+
 }

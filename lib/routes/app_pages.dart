@@ -18,7 +18,9 @@ import '../screens/admission_forms.dart';
 import '../screens/attendance_dashboard.dart';
 import '../screens/bill_book_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
+import '../screens/create_employee_profile_page.dart';
 import '../screens/create_student_profile_page.dart';
+import '../screens/employee_list_page.dart';
 import '../screens/enhanced_profile_view.dart';
 import '../screens/finance_dashboard_view.dart';
 import '../screens/home_page.dart';
@@ -145,6 +147,7 @@ class AppPages {
           BillAdmissionBinding().dependencies();
           MarksUploadBinding().dependencies();
           StudentRecordBinding().dependencies();
+          SchoolBinding().dependencies();
           }),
     ),
     GetPage(
@@ -162,6 +165,15 @@ class AppPages {
         Get.lazyPut(() => StudentManagementController());
         Get.lazyPut(() => SchoolController());
       }),
+    ),
+    GetPage(
+      name: AppRoutes.CREATE_EMPLOYEE_PROFILE,
+      page: () => RoleAwareWrapper(child: CreateEmployeeProfilePage(userId: '',)),
+
+    ),
+    GetPage(
+      name: AppRoutes.EMPLOYEE_LIST,
+      page: () => RoleAwareWrapper(child: StaffManagementPage()),
     ),
     GetPage(
       name: AppRoutes.ACCOUNTING_DASHBOARD,
@@ -227,7 +239,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.FEE_STRUCTURE,
       page: () => RoleAwareWrapper(child: FeeStructureView()),
-      binding: AccountingBinding(),
+      binding: BindingsBuilder(() {
+       AccountingBinding().dependencies();
+       SchoolBinding().dependencies();
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
@@ -421,6 +436,7 @@ class AppPages {
       page: () => RoleAwareWrapper(child: FinanceDashboardView()),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => FinanceLedgerController());
+        Get.lazyPut(() => SchoolController());
       }),
     ),
     GetPage(

@@ -644,6 +644,9 @@ class _MenuBody extends StatelessWidget {
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
         _Section('Other', [
+          _Item('Create Employee Profile', Icons.person_pin_rounded, AppRoutes.CREATE_EMPLOYEE_PROFILE),
+          _Item('Employee List', Icons.person_pin_rounded, AppRoutes.EMPLOYEE_LIST),
+
           if (RoleModules.hasModule(role, 'subscription'))
             _Item('Subscription', Icons.subscriptions_rounded, AppRoutes.SUBSCRIPTION_MANAGEMENT),
           _Item('Profile', Icons.person_rounded, '/profile'),
@@ -657,6 +660,9 @@ class _MenuBody extends StatelessWidget {
       return [
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
+          _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+
+
         ]),
         _Section('Finance', [
           if (RoleModules.hasModule(role, 'feeCollection'))
@@ -685,11 +691,16 @@ class _MenuBody extends StatelessWidget {
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('School', Icons.business_rounded, AppRoutes.SCHOOL_MANAGEMENT),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
+          _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+
         ]),
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
         ]),
         _Section('Manage', [
+          _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
+          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
+          _Item('Admission Forms', Icons.menu_book, AppRoutes.ADMISSION_FORMS_VIEW),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
           // ── Student: Create then Manage ──────────────────────────────
           _Item('Student Management', Icons.manage_accounts_rounded,
@@ -705,6 +716,8 @@ class _MenuBody extends StatelessWidget {
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
         _Section('Other', [
+          _Item('Employee List', Icons.person_pin_rounded, AppRoutes.EMPLOYEE_LIST),
+
           if (RoleModules.hasModule(role, 'subscription'))
             _Item('Subscription', Icons.subscriptions_rounded, AppRoutes.SUBSCRIPTION_MANAGEMENT),
           _Item('Profile', Icons.person_rounded, '/profile'),
@@ -718,6 +731,8 @@ class _MenuBody extends StatelessWidget {
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
+          _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+
         ]),
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
@@ -726,12 +741,13 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Manage', [
        //   _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
-          _Item('Student Attendance', Icons.how_to_reg_rounded,
-              '${AppRoutes.ATTENDANCE}/student'),
+         // _Item('Student Attendance', Icons.how_to_reg_rounded,
+          //    '${AppRoutes.ATTENDANCE}/student'),
           _Item('Timetable', Icons.edit_calendar_rounded, AppRoutes.TIMETABLE_MANAGEMENT1),
           _Item('Notifications', Icons.notifications, '/notifications'),
-          _Item('Students', Icons.school_rounded,
-              '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=students'),
+          _Item('Employee List', Icons.person_pin_rounded, AppRoutes.EMPLOYEE_LIST),
+          //_Item('Students', Icons.school_rounded,
+           //   '${AppRoutes.SCHOOL_MANAGEMENT}?initialTab=students'),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
           _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
           _Item('Campus Management', Icons.groups_rounded, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
@@ -748,11 +764,13 @@ class _MenuBody extends StatelessWidget {
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
+          _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+
         ]),
         _Section('Manage', [
-          _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
-          _Item('Student Attendance', Icons.how_to_reg_rounded,
-              '${AppRoutes.ATTENDANCE}/student'),
+         // _Item('Attendance', Icons.calendar_month, AppRoutes.ATTENDANCE),
+         // _Item('Student Attendance', Icons.how_to_reg_rounded,
+       //       '${AppRoutes.ATTENDANCE}/student'),
           _Item('Timetable', Icons.edit_calendar_rounded, AppRoutes.TIMETABLE_MANAGEMENT1),
           _Item('Notifications', Icons.notifications, '/notifications'),
           _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
