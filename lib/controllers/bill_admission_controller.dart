@@ -512,8 +512,13 @@ class BillAdmissionController extends GetxController {
         if (admissionFormId != null) 'id': admissionFormId,
         if (studentId != null) 'studentId': studentId,
       };
+      print('admissionFormId:$admissionFormId');
+      print('studentId:$studentId');
 
-      final response = await _apiService.get(ApiConstants.getSingleAdmissionForm, queryParameters: queryParams);
+      final response = await _apiService.get(
+        ApiConstants.getSingleAdmissionForm,
+        queryParameters: queryParams,
+      );
 
       if (response.data['ok'] == true) {
         currentAdmissionForm.value = response.data['data'];
@@ -523,11 +528,24 @@ class BillAdmissionController extends GetxController {
         return null;
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
+      final status = e.response?.statusCode;
+
+      if (status == 404) {
         // No admission form exists for this student — not an error, just empty.
         currentAdmissionForm.value = null;
         return null;
       }
+
+      if (status == 401 || status == 403) {
+        // Role doesn't have permission to view this — surface distinctly,
+        // don't scare the user with a generic error.
+        currentAdmissionForm.value = null;
+        debugPrint('Admission form fetch forbidden for this role: ${e.response?.data}');
+        // Optional: skip the snackbar entirely and just show the "No admission form" empty state in the tab.
+        return null;
+      }
+
+      debugPrint('Admission form DioException: ${e.response?.statusCode} ${e.response?.data}');
       _showSnackbar('Error', 'An error occurred while loading the admission form.', AppTheme.errorRed);
       return null;
     } catch (e) {

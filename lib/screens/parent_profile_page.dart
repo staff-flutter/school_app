@@ -267,44 +267,50 @@ print('userid:$userId');
                                         backgroundColor: Colors.white,
                                         child: CircleAvatar(
                                             radius: 50,
-                                            backgroundImage:AssetImage('assets/images/parent_image.webp')
+                                          backgroundColor: Colors.blue, // Sets the circle background
+                                          child: Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 40, // Sets the size of the icon
+                                          ),
+                                           // AssetImage('assets/images/parent_image.webp')
                                         ),
                                       ),
                                     ),
 
                                     //  Edit Button
-                                    Positioned(
-                                      bottom: 5,
-                                      right: 5,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          debugPrint("Edit Profile Clicked");
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                // Color(0xFF4F6DB8),
-                                                // Color(0xFF3E5AA8),
-                                                Color(0xff4A90E2),
-                                                Color(0xff6FD3F7),
-                                              ],
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.edit,
-                                            color: Colors.white,
-                                            size: 18,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                    // Positioned(
+                                    //   bottom: 5,
+                                    //   right: 5,
+                                    //   child: GestureDetector(
+                                    //     onTap: () {
+                                    //       debugPrint("Edit Profile Clicked");
+                                    //     },
+                                    //     child: Container(
+                                    //       padding: const EdgeInsets.all(6),
+                                    //       decoration: BoxDecoration(
+                                    //         shape: BoxShape.circle,
+                                    //         gradient: const LinearGradient(
+                                    //           colors: [
+                                    //             // Color(0xFF4F6DB8),
+                                    //             // Color(0xFF3E5AA8),
+                                    //             Color(0xff4A90E2),
+                                    //             Color(0xff6FD3F7),
+                                    //           ],
+                                    //         ),
+                                    //         border: Border.all(
+                                    //           color: Colors.white,
+                                    //           width: 2,
+                                    //         ),
+                                    //       ),
+                                    //       child: const Icon(
+                                    //         Icons.edit,
+                                    //         color: Colors.white,
+                                    //         size: 18,
+                                    //       ),
+                                    //     ),
+                                    //   ),
+                                    // ),
                                   ],
                                 ),
                               ),

@@ -13,6 +13,7 @@ import 'package:school_app/screens/receipt_detail_view.dart';
 import 'package:school_app/controllers/club_controller.dart';
 import 'package:school_app/controllers/communications_controller.dart';
 import 'package:school_app/routes/app_routes.dart';
+import '../core/utils/academic_year_utils.dart';
 
 class AccountingController extends GetxController {
   final ApiService _apiService = Get.find();
@@ -201,9 +202,12 @@ class AccountingController extends GetxController {
         MapEntry('paymentMode', paymentMode),
         MapEntry('studentName', additionalData?['studentName'] ?? ''),
         MapEntry('newOld', additionalData?['newOld'] ?? 'old'),
+        MapEntry(
+          'academicYear',
+          additionalData?['academicYear'] ?? AcademicYearUtils.getCurrentAcademicYear(),
+        ),
         MapEntry('manualDueAllocation', (additionalData?['manualDueAllocation'] ?? false).toString()),
-        MapEntry('paidHeads', '{}'), // Empty JSON object
-        MapEntry('referenceNumber', additionalData?['referenceNumber'] ?? ''),
+        MapEntry('paidHeads', jsonEncode(additionalData?['paidHeads'] ?? {})),        MapEntry('referenceNumber', additionalData?['referenceNumber'] ?? ''),
         MapEntry('remarks', additionalData?['remarks'] ?? ''),
         //MapEntry('isBusApplicable', (additionalData?['isBusApplicable'] ?? false).toString()),
         MapEntry('busPoint', additionalData?['busPoint'] ?? ''),

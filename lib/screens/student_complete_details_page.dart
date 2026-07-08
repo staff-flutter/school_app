@@ -131,7 +131,9 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
     _tabController = TabController(length: 5, vsync: this);
 
     // Auto-fetch target school details on init context
-    _resolveAndFetchSchoolClasses();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveAndFetchSchoolClasses();
+    });
   }
 
   @override

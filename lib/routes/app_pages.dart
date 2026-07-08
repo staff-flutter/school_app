@@ -29,6 +29,7 @@ import '../screens/attendance_view.dart';
 import '../screens/login_page_for_daily_grades.dart';
 import '../screens/login_view.dart';
 import '../screens/onboarding screen1.dart';
+import '../screens/parent_management_page.dart';
 import '../screens/schedule_of_teacher.dart';
 import '../screens/set_fee_configuration_page.dart';
 import '../screens/simple_communications_view.dart';
@@ -176,6 +177,14 @@ class AppPages {
       page: () => RoleAwareWrapper(child: StaffManagementPage()),
     ),
     GetPage(
+      name: AppRoutes.PARENT_LIST,
+      page: () => RoleAwareWrapper(child: ParentManagementPage ()),
+      binding: BindingsBuilder((){
+       Get.lazyPut(() => StudentManagementController());
+       Get.lazyPut(() => SchoolController());
+      }),
+    ),
+    GetPage(
       name: AppRoutes.ACCOUNTING_DASHBOARD,
       page: () => RoleAwareWrapper(child: AccountingDashboardView1()),
       binding: AccountingBinding(),
@@ -183,7 +192,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.BILL_BOOK,
       page: () => RoleAwareWrapper(child: const AdmissionBillBookView()),
-      binding: BillAdmissionBinding(),
+      binding: BindingsBuilder(() {
+       BillAdmissionBinding().dependencies();
+       SchoolBinding().dependencies();
+       }),
     ),
     GetPage(
       name: AppRoutes.ADMISSION_FORMS_VIEW,
@@ -248,7 +260,11 @@ class AppPages {
     GetPage(
       name: AppRoutes.FEE_SETUP,
       page: () => RoleAwareWrapper(child: FeeSetupView()),
-      binding: AccountingBinding(),
+      binding: BindingsBuilder(() {
+        AccountingBinding().dependencies();
+        SchoolBinding().dependencies();
+
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
@@ -260,7 +276,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.STUDENT_MANAGEMENT,
       page: () => RoleAwareWrapper(child: StudentManagementView()),
-      binding: StudentBinding(),
+      binding:BindingsBuilder(() {
+        StudentBinding().dependencies();
+        SchoolBinding().dependencies();
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
@@ -386,7 +405,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.STUDENT_RECORDS,
       page: () => RoleAwareWrapper(child: const StudentRecordsView()),
-      binding: StudentRecordBinding(),
+      binding: BindingsBuilder(() {
+        StudentRecordBinding().dependencies();
+        SchoolBinding().dependencies();
+      }),
       middlewares: [RoleGuard()],
     ),
     GetPage(
@@ -416,6 +438,7 @@ class AppPages {
           child: const StudentProfileManagementPage()),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AuthController());
+        Get.lazyPut(() => SchoolController());
         if (!Get.isRegistered<StudentController>()) {
           Get.lazyPut(() => StudentController());
         }

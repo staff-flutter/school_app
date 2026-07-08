@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../constants/api_constants.dart';
+import '../routes/app_routes.dart';
 import '../services/api_service.dart';
 import 'auth_controller.dart';
 import '../models/school_models.dart';
@@ -56,6 +57,7 @@ class MyChildrenController extends GetxController {
           'No children linked. Please contact school administration.',
           duration: const Duration(seconds: 5),
         );
+        Get.toNamed(AppRoutes.LOGIN);
       });
       
     } catch (e) {

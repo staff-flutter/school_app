@@ -396,6 +396,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
 
   Widget _buildStaffCard(StaffMember member, int index) {
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       elevation: 0.5,

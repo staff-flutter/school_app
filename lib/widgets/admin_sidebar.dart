@@ -644,9 +644,9 @@ class _MenuBody extends StatelessWidget {
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
         _Section('Other', [
-          _Item('Create Employee Profile', Icons.person_pin_rounded, AppRoutes.CREATE_EMPLOYEE_PROFILE),
-          _Item('Employee List', Icons.person_pin_rounded, AppRoutes.EMPLOYEE_LIST),
-
+          _Item('Create Employee Profile', Icons.group_add_outlined, AppRoutes.CREATE_EMPLOYEE_PROFILE),
+          _Item('Employee List', Icons.grading, AppRoutes.EMPLOYEE_LIST),
+          _Item('Parent List', Icons.accessibility_new_sharp, AppRoutes.PARENT_LIST),
           if (RoleModules.hasModule(role, 'subscription'))
             _Item('Subscription', Icons.subscriptions_rounded, AppRoutes.SUBSCRIPTION_MANAGEMENT),
           _Item('Profile', Icons.person_rounded, '/profile'),
@@ -659,16 +659,19 @@ class _MenuBody extends StatelessWidget {
     if (role == 'accountant') {
       return [
         _Section('Menu', [
-          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
           _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
 
 
         ]),
         _Section('Finance', [
           if (RoleModules.hasModule(role, 'feeCollection'))
-            _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
+
+          _Item('Fee Configuration', Icons.request_quote, AppRoutes.FEE_SETUP),
+
           if (RoleModules.hasModule(role, 'feeStructure'))
             _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
+          _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
             _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
@@ -678,7 +681,7 @@ class _MenuBody extends StatelessWidget {
             _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
         ]),
         _Section('Other', [
-          _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+          _Item('Clubs & Activities', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
           _Item('Profile', Icons.person_rounded, '/profile'),
         ]),
       ];
@@ -703,6 +706,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Admission Forms', Icons.menu_book, AppRoutes.ADMISSION_FORMS_VIEW),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
           // ── Student: Create then Manage ──────────────────────────────
+          _Item('Student Profile Creation', Icons.person_add_alt_1_outlined,
+              AppRoutes.STUDENT_PROFILE_CREATION),
           _Item('Student Management', Icons.manage_accounts_rounded,
               AppRoutes.STUDENT_PROFILE_MANAGEMENT),          // ← NEW
           // ────────────────────────────────────────────────────────────
@@ -717,6 +722,8 @@ class _MenuBody extends StatelessWidget {
         ]),
         _Section('Other', [
           _Item('Employee List', Icons.person_pin_rounded, AppRoutes.EMPLOYEE_LIST),
+          _Item('Parent List', Icons.accessibility_new_sharp, AppRoutes.PARENT_LIST),
+
 
           if (RoleModules.hasModule(role, 'subscription'))
             _Item('Subscription', Icons.subscriptions_rounded, AppRoutes.SUBSCRIPTION_MANAGEMENT),

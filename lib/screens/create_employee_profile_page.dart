@@ -262,7 +262,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
           : Map<String, dynamic>.from(res.data ?? {});
 
       // Basic account info, if the backend nests it under `user`.
-      final user = data['user'];
+      final user = data['userId'];
       if (user is Map) {
         _fullNameCtrl.text = user['fullName']?.toString() ?? user['name']?.toString() ?? '';
         _emailCtrl.text = user['email']?.toString() ?? '';
@@ -401,7 +401,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
       data: {
         'userName': _fullNameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
+        'phoneNo': _phoneCtrl.text.trim(),
         'role': _selectedAccountRole,
         'password': _passwordCtrl.text,
         'schoolId': schoolId,
@@ -505,6 +505,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
         data: formData,
         options: dio.Options(headers: {'x-school-id': schoolId}),
       );
+      print('responseOfSubmit:$response');
 
       final ok = response.data is Map && response.data['ok'] == true;
       if (ok) {

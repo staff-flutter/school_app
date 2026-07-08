@@ -16,7 +16,7 @@ class StudentAttendanceItem {
   final String id;
   final String name;
   final String rollNumber;
-  String status; // 'present' | 'absent' | 'leave'
+  String status; // 'present' | 'absent'
   String remark;
 
   StudentAttendanceItem({
@@ -41,7 +41,7 @@ class CalendarEvent {
   final String name;
   final DateTime fromDate;
   final DateTime toDate;
-  final String type; // 'holiday' | 'leave' | 'exam'
+  final String type; // 'holiday' | 'exam'
   final String? description;
   final String academicYear;
 
@@ -67,7 +67,6 @@ class CalendarEvent {
     );
   }
 
-  /// Body for CREATE (114). schoolId is added by the caller.
   Map<String, dynamic> toCreateJson() => {
     'title': name,
     'startDate': fromDate.toIso8601String(),
@@ -77,7 +76,6 @@ class CalendarEvent {
     if (academicYear.isNotEmpty) 'academicYear': academicYear,
   };
 
-  /// Body for UPDATE (115). id goes in the URL, not the body.
   Map<String, dynamic> toUpdateJson() => {
     'title': name,
     'startDate': fromDate.toIso8601String(),
@@ -102,7 +100,6 @@ class AdminAttendanceView extends StatefulWidget {
 class _AdminAttendanceViewState extends State<AdminAttendanceView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  //final session = Get.find<UserSession>();
   final _AuthCtrl = Get.find<AuthController>();
 
   // ── Attendance state ────────────────────────────────────────────────────────
@@ -115,7 +112,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   bool _submitting = false;
   List<StudentAttendanceItem> _students = [];
 
-  // class/section lists from SchoolController
   List<Map<String, String>> _classes = [];
   List<Map<String, String>> _sections = [];
 
@@ -148,8 +144,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     _eventDescCtrl.dispose();
     super.dispose();
   }
-
-  // ── Load classes from SchoolController ──────────────────────────────────────
 
   void _loadClassesFromController() {
     try {
@@ -191,17 +185,19 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     } catch (_) {}
   }
 
-  // ── Load students ────────────────────────────────────────────────────────────
-
-  Future<void> _loadStudents() async {
+  Future<void> _loadStudents({bool fromRefresh = false}) async {
     if (_selectedClassId == null ) {
-      Get.snackbar('Error', 'Please select class',
-          backgroundColor: Colors.red, colorText: Colors.white);
+      if (!fromRefresh) {
+        Get.snackbar('Error', 'Please select class',
+            backgroundColor: Colors.red, colorText: Colors.white);
+      }
       return;
     }
     if (_classHasSections && _selectedSectionId == null) {
-      Get.snackbar('Error', 'Please select a section',
-          backgroundColor: Colors.red, colorText: Colors.white);
+      if (!fromRefresh) {
+        Get.snackbar('Error', 'Please select a section',
+            backgroundColor: Colors.red, colorText: Colors.white);
+      }
       return;
     }
     setState(() => _loadingStudents = true);
@@ -230,30 +226,20 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     }
   }
 
-  // ── Submit attendance ────────────────────────────────────────────────────────
-
   Future<void> _submitAttendance() async {
     if (_students.isEmpty) return;
     setState(() => _submitting = true);
     try {
       final sc = Get.find<SchoolController>();
-
-      print('selectedSchool: ${sc.selectedSchool.value}');
       String schoolId = '';
       try {
         schoolId = sc.selectedSchool.value?.id ?? _AuthCtrl.user.value?.schoolId ?? '';
       } catch (e) {
-        print('schoolId getter threw: $e');
         schoolId = _AuthCtrl.user.value?.schoolId ?? '';
       }
-      print('schoolId resolved: $schoolId');
 
       final token = _AuthCtrl.storage.read('token') ?? '';
-      print('token: $token');
-      print('classId: $_selectedClassId, sectionId: $_selectedSectionId');
-
       final records = _students.map((s) {
-        print('mapping student id=${s.id} name=${s.name} status=${s.status}');
         return {
           'studentId': s.id,
           'studentName': s.name,
@@ -262,7 +248,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         };
       }).toList();
 
-      final uri = Uri.parse('${ApiConstants.baseUrl}/api/attendance/mark'); // fixed endpoint
+      final uri = Uri.parse('${ApiConstants.baseUrl}/api/attendance/mark');
 
       final response = await http.post(
         uri,
@@ -280,8 +266,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         }),
       );
 
-      print('Mark attendance response (${response.statusCode}): ${response.body}'); // temp debug log
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         Get.snackbar('Success', 'Attendance submitted successfully',
             backgroundColor: Colors.green, colorText: Colors.white);
@@ -291,8 +275,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             backgroundColor: Colors.red, colorText: Colors.white);
       }
     } catch (e) {
-      print('Submit attendance exception: $e'); // temp debug log
-      Get.snackbar('Error', 'Failed to submit attendance: $e', // include $e temporarily
+      Get.snackbar('Error', 'Failed to submit attendance: $e',
           backgroundColor: Colors.red, colorText: Colors.white);
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -306,8 +289,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       }
     });
   }
-
-  // ── Calendar events ──────────────────────────────────────────────────────────
 
   Future<void> _loadCalendarEvents() async {
     setState(() => _loadingEvents = true);
@@ -369,7 +350,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       http.Response response;
 
       if (_editingEventId == null) {
-        // CREATE — api no 114
         final uri = Uri.parse('${ApiConstants.baseUrl}/api/calendar/create');
         response = await http.post(
           uri,
@@ -380,7 +360,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           body: jsonEncode({...event.toCreateJson(), 'schoolId': schoolId}),
         );
       } else {
-        // UPDATE — api no 115
         final uri = Uri.parse('${ApiConstants.baseUrl}/api/calendar/update/$_editingEventId');
         response = await http.put(
           uri,
@@ -458,10 +437,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     } catch (_) {}
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -474,11 +449,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Attendance & calendar',
-                style:
-                TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Text('Admin panel',
-                style:
-                TextStyle(fontSize: 11, color: Colors.white70)),
+                style: TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
         bottom: TabBar(
@@ -486,8 +459,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white54,
-          labelStyle: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.bold),
+          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           tabs: const [
             Tab(text: 'Attendance'),
             Tab(text: 'Holiday calendar'),
@@ -504,25 +476,26 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ATTENDANCE TAB
-  // ─────────────────────────────────────────────────────────────────────────
-
   Widget _buildAttendanceTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          _filterCard(),
-          const SizedBox(height: 12),
-          if (_loadingStudents)
-            const Card(
-                child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator())))
-          else if (_students.isNotEmpty)
-            _attendanceCard(),
-        ],
+    return RefreshIndicator(
+      onRefresh: () => _loadStudents(fromRefresh: true),
+      color: const Color(0xFF2563EB),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            _filterCard(),
+            const SizedBox(height: 12),
+            if (_loadingStudents)
+              const Card(
+                  child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: CircularProgressIndicator())))
+            else if (_students.isNotEmpty)
+              _attendanceCard(),
+          ],
+        ),
       ),
     );
   }
@@ -540,8 +513,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   label: 'Class',
                   value: _selectedClassId,
                   items: _classes
-                      .map((c) =>
-                      DropdownMenuItem(value: c['id'], child: Text(c['name']!)))
+                      .map((c) => DropdownMenuItem(value: c['id'], child: Text(c['name']!)))
                       .toList(),
                   onChanged: (v) {
                     setState(() {
@@ -569,7 +541,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   label: 'Section',
                   value: null,
                   items: const [],
-                  onChanged: (_) {}, // no-op, dropdown effectively disabled
+                  onChanged: (_) {},
                 ),
               ),
             ],
@@ -582,11 +554,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   label: 'Academic year',
                   value: _selectedYear,
                   items: _years
-                      .map((y) =>
-                      DropdownMenuItem(value: y, child: Text(y)))
+                      .map((y) => DropdownMenuItem(value: y, child: Text(y)))
                       .toList(),
-                  onChanged: (v) =>
-                      setState(() => _selectedYear = v!),
+                  onChanged: (v) => setState(() => _selectedYear = v!),
                 ),
               ),
               const SizedBox(width: 10),
@@ -603,15 +573,13 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _loadStudents,
+              onPressed: () => _loadStudents(fromRefresh: false),
               icon: const Icon(Icons.search_rounded, size: 16),
-              label: const Text('Load students',
-                  style: TextStyle(fontSize: 13)),
+              label: const Text('Load students', style: TextStyle(fontSize: 13)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF2563EB)),
                 foregroundColor: const Color(0xFF2563EB),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -623,38 +591,31 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   Widget _attendanceCard() {
     final presentCount = _students.where((s) => s.status == 'present').length;
     final absentCount = _students.where((s) => s.status == 'absent').length;
-    final leaveCount = _students.where((s) => s.status == 'leave').length;
 
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _cardTitle(Icons.people_rounded, 'Mark attendance'),
-          // Summary chips
           Row(
             children: [
               _summaryChip('$presentCount present', Colors.green),
               const SizedBox(width: 8),
               _summaryChip('$absentCount absent', Colors.red),
-              const SizedBox(width: 8),
-              _summaryChip('$leaveCount leave', Colors.orange),
             ],
           ),
           const SizedBox(height: 10),
-          // Bulk actions
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _markAll('present'),
                   icon: const Icon(Icons.check_rounded, size: 14),
-                  label: const Text('All present',
-                      style: TextStyle(fontSize: 11)),
+                  label: const Text('All present', style: TextStyle(fontSize: 11)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.green),
                     foregroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 6),
                   ),
                 ),
@@ -664,13 +625,11 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                 child: OutlinedButton.icon(
                   onPressed: () => _markAll('absent'),
                   icon: const Icon(Icons.close_rounded, size: 14),
-                  label: const Text('All absent',
-                      style: TextStyle(fontSize: 11)),
+                  label: const Text('All absent', style: TextStyle(fontSize: 11)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.red),
                     foregroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 6),
                   ),
                 ),
@@ -678,30 +637,23 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             ],
           ),
           const SizedBox(height: 12),
-          // Student list
           ..._students.map((student) => _studentRow(student)),
           const Divider(height: 24),
-          // Submit
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _submitting ? null : _submitAttendance,
               icon: _submitting
                   ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.cloud_upload_rounded, size: 16),
-              label: Text(
-                  _submitting ? 'Submitting…' : 'Submit attendance',
-                  style: const TextStyle(fontSize: 13)),
+              label: Text(_submitting ? 'Submitting…' : 'Submit attendance', style: const TextStyle(fontSize: 13)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -725,27 +677,20 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(student.name,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
-                Text('Roll ${student.rollNumber}',
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.grey)),
+                Text(student.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('Roll ${student.rollNumber}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),
           _statusToggle(student, 'present', 'P', Colors.green),
           const SizedBox(width: 5),
           _statusToggle(student, 'absent', 'A', Colors.red),
-          const SizedBox(width: 5),
-          _statusToggle(student, 'leave', 'L', Colors.orange),
         ],
       ),
     );
   }
 
-  Widget _statusToggle(StudentAttendanceItem student, String status,
-      String label, Color color) {
+  Widget _statusToggle(StudentAttendanceItem student, String status, String label, Color color) {
     final selected = student.status == status;
     return GestureDetector(
       onTap: () => setState(() => student.status = status),
@@ -762,11 +707,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           ),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: selected ? color : Colors.grey)),
+        child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: selected ? color : Colors.grey)),
       ),
     );
   }
@@ -779,28 +720,29 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(text,
-          style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color.withOpacity(0.9))),
+      child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.withOpacity(0.9))),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // HOLIDAY CALENDAR TAB
-  // ─────────────────────────────────────────────────────────────────────────
-
   Widget _buildCalendarTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          _statsCard(),
-          const SizedBox(height: 12),
-          _addEventCard(),
-          const SizedBox(height: 12),
-          _eventListCard(),
+    return RefreshIndicator(
+      onRefresh: _loadCalendarEvents,
+      color: const Color(0xFF2563EB),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(14),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _statsCard(),
+                const SizedBox(height: 12),
+                _addEventCard(),
+                const SizedBox(height: 12),
+                _eventListCard(),
+              ]),
+            ),
+          ),
         ],
       ),
     );
@@ -808,7 +750,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
 
   Widget _statsCard() {
     final holidays = _events.where((e) => e.type == 'holiday').length;
-    final leaves = _events.where((e) => e.type == 'leave').length;
     final exams = _events.where((e) => e.type == 'exam').length;
 
     return _card(
@@ -819,8 +760,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           Row(
             children: [
               Expanded(child: _miniStat('$holidays', 'Holidays', Colors.orange)),
-              const SizedBox(width: 8),
-              Expanded(child: _miniStat('$leaves', 'Leave days', Colors.blue)),
               const SizedBox(width: 8),
               Expanded(child: _miniStat('$exams', 'Exam blocks', Colors.red)),
             ],
@@ -840,15 +779,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       ),
       child: Column(
         children: [
-          Text(value,
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color)),
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 10, color: Colors.grey)),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
         ],
       ),
     );
@@ -864,22 +797,13 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             isEditing ? Icons.edit_calendar_rounded : Icons.add_circle_outline_rounded,
             isEditing ? 'Edit calendar event' : 'Add calendar event',
           ),
-          _field(label: 'Event name', controller: _eventNameCtrl,
-              hint: 'e.g. Diwali, Christmas break…'),
+          _field(label: 'Event name', controller: _eventNameCtrl, hint: 'e.g. Diwali, Christmas break…'),
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                  child: _datePicker(
-                      label: 'From date',
-                      date: _eventFrom,
-                      onChanged: (d) => setState(() => _eventFrom = d))),
+              Expanded(child: _datePicker(label: 'From date', date: _eventFrom, onChanged: (d) => setState(() => _eventFrom = d))),
               const SizedBox(width: 10),
-              Expanded(
-                  child: _datePicker(
-                      label: 'To date',
-                      date: _eventTo,
-                      onChanged: (d) => setState(() => _eventTo = d))),
+              Expanded(child: _datePicker(label: 'To date', date: _eventTo, onChanged: (d) => setState(() => _eventTo = d))),
             ],
           ),
           const SizedBox(height: 10),
@@ -891,7 +815,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   value: _eventType,
                   items: const [
                     DropdownMenuItem(value: 'holiday', child: Text('Public holiday')),
-                    DropdownMenuItem(value: 'leave', child: Text('School leave')),
                     DropdownMenuItem(value: 'exam', child: Text('Exam block')),
                   ],
                   onChanged: (v) => setState(() => _eventType = v!),
@@ -902,19 +825,14 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                 child: _dropdown(
                   label: 'Academic year',
                   value: _eventYear,
-                  items: _years
-                      .map((y) => DropdownMenuItem(value: y, child: Text(y)))
-                      .toList(),
+                  items: _years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
                   onChanged: (v) => setState(() => _eventYear = v!),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          _field(
-              label: 'Description (optional)',
-              controller: _eventDescCtrl,
-              hint: 'Short note…'),
+          _field(label: 'Description (optional)', controller: _eventDescCtrl, hint: 'Short note…'),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -942,9 +860,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                       width: 16, height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : Icon(isEditing ? Icons.check_rounded : Icons.add_rounded, size: 16),
-                  label: Text(
-                      _savingEvent ? 'Saving…' : (isEditing ? 'Update event' : 'Add event'),
-                      style: const TextStyle(fontSize: 13)),
+                  label: Text(_savingEvent ? 'Saving…' : (isEditing ? 'Update event' : 'Add event'), style: const TextStyle(fontSize: 13)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
@@ -968,18 +884,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         children: [
           _cardTitle(Icons.list_alt_rounded, 'Upcoming events'),
           if (_loadingEvents)
-            const Center(
-                child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator()))
+            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
           else if (_events.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('No events added yet',
-                    style: TextStyle(color: Colors.grey)),
-              ),
-            )
+            const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Text('No events added yet', style: TextStyle(color: Colors.grey))))
           else
             ..._events.map((e) => _eventRow(e)),
         ],
@@ -990,20 +897,17 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   Widget _eventRow(CalendarEvent event) {
     final colorMap = {
       'holiday': Colors.orange,
-      'leave': Colors.blue,
       'exam': Colors.red,
     };
     final iconMap = {
       'holiday': Icons.celebration_rounded,
-      'leave': Icons.beach_access_rounded,
       'exam': Icons.edit_note_rounded,
     };
     final color = colorMap[event.type] ?? Colors.grey;
     final icon = iconMap[event.type] ?? Icons.event_rounded;
     final df = _fmtDate(event.fromDate);
     final dt = _fmtDate(event.toDate);
-    final dateLabel =
-    df == dt ? df : '$df – $dt';
+    final dateLabel = df == dt ? df : '$df – $dt';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1029,12 +933,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.name,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
-                Text(dateLabel,
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.grey)),
+                Text(event.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(dateLabel, style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),
@@ -1049,11 +949,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
           const SizedBox(width: 4),
           IconButton(
             onPressed: () => _confirmDelete(event),
-            icon: const Icon(Icons.delete_outline_rounded,
-                color: Colors.red, size: 18),
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-                minWidth: 28, minHeight: 28),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
           ),
         ],
       ),
@@ -1063,7 +961,6 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   Widget _typeBadge(String type) {
     final map = {
       'holiday': [Colors.orange, 'Holiday'],
-      'leave': [Colors.blue, 'Leave'],
       'exam': [Colors.red, 'Exam'],
     };
     final color = map[type]?[0] as Color? ?? Colors.grey;
@@ -1074,11 +971,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: color)),
+      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
     );
   }
 
@@ -1087,16 +980,14 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       title: const Text('Delete event'),
       content: Text('Remove "${event.name}"?'),
       actions: [
-        TextButton(
-            onPressed: () => Get.back(), child: const Text('Cancel')),
+        TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
             Get.back();
             _deleteEvent(event);
           },
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          child: const Text('Delete',
-              style: TextStyle(color: Colors.white)),
+          child: const Text('Delete', style: TextStyle(color: Colors.white)),
         ),
       ],
     ));
@@ -1115,10 +1006,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))
         ],
       ),
       child: child,
@@ -1132,9 +1020,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         children: [
           Icon(icon, color: const Color(0xFF2563EB), size: 18),
           const SizedBox(width: 8),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -1149,28 +1035,18 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         DropdownButtonFormField<T>(
           value: value,
           isDense: true,
           decoration: InputDecoration(
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
           ),
           style: const TextStyle(fontSize: 12, color: Colors.black87),
-          hint: Text('Select',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          hint: Text('Select', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           items: items,
           onChanged: onChanged,
         ),
@@ -1186,11 +1062,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         InkWell(
           onTap: () async {
@@ -1203,8 +1075,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             if (picked != null) onChanged(picked);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 10, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(8),
@@ -1212,12 +1083,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             child: Row(
               children: [
                 Expanded(
-                  child: Text(_fmtDate(date),
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.black87)),
+                  child: Text(_fmtDate(date), style: const TextStyle(fontSize: 12, color: Colors.black87)),
                 ),
-                const Icon(Icons.calendar_today_rounded,
-                    size: 14, color: Colors.grey),
+                const Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey),
               ],
             ),
           ),
@@ -1234,33 +1102,22 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         TextField(
           controller: controller,
           style: const TextStyle(fontSize: 12),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(
-                fontSize: 12, color: Colors.grey.shade400),
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300)),
+            hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
           ),
         ),
       ],
     );
   }
 
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }

@@ -1156,48 +1156,43 @@ class _RecordsTab extends StatelessWidget {
                           ),
                           child: Text(
                             isPaid ? 'PAID' : 'PENDING',
-                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: PopupMenuButton<String>(
-                            iconSize: 18,
-                            icon: Icon(Icons.more_vert, color: AppTheme.mutedText),
-                            onSelected: (value) => _handleRecordAction(value, record, context),
-                            itemBuilder: (context) => [
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          icon: Icon(Icons.more_vert, color: AppTheme.mutedText),
+                          onSelected: (value) => _handleRecordAction(value, record, context),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'view',
+                              child: Row(children: [
+                                Icon(Icons.visibility, size: 18),
+                                SizedBox(width: 8),
+                                Text('View Details'),
+                              ]),
+                            ),
+                            if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'PATCH /api/studentrecord/togglestatus'))
                               const PopupMenuItem(
-                                value: 'view',
+                                value: 'toggle',
                                 child: Row(children: [
-                                  Icon(Icons.visibility, size: 18),
+                                  Icon(Icons.toggle_on, size: 18),
                                   SizedBox(width: 8),
-                                  Text('View Details'),
+                                  Text('Toggle Status'),
                                 ]),
                               ),
-                              if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'PATCH /api/studentrecord/togglestatus'))
-                                const PopupMenuItem(
-                                  value: 'toggle',
-                                  child: Row(children: [
-                                    Icon(Icons.toggle_on, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Toggle Status'),
-                                  ]),
-                                ),
-                              if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'DELETE /api/studentrecord/deleterecord'))
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(children: [
-                                    Icon(Icons.delete, size: 18, color: Colors.red),
-                                    SizedBox(width: 8),
-                                    Text('Delete Record', style: TextStyle(color: Colors.red)),
-                                  ]),
-                                ),
-                            ],
-                          ),
+                            if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'DELETE /api/studentrecord/deleterecord'))
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(children: [
+                                  Icon(Icons.delete, size: 18, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Delete Record', style: TextStyle(color: Colors.red)),
+                                ]),
+                              ),
+                          ],
                         ),
                       ],
                     ),
@@ -1947,11 +1942,24 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                     onChanged: (cls) {
                       setState(() { selectedClass = cls; selectedSection = null; selectedStudent = null; });
                       if (cls != null) {
-                        schoolController.getAllSections(classId: cls.id, schoolId: widget.schoolId);
+                        schoolController.getAllSections(classId: cls.id, schoolId: widget.schoolId).then((_) {
+                          if (schoolController.sections.isEmpty) {
+                            // No sections configured for this class — load students directly
+                            schoolController.getAllStudents(
+                              schoolId: widget.schoolId,
+                              classId: cls.id,
+                              sectionId: null,
+                            );
+                          }
+                        });
                       }
                     },
-                    validator: (v) => v == null ? 'Please select a class' : null,
-                  ),
+                    validator: (v) {
+                      if (schoolController.sections.isNotEmpty && v == null) {
+                        return 'Please select a section';
+                      }
+                      return null;
+                    },                  ),
                 );
               }),
               const SizedBox(height: 10),
@@ -1969,7 +1977,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                           ? 'No sections found'
                           : 'Select Section',
                       schoolController.sections.isEmpty && selectedClass != null
-                          ? Icons.warning
+                          ? Icons.info_outline
                           : Icons.group,
                     ),
                     value: selectedSection,
@@ -1988,7 +1996,12 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
                         );
                       }
                     },
-                    validator: (v) => v == null ? 'Please select a section' : null,
+                    validator: (v) {
+                      if (schoolController.sections.isNotEmpty && v == null) {
+                        return 'Please select a section';
+                      }
+                      return null;
+                    },
                   ),
                 );
               }),
@@ -2202,7 +2215,7 @@ class _ApplyConcessionFormState extends State<ApplyConcessionForm> {
           studentId: selectedStudent!.id,
           studentName: selectedStudent!.name,
           classId: selectedClass!.id,
-          sectionId: selectedSection!.id,
+          sectionId: selectedSection?.id ?? '',
           concessionType: concessionType,
           concessionValue: double.parse(concessionValueController.text),
           remark: remarkController.text,

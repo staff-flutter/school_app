@@ -43,13 +43,19 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     try {
       final res = await _apiService.get('${ApiConstants.getOneEmployeeProfile}/$userId');
       print('response of single profile:$res');
+
       final data = (res.data is Map && res.data['data'] is Map)
           ? Map<String, dynamic>.from(res.data['data'])
           : Map<String, dynamic>.from(res.data ?? {});
-      final user = data['user'];
+
+      // Backend returns the linked account as a populated "userId" field,
+      // not "user".
+      final userField = data['userId'];
+      final user = userField is Map ? Map<String, dynamic>.from(userField) : <String, dynamic>{};
+
       setState(() {
         _data = data;
-        _user = user is Map ? Map<String, dynamic>.from(user) : {};
+        _user = user;
         _isLoading = false;
       });
     } catch (e) {
@@ -83,7 +89,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
-          title: Text(_fmt(_user['userName'] ?? _user['fullName'] ?? _user['name'], 'Employee Profile')),          backgroundColor: Colors.white,
+          title: Text(_fmt(_user['userName'] ?? 'Employee Profile')),
+          backgroundColor: Colors.white,
           foregroundColor: Colors.black,
           elevation: 0,
           actions: [
@@ -167,11 +174,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     return ListView(
       children: [
         _card(title: 'Basic Information', children: [
-          _field('Full Name', _fmt(_user['userName'] ??  _user['name'])),
+          _field('Full Name', _fmt(_user['userName'] ?? _user['name'])),
           _field('Email Address', _fmt(_user['email'])),
           _field('Phone Number', _fmt(_user['phoneNo'] ?? _user['phone'] ?? _user['phoneNumber'])),
           _field('Role Configuration', _fmt(_user['role'])),
-
           Row(
             children: [
               Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),

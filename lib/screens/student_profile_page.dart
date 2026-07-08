@@ -12,6 +12,8 @@ import '../controllers/school_controller.dart';
 import '../constants/api_constants.dart';
 import '../models/student_model.dart' show Student;
 import '../services/user_session.dart';
+import 'admission_form_view_page.dart';
+import 'documents_view_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final Student? student;
@@ -264,7 +266,7 @@ class _ProfilePageState extends State<ProfilePage> {
       }).timeout(const Duration(seconds: 15));
 
       debugPrint('◀ status : ${response.statusCode}');
-      debugPrint('◀ body   : ${response.body}');
+      print('◀ body   : ${response.body}');
 
       if (response.statusCode != 200) {
         debugPrint('✗ Non-200 — cannot parse profile');
@@ -773,7 +775,25 @@ class _ProfilePageState extends State<ProfilePage> {
                                 TextStyle(color: Colors.white)),
                           ),
                         ),
+                        const SizedBox(height: 20,),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: () => Get.to(() => AdmissionFormViewPage(studentId: _studentId)),
+                              child: const Text('Admission Form',
+                                  style: TextStyle(fontSize: 10, decoration: TextDecoration.underline, color: Colors.blue)),
+                            ),
+                            const SizedBox(width: 80),
+                            GestureDetector(
+                              onTap: () => Get.to(() => DocumentsViewPage(studentId: _studentId)),
+                              child: const Text('Documents',
+                                  style: TextStyle(fontSize: 10, decoration: TextDecoration.underline, color: Colors.blue)),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 40),
+
                       ]),
                     ),
                   ),

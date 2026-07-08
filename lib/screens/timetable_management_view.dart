@@ -1373,8 +1373,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildCollapsibleSelectors(context, isLandscape, isTablet),
-            const SizedBox(height: 16),
-            _buildPeriodCountSelector(context),
+          //  const SizedBox(height: 16),
+           // _buildPeriodCountSelector(context),
             const SizedBox(height: 16),
             _buildViewOnlyTimetable(context, isTablet),
           ],

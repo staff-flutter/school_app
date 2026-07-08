@@ -16,6 +16,7 @@ import 'package:school_app/controllers/fee_structure_controller.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/services/api_service.dart';
+import '../core/utils/academic_year_utils.dart';
 
 class _DS {
   // Primary palette — deep navy + sky accent
@@ -277,6 +278,10 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   final _busPointController = TextEditingController();
   final isBusApplicable = false.obs;
   final manualDueAllocation = false.obs;
+  final studentDues = <String, double>{}.obs;       // feeHead key -> amount due
+  final selectedPaidHeads = <String, double>{}.obs; // feeHead key -> amount collecting now
+  final isLoadingDues = false.obs;
+  final Map<String, TextEditingController> _paidHeadControllers = {};
   final _formKey = GlobalKey<FormState>();
   final AuthController _authController = Get.find();
   final _studentSearchController = TextEditingController();
@@ -364,7 +369,70 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     }
   }
 
+  String _feeHeadLabel(String key) {
+    const labels = {
+      'admissionFee': 'Admission Fee',
+      'admissionDues': 'Admission Fee',
+      'firstTermAmt': 'First Term Fee',
+      'firstTermDues': 'First Term Fee',
+      'secondTermAmt': 'Second Term Fee',
+      'secondTermDues': 'Second Term Fee',
+      'busFirstTermAmt': 'Bus Fee (First Term)',
+      'busfirstTermDues': 'Bus Fee (First Term)',
+      'busSecondTermAmt': 'Bus Fee (Second Term)',
+      'busSecondTermDues': 'Bus Fee (Second Term)',
+      'examFee': 'Exam Fee',
+    };
+    if (labels.containsKey(key)) return labels[key]!;
+    final spaced = key.replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(0)}');
+    return spaced.isEmpty ? key : spaced[0].toUpperCase() + spaced.substring(1);
+  }
 
+  Future<void> _loadStudentDuesForManualAllocation() async {
+    final student = controller.selectedStudent.value;
+    final studentId = student?['studentId']?.toString() ?? '';
+    final schoolId = _currentSchoolId;
+    if (studentId.isEmpty || schoolId.isEmpty) return;
+
+    isLoadingDues.value = true;
+    try {
+      final record = await controller.getStudentRecord(schoolId, studentId);
+      print('📋 getStudentRecord for manual allocation: $record');
+      final rawDues = (record?['duesv1'] as Map<String, dynamic>?)
+          ?? (record?['dues'] as Map<String, dynamic>?)
+          ?? {};
+      for (final c in _paidHeadControllers.values) {
+        c.dispose();
+      }
+      _paidHeadControllers.clear();
+      studentDues.clear();
+      selectedPaidHeads.clear();
+
+      double parseAmount(dynamic v) {
+        if (v is num) return v.toDouble();
+        if (v is String) return double.tryParse(v) ?? 0;
+        return 0;
+      }
+
+      rawDues.forEach((key, value) {
+        final amt = parseAmount(value);
+        if (amt > 0) {
+          studentDues[key] = amt;
+          _paidHeadControllers[key] = TextEditingController();
+        }
+      });
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load fee dues',
+          backgroundColor: _DS.danger, colorText: Colors.white);
+    } finally {
+      isLoadingDues.value = false;
+    }
+  }
+
+  void _recalculateManualAmount() {
+    final total = selectedPaidHeads.values.fold(0.0, (a, b) => a + b);
+    _amountController.text = total == 0 ? '' : total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
+  }
   @override
   void dispose() {
     _schoolWatcher?.dispose();
@@ -377,6 +445,9 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     _referenceNumberController.dispose();
     _busPointController.dispose();
     _studentSearchController.dispose();
+    for (final c in _paidHeadControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
   @override
@@ -1610,53 +1681,66 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         ),
         const SizedBox(height: 16),
 
-        // Manual Due Allocation Toggle
-        // Manual Due Allocation Toggle — DISABLED until paidHeads UI is built
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,  // greyed out
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.calculate, color: Colors.grey.shade400),  // greyed
-                  const SizedBox(width: 12),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Manual Due Allocation',
-                          style: TextStyle(
-                            fontSize: isTablet ? 16 : 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade400,  // greyed
+        // Manual Due Allocation
+        Obx(() {
+          final isOn = manualDueAllocation.value;
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calculate, color: const Color(0xFF2563EB)),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Manual Due Allocation',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                ),
+                                Text(
+                                  'Choose exactly which fee heads to collect',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Coming soon',
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              Switch(
-                value: false,         // always off
-                onChanged: null,      // disabled
-                activeColor: const Color(0xFF2563EB),
-              ),
-            ],
-          ),
-        ),
+                    Switch(
+                      value: isOn,
+                      activeColor: const Color(0xFF2563EB),
+                      onChanged: (value) async {
+                        manualDueAllocation.value = value;
+                        selectedPaidHeads.clear();
+                        _amountController.clear();
+                        if (value) {
+                          await _loadStudentDuesForManualAllocation();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                if (isOn) _buildFeeHeadPicker(),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -1821,29 +1905,15 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: TextFormField(
+              child: Obx(() => TextFormField(
                 controller: _amountController,
+                readOnly: manualDueAllocation.value,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: 'Amount',
-                  labelStyle: TextStyle(color: Colors.green.shade700),
-                  prefixText: '₹ ',
-                  prefixStyle: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold),
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.currency_rupee, color: Colors.green),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  labelText: manualDueAllocation.value ? 'Amount (auto-calculated)' : 'Amount',
+                  // ...keep the rest of your existing decoration as-is...
                 ),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter amount';
@@ -1853,7 +1923,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
                   }
                   return null;
                 },
-              ),
+              )),
             ),
 
             const SizedBox(height: 20),
@@ -2335,6 +2405,11 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
       print('classId: $classId');
       print('sectionId: $sectionId');
       print('schoolId: $schoolId');
+      if (manualDueAllocation.value && selectedPaidHeads.isEmpty) {
+        Get.snackbar('Select Fee Heads', 'Please select at least one fee head to collect.',
+            backgroundColor: Colors.orange, colorText: Colors.white);
+        return;
+      }
       if (studentId.isEmpty || schoolId.isEmpty || classId.isEmpty ) {
         Get.snackbar('Error', 'Missing required information');
         return;
@@ -2349,8 +2424,11 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         'paymentMode': controller.selectedPaymentMode.value,
         'studentName': student['studentName'] ?? '',
         'newOld': selectedStudentType.value, // 'old' or 'new'
-        'manualDueAllocation': false,
-        'paidHeads': {}, // Empty object as default, can be populated if needed
+        'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
+        'manualDueAllocation': manualDueAllocation.value,
+        'paidHeads': manualDueAllocation.value
+            ? selectedPaidHeads.map((k, v) => MapEntry(k, v))
+            : {},
         'remarks': _remarksController.text,
         'isBusApplicable': isBusApplicable.value,
         'busPoint': _busPointController.text,
@@ -2374,6 +2452,9 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         additionalData: additionalData,
       ).then((_) {
         // Clear form fields after successful submission
+        manualDueAllocation.value = false;
+        selectedPaidHeads.clear();
+        studentDues.clear();
         _amountController.clear();
         _remarksController.clear();
         _referenceNumberController.clear();
@@ -2391,7 +2472,139 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
           backgroundColor: Colors.orange, colorText: Colors.white);
     }
   }
-}
+
+  Widget _buildFeeHeadPicker() {
+    return Obx(() {
+      if (isLoadingDues.value) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        );
+      }
+      if (studentDues.isEmpty) {
+        return Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _DS.successSoft,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(children: const [
+            Icon(Icons.check_circle_rounded, color: _DS.success, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('No outstanding dues found for this student.',
+                  style: TextStyle(color: _DS.success, fontWeight: FontWeight.w600, fontSize: 12)),
+            ),
+          ]),
+        );
+      }
+
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            const Text('Select Fee Heads to Collect',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+            const SizedBox(height: 8),
+            ...studentDues.entries.map((entry) {
+              final key = entry.key;
+              final due = entry.value;
+              final isSelected = selectedPaidHeads.containsKey(key);
+              final ctrl = _paidHeadControllers[key]!;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isSelected ? _DS.accentSoft : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? _DS.accent : Colors.grey.shade300,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(children: [
+                  Checkbox(
+                    value: isSelected,
+                    activeColor: _DS.accent,
+                    onChanged: (checked) {
+                      if (checked == true) {
+                        final amtStr = due.toStringAsFixed(due % 1 == 0 ? 0 : 2);
+                        ctrl.text = amtStr;
+                        selectedPaidHeads[key] = due;
+                      } else {
+                        ctrl.clear();
+                        selectedPaidHeads.remove(key);
+                      }
+                      _recalculateManualAmount();
+                    },
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_feeHeadLabel(key),
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('Due: ₹${due.toStringAsFixed(due % 1 == 0 ? 0 : 2)}',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: TextFormField(
+                      controller: ctrl,
+                      enabled: isSelected,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        prefixText: '₹',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        filled: true,
+                        fillColor: isSelected ? Colors.white : Colors.grey.shade100,
+                      ),
+                      onChanged: (val) {
+                        var amt = double.tryParse(val) ?? 0;
+                        if (amt > due) {
+                          amt = due;
+                          final fixed = due.toStringAsFixed(due % 1 == 0 ? 0 : 2);
+                          ctrl.text = fixed;
+                          ctrl.selection = TextSelection.fromPosition(
+                              TextPosition(offset: fixed.length));
+                        }
+                        selectedPaidHeads[key] = amt;
+                        _recalculateManualAmount();
+                      },
+                    ),
+                  ),
+                ]),
+              );
+            }),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Total Selected:',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(
+                  '₹${selectedPaidHeads.values.fold(0.0, (a, b) => a + b).toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 15, color: _DS.accent),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }}
 
 // ═══════════════════════════════════════════════════════════════
 // DROP-IN REPLACEMENT for _FeeStructureViewTab + _FeeStructureViewTabState
