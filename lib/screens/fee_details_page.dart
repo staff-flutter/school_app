@@ -9,6 +9,59 @@ import '../constants/api_constants.dart';
 import '../services/user_session.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PARSING HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+// The backend response shape for a concession can differ between "pending"
+// and "approved" states (e.g. numeric fields arriving as strings, or nested
+// objects being flattened/restructured). Unsafe `as Map<String, dynamic>?`
+// / `as num?` casts throw the moment the runtime type doesn't match, which
+// silently kills the whole record fetch (caught far away in
+// _fetchFeeRecord's try/catch) and renders as a blank page. These helpers
+// coerce leniently instead of throwing.
+
+int _toInt(dynamic v) {
+  if (v == null) return 0;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? (num.tryParse(v)?.toInt() ?? 0);
+  return 0;
+}
+
+num _toNum(dynamic v) {
+  if (v == null) return 0;
+  if (v is num) return v;
+  if (v is String) return num.tryParse(v) ?? 0;
+  return 0;
+}
+
+Map<String, dynamic> _toMap(dynamic v) {
+  if (v is Map<String, dynamic>) return v;
+  if (v is Map) return Map<String, dynamic>.from(v);
+  return {};
+}
+
+String _toStr(dynamic v, {String fallback = ''}) {
+  if (v == null) return fallback;
+  if (v is String) return v;
+  return v.toString();
+}
+
+// approvedBy can arrive as: null (not yet approved), a plain ObjectId
+// string, or a populated user object like {_id, name, email} once a
+// reviewer is attached. Handle all three instead of assuming a String.
+String _approvedByLabel(dynamic v) {
+  if (v == null) return 'Pending';
+  if (v is String) {
+    return (v.isEmpty || v == 'null') ? 'Pending' : v;
+  }
+  if (v is Map) {
+    final name = v['name'] ?? v['fullName'] ?? v['email'] ?? v['_id'];
+    final label = name?.toString();
+    return (label == null || label.isEmpty) ? 'Pending' : label;
+  }
+  return v.toString();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MODEL
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,33 +86,29 @@ class FeeRecord {
   });
 
   factory FeeRecord.fromJson(Map<String, dynamic> json) {
-    Map<String, int> _toIntMap(Map<String, dynamic>? raw) {
-      if (raw == null) return {};
-      return raw.map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
+    Map<String, int> toIntMap(dynamic raw) {
+      if (raw is! Map) return {};
+      return raw.map((k, v) => MapEntry(k.toString(), _toInt(v)));
     }
 
-    final student = json['studentId'] as Map<String, dynamic>? ?? {};
-    final imgObj = student['studentImage'] as Map<String, dynamic>? ?? {};
+    final student = _toMap(json['studentId']);
+    final imgObj = _toMap(student['studentImage']);
 
     // Prefer the v1 custom-fee-head maps (where dynamic fee heads like
     // "Lab Fee"/"Sports Fee" actually live); fall back to the legacy
     // static-field maps for any older records that predate this.
-    final feeStructureRaw = (json['feeStructurev1'] as Map<String, dynamic>?)
-        ?? (json['feeStructure'] as Map<String, dynamic>?);
-    final feePaidRaw = (json['feePaidv1'] as Map<String, dynamic>?)
-        ?? (json['feePaid'] as Map<String, dynamic>?);
-    final duesRaw = (json['duesv1'] as Map<String, dynamic>?)
-        ?? (json['dues'] as Map<String, dynamic>?);
+    final feeStructureRaw = json['feeStructurev1'] ?? json['feeStructure'];
+    final feePaidRaw = json['feePaidv1'] ?? json['feePaid'];
+    final duesRaw = json['duesv1'] ?? json['dues'];
 
     return FeeRecord(
-      id: json['_id'] ?? '',
-      studentName: student['studentName'] ?? 'Student',
-      studentImage: imgObj['url'] ?? '',
-      feeStructure: _toIntMap(feeStructureRaw),
-      feePaid: _toIntMap(feePaidRaw),
-      dues: _toIntMap(duesRaw),
-      concession: ConcessionModel.fromJson(
-          json['concession'] as Map<String, dynamic>? ?? {}),
+      id: _toStr(json['_id']),
+      studentName: _toStr(student['studentName'], fallback: 'Student'),
+      studentImage: _toStr(imgObj['url']),
+      feeStructure: toIntMap(feeStructureRaw),
+      feePaid: toIntMap(feePaidRaw),
+      dues: toIntMap(duesRaw),
+      concession: ConcessionModel.fromJson(_toMap(json['concession'])),
     );
   }
 
@@ -86,14 +135,24 @@ class ConcessionModel {
   });
 
   factory ConcessionModel.fromJson(Map<String, dynamic> json) {
-    final proof = json['proof'] as Map<String, dynamic>? ?? {};
+    // proof can be a nested {url, originalName} object, just a bare URL
+    // string, or absent entirely depending on the record's state — handle
+    // all of them instead of assuming it's always a Map.
+    String proofUrl = '';
+    final proofRaw = json['proof'];
+    if (proofRaw is Map) {
+      proofUrl = _toStr(proofRaw['url']);
+    } else if (proofRaw is String) {
+      proofUrl = proofRaw;
+    }
+
     return ConcessionModel(
-      isApplied: json['isApplied'] ?? false,
-      type: json['type'] ?? 'percentage',
-      value: (json['value'] as num?) ?? 0,
-      inAmount: (json['inAmount'] as num?)?.toInt() ?? 0,
-      proofUrl: proof['url'] ?? '',
-      approvedBy: json['approvedBy']?.toString() ?? 'Pending',
+      isApplied: json['isApplied'] == true,
+      type: _toStr(json['type'], fallback: 'percentage'),
+      value: _toNum(json['value']),
+      inAmount: _toInt(json['inAmount']),
+      proofUrl: proofUrl,
+      approvedBy: _approvedByLabel(json['approvedBy']),
     );
   }
 }
@@ -111,7 +170,7 @@ class FeeDetailsFirstPage extends StatefulWidget {
 
 class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     with SingleTickerProviderStateMixin {
- // final session = Get.find<UserSession>();
+  // final session = Get.find<UserSession>();
   final auth_ctrl = Get.find<AuthController>();
   late TabController _tabController;
   late Future<FeeRecord?> _feeFuture;
@@ -151,25 +210,28 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     final String studentId = controller.selectedChild['_id'] ?? '';
 
     final uri = Uri.parse(
-        //'${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
-    '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/$schoolId/$studentId');
+      //'${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
+        '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/$schoolId/$studentId');
 
     try {
       final response = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
-      print('Status Code: ${response.statusCode}');
+      debugPrint('Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
-        print('Response Data: ${response.body}');
+        debugPrint('Response Data: ${response.body}');
         final body = jsonDecode(response.body);
         final data = body['data'];
         if (data != null) return FeeRecord.fromJson(data as Map<String, dynamic>);
       }
-    } catch (e) {
+    } catch (e, st) {
+      // If parsing ever fails again in the future (e.g. another field
+      // changes shape), this prints exactly what broke and the raw payload
+      // that caused it, instead of just silently returning null.
       debugPrint("API Error: $e");
+      debugPrint("$st");
     }
-    print('fetchrecord');
     return null;
   }
 
@@ -503,9 +565,7 @@ class _ConcessionTab extends StatelessWidget {
                     label: 'Concession Amount', value: '₹ ${c.inAmount}'),
                 _DetailRow(
                     label: 'Approved By',
-                    value: (c.approvedBy.isEmpty || c.approvedBy == 'null')
-                        ? 'Pending'
-                        : c.approvedBy),
+                    value: c.approvedBy),
               ],
             ),
             const SizedBox(height: 20),

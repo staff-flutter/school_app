@@ -213,4 +213,18 @@ class ApiConstants {
   static const String createAndUpdate = '/api/employee-profile/:userId/upsert';                                 //api no: 190   Params: userId Form Data: Upload multiple documents  using documents key, and upload single salary file at a time using the salarySlipFile key.
 
 
+// Quiz End points
+
+  static const String createQuiz = '/api/club/quiz/create';                        // Request Body clubId,clubVideoId?,classId?,sectionId?,title,description?,questions[],academicYear?
+  static const String updateQuiz = '/api/club/quiz/update';                        // Request Body clubId?,clubVideoId?,classId?,sectionId?,title?,description?,questions?,academicYear?, isActive?
+  static const String deleteQuiz = '/api/club/quiz/delete';
+  static const String getQuizzesByClub = '/api/club/quiz/getall';
+  static const String generateQuizFromPdf  = '/api/club/quiz/create/ai';            // Request Body clubId , clubVideoId,classId,sectionId
+
+
+  static const String SubmitQuiz = '/api/club/quiz/attempt/create';
+  static const String getAllQuizAttempts  = '/api/club/quiz/attempt/getall';
+  static const String getSingleAttempt = '/api/club/quiz/attempt/get';
+  static const String deleteAttempt = '/api/club/quiz/attempt/delete';
+
 }

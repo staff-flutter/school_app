@@ -35,7 +35,9 @@ class AccountingController extends GetxController {
   // For ReportsView
   final selectedReportType = 'fee_pending'.obs;
   final selectedDateRange = 'this_month'.obs;
-
+  var billBooks = <dynamic>[].obs;
+  var selectedBillBookId = ''.obs;
+  var isLoadingBillBooks = false.obs;
   double get totalCashAmount {
     double total = 0;
     cashDenominations.forEach((denom, count) {

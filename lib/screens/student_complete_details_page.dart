@@ -120,6 +120,14 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   int _selectedFilterIndex = 0;
   String _currentSelectedClassName = 'Not Assigned';
 
+  // ── Live student list (loaded up-front, filtered as you type) ──────────────
+  List<Map<String, dynamic>> _studentList = [];
+  bool _isLoadingStudentList = false;
+  bool _hasMoreStudents = true;
+  int _studentListPage = 1;
+  static const int _studentListLimit = 20;
+  DateTime _lastSearchKeystroke = DateTime.now();
+
   final List<Map<String, String>> _recentSearches = [
     {'id': '24012', 'name': 'Sai Arjun', 'class': 'Class 10'},
     {'id': '23891', 'name': 'Priya Sharma', 'class': 'Class 9'},
@@ -129,6 +137,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    _searchController.addListener(_onSearchTextChanged);
 
     // Auto-fetch target school details on init context
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -139,8 +148,23 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Debounced live search: fires ~400ms after the user stops typing.
+  void _onSearchTextChanged() {
+    final v = _searchController.text.trim();
+    if (v == _studentId) return;
+    setState(() => _studentId = v);
+    _lastSearchKeystroke = DateTime.now();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      if (DateTime.now().difference(_lastSearchKeystroke).inMilliseconds >= 400) {
+        _loadStudentList(reset: true);
+      }
+    });
   }
 
   void _resolveAndFetchSchoolClasses() {
@@ -157,8 +181,59 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
 
     if (schoolId != null && schoolId.isNotEmpty) {
       getAllClasses(schoolId);
+      _loadStudentList(reset: true); // show every student immediately, before any filters
     } else {
       _showSnackbar('Configuration Error', 'Unable to resolve school operational workspace Context.', _DS.warning);
+    }
+  }
+
+  // ─── Loads (or paginates) the live student list, honoring the current
+  // search text and any selected class/section filters. ────────────────────
+  Future<void> _loadStudentList({bool reset = false}) async {
+    if (_isLoadingStudentList) return;
+    if (reset) {
+      setState(() {
+        _studentList = [];
+        _studentListPage = 1;
+        _hasMoreStudents = true;
+      });
+    }
+    if (!_hasMoreStudents && !reset) return;
+
+    final sid = _resolvedSchoolId;
+    if (sid == null || sid.isEmpty) return;
+
+    setState(() => _isLoadingStudentList = true);
+    try {
+      final q = <String, dynamic>{
+        'schoolId': sid,
+        'page': _studentListPage,
+        'limit': _studentListLimit,
+        if (selectedClass.value != null) 'classId': selectedClass.value!.id,
+        if (selectedSection.value != null) 'sectionId': selectedSection.value!.id,
+        if (_studentId.trim().isNotEmpty) 'search': _studentId.trim(),
+      };
+
+      final resp = await _apiService.get(ApiConstants.getAllStudents, queryParameters: q);
+
+      if (resp.data['ok'] == true) {
+        final list = List<Map<String, dynamic>>.from(resp.data['data'] ?? []);
+        setState(() {
+          if (reset) {
+            _studentList = list;
+          } else {
+            _studentList.addAll(list);
+          }
+          _hasMoreStudents = list.length >= _studentListLimit;
+          _studentListPage++;
+        });
+      }
+    } on DioException catch (e) {
+      debugPrint('Student list DioException ${e.response?.statusCode}: ${e.response?.data}');
+    } catch (e) {
+      debugPrint('Student list error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingStudentList = false);
     }
   }
 
@@ -247,7 +322,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
 
       if (response.statusCode != 200) {
         print('response: ${response.body}');
-        _showSnackbar('Query Issue', 'No verified student profile matches criteria.', _DS.danger);
+        _showSnackbar('Query Issue', 'Unable to load that student profile.', _DS.danger);
 
         // 🚀 Safely clear fields to avoid showing previous student's info on error
         _clearFieldsToEmpty();
@@ -332,6 +407,33 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       setState(() => _isLoadingProfile = false);
     }
   }
+  // ─── SEARCH SELECTION: builds a Student from a raw list-item JSON and loads it ──
+  /// Builds a lightweight [Student] from a raw student-list JSON map so the
+  /// detail tabs (which key off `selectedStudent.value`) can render even when
+  /// the tapped student wasn't already present in `_schoolController.students`.
+  Student _minimalStudentFromSearchResult(Map<String, dynamic> r) {
+    String? s(dynamic v) => v == null ? null : v.toString();
+    String? idOf(dynamic v) => v is Map ? s(v['_id']) : s(v);
+    final nm = (r['nonMandatory'] as Map?) ?? {};
+    return Student(
+      id: s(r['_id']) ?? '',
+      name: s(r['studentName']),
+      rollNumber: s(nm['rollNumber']),
+      classId: idOf(r['currentClassId']),
+      sectionId: idOf(r['currentSectionId']),
+    );
+  }
+
+  void _selectSearchResult(Map<String, dynamic> raw) {
+    final student = _minimalStudentFromSearchResult(raw);
+    selectedStudent.value = student;
+    _studentId = student.id;
+    _fetchStudentProfile();
+    _fetchFeeDetails();
+    _fetchAdmissionForm();
+    _fetchAcademicPerformance();
+  }
+
   String _gradeLabel(double pct) {
     if (pct >= 90) return 'A+';
     if (pct >= 75) return 'A';
@@ -524,84 +626,121 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
           final showMasterProgress = _isLoadingProfile || isLoadingClasses.value;
           return Column(
             children: [
-              // ── TOP WORKFLOW FILTER BAR (Designed exactly like SchoolManagementView) ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Row(
+              // ── TOP WORKFLOW BAR: SEARCH + CLASS/SECTION FILTERS ──
+              Container(
+                width: double.infinity,
+                color: _DS.primary,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
                   children: [
-                    // 1. Class Selection Button
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _showClassFilterSheet(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selectedClass.value != null ? _DS.accentSoft : _DS.surface,
-                            borderRadius: BorderRadius.circular(_DS.radiusSm),
-                            border: Border.all(
-                              color: selectedClass.value != null ? _DS.accent : _DS.border,
-                              width: selectedClass.value != null ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.class_rounded, size: 16, color: selectedClass.value != null ? _DS.accent : _DS.textMuted),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  selectedClass.value?.name ?? 'Select Class',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: selectedClass.value != null ? _DS.textPrimary : _DS.textSecondary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(Icons.arrow_drop_down_rounded, color: _DS.textMuted),
-                            ],
-                          ),
+                    // Search bar — live filters as you type (debounced), just like
+                    // StudentProfileManagementPage's search field. No button needed.
+                    Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Search by student name or ID…',
+                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                          prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.7), size: 18),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                            icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.8), size: 18),
+                            onPressed: () => _searchController.clear(),
+                          )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(height: 10),
 
-                    // 2. Section Selection Button (Only enabled if Class is selected)
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: selectedClass.value == null ? null : () => _showSectionFilterSheet(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selectedSection.value != null ? _DS.accentSoft : (selectedClass.value == null ? _DS.surfaceAlt : _DS.surface),
-                            borderRadius: BorderRadius.circular(_DS.radiusSm),
-                            border: Border.all(
-                              color: selectedSection.value != null ? _DS.accent : _DS.border,
-                              width: selectedSection.value != null ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.group_rounded, size: 16, color: selectedSection.value != null ? _DS.accent : _DS.textMuted),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  selectedSection.value?.name ?? 'Select Section',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: selectedSection.value != null
-                                        ? _DS.textPrimary
-                                        : (selectedClass.value == null ? _DS.textMuted : _DS.textSecondary),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                    // Class / Section filter chips
+                    Row(
+                      children: [
+                        // 1. Class Selection Button
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _showClassFilterSheet(context),
+                            child: Container(
+                              height: 36,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: selectedClass.value != null ? Colors.white : Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(_DS.radiusSm),
+                                border: Border.all(
+                                  color: selectedClass.value != null ? Colors.white : Colors.white.withOpacity(0.4),
                                 ),
                               ),
-                              const Icon(Icons.arrow_drop_down_rounded, color: _DS.textMuted),
-                            ],
+                              child: Row(
+                                children: [
+                                  Icon(Icons.class_rounded, size: 14, color: selectedClass.value != null ? _DS.primary : Colors.white),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      selectedClass.value?.name ?? 'Select Class',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: selectedClass.value != null ? _DS.primary : Colors.white,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Icon(Icons.arrow_drop_down_rounded, size: 16, color: selectedClass.value != null ? _DS.primary : Colors.white),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+
+                        // 2. Section Selection Button (Only enabled if Class is selected)
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: selectedClass.value == null ? null : () => _showSectionFilterSheet(context),
+                            child: Opacity(
+                              opacity: selectedClass.value == null ? 0.55 : 1.0,
+                              child: Container(
+                                height: 36,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: selectedSection.value != null ? Colors.white : Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(_DS.radiusSm),
+                                  border: Border.all(
+                                    color: selectedSection.value != null ? Colors.white : Colors.white.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.group_rounded, size: 14, color: selectedSection.value != null ? _DS.primary : Colors.white),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        selectedSection.value?.name ?? 'Select Section',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: selectedSection.value != null ? _DS.primary : Colors.white,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.arrow_drop_down_rounded, size: 16, color: selectedSection.value != null ? _DS.primary : Colors.white),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -672,7 +811,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(_Responsive.padding(context), _DS.spacingLg, _Responsive.padding(context), _DS.spacingSm),
       decoration: BoxDecoration(
-      border: const Border(bottom: BorderSide(color: _DS.border)),color: _DS.surface,),
+        border: const Border(bottom: BorderSide(color: _DS.border)),color: _DS.surface,),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -964,7 +1103,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
     );
   }
   Widget _buildSelectionPromptOrStudentList(BuildContext context) {
-   return Obx(() {
+    return Obx(() {
       // 1. Check if structural data is loading
       if (_schoolController.isLoading.value) {
         return const Center(child: CircularProgressIndicator());
@@ -988,8 +1127,21 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         );
       }
 
-      // 4. Perform type-safe filtering
+      // 4. Perform type-safe filtering (including search text)
       final filteredStudents = _schoolController.students.where((st) {
+        // ─── ADDED: Filter by search bar query text ───
+        final query = _searchController.text.trim().toLowerCase();
+        if (query.isNotEmpty) {
+          final nameMatch = st.name?.toLowerCase().contains(query) ?? false;
+          final idMatch = st.id.toLowerCase().contains(query);
+          final rollMatch = st.rollNumber?.toLowerCase().contains(query) ?? false;
+
+          // If it doesn't match any query fields, exclude it
+          if (!nameMatch && !idMatch && !rollMatch) {
+            return false;
+          }
+        }
+
         if (!classHasSections.value) {
           return st.classId?.toString() == selectedClass.value?.id?.toString();
         }
@@ -1000,8 +1152,8 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       if (filteredStudents.isEmpty) {
         return _emptyState(
           icon: Icons.badge_outlined,
-          title: 'No Registered Students',
-          subtitle: 'There are currently no active profiles matching this section roster.',
+          title: 'No Matching Students',
+          subtitle: 'There are currently no active profiles matching your search criteria.',
         );
       }
 
@@ -1012,37 +1164,35 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         itemBuilder: (context, index) {
           final student = filteredStudents[index];
           return Card(
-              color: _DS.surface,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(_DS.radiusSm),
-    side: const BorderSide(color: _DS.border),
+            color: _DS.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_DS.radiusSm),
+              side: const BorderSide(color: _DS.border),
+            ),
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: _DS.accentSoft,
+                child: Text(
+                  student.name!.isNotEmpty ? student.name!.substring(0, 1).toUpperCase() : 'S',
+                  style: const TextStyle(color: _DS.accent, fontWeight: FontWeight.w700),
+                ),
               ),
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-    leading: CircleAvatar(
-      backgroundColor: _DS.accentSoft,
-      child: Text(
-        student.name!.substring(0, 1).toUpperCase(),
-        style: const TextStyle(color: _DS.accent, fontWeight: FontWeight.w700),
-      ),
-    ),
-    title: Text('${student.name}', style: const TextStyle(fontWeight: FontWeight.w700, color: _DS.textPrimary)),
-    subtitle: Text('Roll No: ${student.rollNumber ?? "N/A"} • ID: ${student.id}'),
-    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _DS.textMuted),
-    onTap: () {
-      // Assign selection to load active sub-tab structures instantly
-      selectedStudent.value = student;
-      // Map parameters or perform API calls for profiles if needed
-      _studentId = student.id;
-      print("StudentId:$_studentId");
-      _fetchStudentProfile();
-      _fetchFeeDetails();
-      _fetchAdmissionForm();
-      _fetchAcademicPerformance();
-      //_fetchStudentDocuments();
-    },
-              ),
+              title: Text('${student.name}', style: const TextStyle(fontWeight: FontWeight.w700, color: _DS.textPrimary)),
+              subtitle: Text('Roll No: ${student.rollNumber ?? "N/A"} • ID: ${student.id}'),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _DS.textMuted),
+              onTap: () {
+                // Assign selection to load active sub-tab structures instantly
+                selectedStudent.value = student;
+                _studentId = student.id;
+                print("StudentId:$_studentId");
+                _fetchStudentProfile();
+                _fetchFeeDetails();
+                _fetchAdmissionForm();
+                _fetchAcademicPerformance();
+              },
+            ),
           );
         },
       );
@@ -1602,4 +1752,3 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   }
 
 }
-

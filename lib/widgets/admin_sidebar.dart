@@ -614,6 +614,8 @@ class _MenuBody extends StatelessWidget {
           //   _Item('Fee Configuration', Icons.request_quote, AppRoutes.FEE_CONFIGURATION),
           // _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
              _Item('Fee Configuration', Icons.request_quote, AppRoutes.FEE_SETUP),
+          _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
+
 
             _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
@@ -671,6 +673,7 @@ class _MenuBody extends StatelessWidget {
 
           if (RoleModules.hasModule(role, 'feeStructure'))
             _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
+          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
           _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))

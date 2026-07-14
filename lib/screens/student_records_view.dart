@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:get/get.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/screens/record_details_view.dart';
 import 'package:school_app/screens/subscription_management_view.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,6 +52,8 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   final selectedClass = Rxn<SchoolClass>();
   final selectedSection = Rxn<Section>();
 
+  Worker? _schoolWorker;
+
   @override
   void initState() {
     super.initState();
@@ -56,13 +61,57 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       schoolController.getAllSchools();
       _initializeSchoolForUser();
     });
+
+    // Correspondents pick their school globally (e.g. from the sidebar). If
+    // they switch schools while this page is open, keep this page's local
+    // `selectedSchool` in sync instead of leaving it pointed at the old
+    // (or no) school.
+    final userRole = authController.user.value?.role?.toLowerCase() ?? '';
+    if (userRole == 'correspondent') {
+      _schoolWorker = ever(schoolController.selectedSchool, (School? school) {
+        if (!mounted || school == null) return;
+        selectedSchool.value = school;
+        selectedClass.value = null;
+        selectedSection.value = null;
+        schoolController.classes.clear();
+        schoolController.sections.clear();
+        schoolController.getAllClasses(school.id);
+        if (Get.isRegistered<SubscriptionController>()) {
+          Get.find<SubscriptionController>().loadSubscription(school.id);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _schoolWorker?.dispose();
+    super.dispose();
   }
 
   void _initializeSchoolForUser() {
     final userRole = authController.user.value?.role?.toLowerCase() ?? '';
-    final userSchoolId = authController.user.value?.schoolId;
 
-    if (userRole != 'correspondent' && userSchoolId != null) {
+    if (userRole == 'correspondent') {
+      // This page previously only let a correspondent set a school by
+      // picking one from the dropdown below — even if they'd already
+      // selected a school elsewhere in the app (sidebar / other pages).
+      // That left `selectedSchool` null on first load, which made the page
+      // look blank ("Please select a school") every single time. Reuse the
+      // globally selected school here if one already exists.
+      final globallySelected = schoolController.selectedSchool.value;
+      if (globallySelected != null) {
+        selectedSchool.value = globallySelected;
+        schoolController.getAllClasses(globallySelected.id);
+        if (Get.isRegistered<SubscriptionController>()) {
+          Get.find<SubscriptionController>().loadSubscription(globallySelected.id);
+        }
+      }
+      return;
+    }
+
+    final userSchoolId = authController.user.value?.schoolId;
+    if (userSchoolId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final userSchool = schoolController.schools.firstWhereOrNull(
               (school) => school.id == userSchoolId,
@@ -100,9 +149,9 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               padding: EdgeInsets.all(isTablet ? 24 : 16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  if(authController.user.value?.role?.toLowerCase()=='correspondent')
-                    _buildSchoolSelectionCard(context, isTablet),
-                  const SizedBox(height: 20),
+                //  if(authController.user.value?.role?.toLowerCase()=='correspondent')
+                 //   _buildSchoolSelectionCard(context, isTablet),
+               //   const SizedBox(height: 20),
                   _buildContentArea(context, isTablet),
                 ]),
               ),
@@ -275,6 +324,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                   border: Border.all(color: Colors.grey.shade200, width: 1.5),
                 ),
                 child: DropdownButtonFormField<School>(
+                  isExpanded: true,
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
@@ -1447,6 +1497,8 @@ class _ConcessionsTab extends StatelessWidget {
     final student = record['studentId'] ?? {};
     final concession = record['concession'] ?? {};
     final isApproved = concession['approvedBy'] != null;
+    final role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
+    final canReview = ['correspondent', 'administrator'].contains(role);
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 6),
@@ -1635,6 +1687,41 @@ class _ConcessionsTab extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (canReview && !isApproved) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _reviewConcession(record, approve: false),
+                          icon: Icon(Icons.close_rounded, size: 16, color: Colors.red.shade600),
+                          label: Text('Reject',
+                              style: TextStyle(color: Colors.red.shade600, fontSize: 12, fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.red.shade200),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _reviewConcession(record, approve: true),
+                          icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                          label: const Text('Approve',
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.successGreen,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -1642,6 +1729,104 @@ class _ConcessionsTab extends StatelessWidget {
       ),
     );
   }
+
+  // Approve/reject a pending concession request.
+  // NOTE: this hits the "verify-concession" endpoint (api no. 141) using a
+  // best-effort payload shape ({studentId, schoolId, approved, remark?}).
+  // Double check the exact field names your backend expects for this route
+  // and adjust below if it differs — the endpoint's request body wasn't
+  // included in what was shared here.
+  void _reviewConcession(Map<String, dynamic> record, {required bool approve}) async {
+    String remark = '';
+    if (!approve) {
+      final reasonController = TextEditingController();
+      final confirmed = await Get.dialog<bool>(
+        AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Reject concession', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          content: TextField(
+            controller: reasonController,
+            maxLines: 2,
+            decoration: const InputDecoration(hintText: 'Reason for rejection (optional)'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Get.back(result: false), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Get.back(result: true),
+              child: const Text('Reject', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      remark = reasonController.text.trim();
+    }
+
+    // 1. Properly extract target student ID
+    final studentId = record['studentId'] is Map ? record['studentId']['_id'] : record['studentId'];
+
+    // 2. Fetch the current academic year for URL query injection
+    final year = AcademicYearUtils.getCurrentAcademicYear().toString();
+
+    // 3. Construct URL with the required academicYear query parameter
+    final uri = Uri.parse(
+        '${ApiConstants.baseUrl}${ApiConstants.patchApproveStudentConcessionRequest}/$studentId?academicYear=$year'
+    );
+
+    final token = Get.find<AuthController>().storage.read('token');
+
+    // 4. Clean body payload (academicYear removed since it's now in the URL path)
+    final Map<String, dynamic> requestBody = {
+      'status': approve ? 'Approved' : 'Rejected',
+    };
+
+    if (!approve && remark.isNotEmpty) {
+      requestBody['remark'] = remark;
+    }
+
+    try {
+      final res = await http.patch(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      final decoded = jsonDecode(res.body);
+
+      if (res.statusCode == 200 && decoded['ok'] == true) {
+        Get.snackbar(
+            'Success',
+            approve ? 'Concession approved' : 'Concession rejected',
+            backgroundColor: AppTheme.successGreen,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM
+        );
+        parent._applyFilter();
+      } else {
+        Get.snackbar(
+            'Error',
+            decoded['message'] ?? 'Failed to update concession',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+          'Error',
+          'Failed to update concession',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM
+      );
+    }
+  }
+
 
   Widget _buildConcessionDetail(String label, String value, bool isTablet) {
     return Column(

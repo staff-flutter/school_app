@@ -67,6 +67,8 @@ class _FeeStructureViewState extends State<FeeStructureView> {
   @override
   void initState() {
     super.initState();
+
+    // 1. Worker to load fee heads when class or type changes
     everAll([_selectedClass, _selectedStudentType], (_) {
       final schoolId = schoolController.selectedSchool.value?.id
           ?? authController.user.value?.schoolId;
@@ -74,9 +76,32 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         _loadFeeHeads(schoolId, selectedClass!.id);
       }
     });
+
+    // 2. Worker to handle correspondent switching schools from sidebar reactively
+    ever(schoolController.selectedSchool, (School? school) {
+      if (school != null) {
+        schoolController.getAllClasses(school.id);
+      }
+    });
+
+    // 3. Post Frame Callback for Non-Correspondents (and initial loading)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final school = schoolController.selectedSchool.value;
-      if (school != null) schoolController.getAllClasses(school.id);
+      // First try the sidebar selection, then fall back to the user's assigned schoolId
+      final schoolId = schoolController.selectedSchool.value?.id
+          ?? authController.user.value?.schoolId;
+
+      if (schoolId != null) {
+        // Fetch classes for the target school immediately
+        schoolController.getAllClasses(schoolId);
+
+        // If the global selectedSchool value isn't bound yet, find it and set it
+        if (schoolController.selectedSchool.value == null) {
+          final matchedSchool = schoolController.schools.firstWhereOrNull((s) => s.id == schoolId);
+          if (matchedSchool != null) {
+            schoolController.selectedSchool.value = matchedSchool;
+          }
+        }
+      }
     });
   }
 

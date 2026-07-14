@@ -6,13 +6,15 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart'; // NOTE: add file_picker to pubspec.yaml
 import 'package:video_player/video_player.dart';
 
 import '../constants/api_constants.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/school_controller.dart';
+import '../core/utils/academic_year_utils.dart';
 import '../services/user_session.dart';
-
+import 'dart:io';
 
 // ─── Role helper ─────────────────────────────────────────────────────────────
 
@@ -20,7 +22,7 @@ bool _canEdit(String role) =>
     role == 'correspondent' || role == 'administrator';
 
 // ─── Logging helper ──────────────────────────────────────────────────────────
-// Centralized so every club/video API call logs the same way.
+// Centralized so every club/video/quiz API call logs the same way.
 // Truncates long bodies (e.g. base64-ish / huge JSON) so logs stay readable.
 
 void _logRequest(String method, Uri uri, {Map<String, String>? fields}) {
@@ -108,20 +110,69 @@ class ClubVideo {
   }
 }
 
-// Dummy models (APIs not ready)
-class CampusStar {
-  String id, name, role, photoUrl, club, bio;
-  CampusStar({required this.id, required this.name, required this.role,
-    required this.photoUrl, required this.club, required this.bio});
-}
+// ─── Quiz models ──────────────────────────────────────────────────────────────
 
-class CampusPost {
-  String id, authorName, authorPhotoUrl, caption,
-      mediaUrl, thumbnailUrl, mediaType, clubTag, timeAgo;
-  CampusPost({required this.id, required this.authorName,
-    required this.authorPhotoUrl, required this.caption,
-    required this.mediaUrl, required this.thumbnailUrl,
-    required this.mediaType, required this.clubTag, required this.timeAgo});
+class QuizQuestion {
+  String id;
+  String text;
+  List<String> options;
+  int correctIndex;
+  int points; // NEW — backend expects this per question
+
+  QuizQuestion({
+    required this.id,
+    required this.text,
+    required this.options,
+    required this.correctIndex,
+    this.points = 1,
+  });
+
+  factory QuizQuestion.fromJson(Map<String, dynamic> j) => QuizQuestion(
+    id: (j['_id'] ?? DateTime.now().microsecondsSinceEpoch.toString()).toString(),
+    text: j['questionText'] ?? j['question'] ?? j['text'] ?? '', // questionText first
+    options: (j['options'] as List? ?? []).map((e) => e.toString()).toList(),
+    correctIndex: j['correctOptionIndex'] ?? j['correctIndex'] ?? 0, // correctOptionIndex first
+    points: j['points'] ?? 1,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'questionText': text,          // was 'question'
+    'options': options,
+    'correctOptionIndex': correctIndex, // was 'correctIndex'
+    'points': points,
+  };
+
+  QuizQuestion copy() => QuizQuestion(
+    id: id, text: text, options: [...options], correctIndex: correctIndex, points: points,
+  );
+}
+class Quiz {
+  final String id;
+  final String title;
+  final String clubId;
+  final bool isGeneratedByAi; // 'manual' | 'ai'
+  final List<QuizQuestion> questions;
+  final String createdAt;
+
+  const Quiz({
+    required this.id,
+    required this.title,
+    required this.clubId,
+    required this.isGeneratedByAi,
+    required this.questions,
+    required this.createdAt,
+  });
+
+  factory Quiz.fromJson(Map<String, dynamic> j) => Quiz(
+    id: j['_id'] ?? '',
+    title: j['title'] ?? 'Untitled quiz',
+    clubId: j['clubId'] is Map ? (j['clubId']['_id'] ?? '') : (j['clubId'] ?? ''),
+    isGeneratedByAi: j['isGeneratedByAi'] ?? false,
+    questions: (j['questions'] as List? ?? [])
+        .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
+        .toList(),
+    createdAt: (j['createdAt'] ?? '').toString().split('T').first,
+  );
 }
 
 
@@ -138,20 +189,29 @@ class CampusManagementView extends StatefulWidget {
 
 class _CampusManagementViewState extends State<CampusManagementView>
     with SingleTickerProviderStateMixin {
-
+  bool _isFetchingClubs = false;
+  String? _lastFetchedSchoolId;
   late TabController _tabController;
 
   final _auth    = Get.find<AuthController>();
-  final _session = Get.find<UserSession>();
+  //final _session = Get.find<UserSession>();
   SchoolController? get _school =>
       Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
 
   String get _role  => _auth.user.value?.role?.toLowerCase() ?? '';
   String? get _schoolId {
-    if (_role == 'correspondent') return _school?.selectedSchool.value?.id;
-    return _session.schoolId ?? _auth.user.value?.schoolId;
+    // Correspondents can switch between schools via SchoolController, so
+    // prefer their explicitly selected school — but if none has been picked
+    // yet (e.g. this tab renders before that selection happens), fall back
+    // to the session's schoolId instead of returning null and silently
+    // skipping the clubs fetch.
+    if (_role == 'correspondent') {
+      final selected = _school?.selectedSchool.value?.id;
+      if (selected != null && selected.isNotEmpty) return selected;
+    }
+    return  _auth.user.value?.schoolId;
   }
-  String? get _token => _session.token;
+  String? get _token => _auth.storage.read('token');
   Map<String, String> get _headers => {
     'Authorization': 'Bearer $_token',
     'Accept': 'application/json',
@@ -163,26 +223,28 @@ class _CampusManagementViewState extends State<CampusManagementView>
   int                _clubPage     = 1;
   int                _clubTotal    = 1;
 
-  // ── Dummy data ──
-  final List<CampusStar> _stars = [
-    CampusStar(id:'1', name:'Timothy White', role:'Student leader', photoUrl:'', club:'Music', bio:''),
-    CampusStar(id:'2', name:'Anthony Clark', role:'Student leader', photoUrl:'', club:'Dance',  bio:''),
-  ];
-  final List<CampusPost> _posts = [
-    CampusPost(id:'1', authorName:'Cynthia Hall', authorPhotoUrl:'',
-        caption:'The 2019 Christmas and New Year party has started.',
-        mediaUrl:'', thumbnailUrl:'', mediaType:'video', clubTag:'Music', timeAgo:'5 min ago'),
-  ];
+  Worker? _schoolWorker;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _fetchClubs();
+
+    // If a correspondent picks/changes their school *after* this screen has
+    // already loaded, re-fetch clubs so this view doesn't stay stuck on
+    // whatever schoolId (or empty state) it started with.
+    if (_school != null) {
+      _schoolWorker = ever(_school!.selectedSchool, (_) {
+        //setState(() { _clubs = []; _clubsLoading = true; });
+        _fetchClubs();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -195,6 +257,18 @@ class _CampusManagementViewState extends State<CampusManagementView>
       setState(() => _clubsLoading = false);
       return;
     }
+    if (page == 1) {
+      if (_isFetchingClubs) {
+        debugPrint('⏭️ Skipping duplicate _fetchClubs — one already in flight');
+        return;
+      }
+      if (_schoolId == _lastFetchedSchoolId && _clubs.isNotEmpty) {
+        debugPrint('⏭️ Skipping _fetchClubs — already have data for schoolId $_schoolId');
+        return;
+      }
+    }
+
+    _isFetchingClubs = true;
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllClubs}')
         .replace(queryParameters: {'schoolId': _schoolId!, 'page': '$page', 'limit': '20'});
     _logRequest('GET', uri);
@@ -211,12 +285,15 @@ class _CampusManagementViewState extends State<CampusManagementView>
           _clubTotal  = pg['totalPages'] ?? 1;
           _clubsLoading = false;
         });
-      } else {
+      } if (page == 1) _lastFetchedSchoolId = _schoolId;
+      else {
         setState(() => _clubsLoading = false);
       }
     } catch (e) {
       _logError('GET', uri, e);
       setState(() => _clubsLoading = false);
+    }finally {
+      _isFetchingClubs = false;
     }
   }
 
@@ -374,15 +451,12 @@ class _CampusManagementViewState extends State<CampusManagementView>
                   },
                   onDelete: (c) => _confirm('Delete "${c.name}"?', () => _deleteClub(c)),
                 ),
-                _StarsTab(stars: _stars, clubs: _clubs.map((c) => c.name).toList(),
-                  onAdd: (s) => setState(() => _stars.add(s)),
-                  onEdit: (s) { final i = _stars.indexWhere((x) => x.id == s.id); if (i >= 0) setState(() => _stars[i] = s); },
-                  onDelete: (id) => setState(() => _stars.removeWhere((s) => s.id == id)),
-                ),
-                _PostsTab(posts: _posts, clubs: _clubs.map((c) => c.name).toList(),
-                  onAdd: (p) => setState(() => _posts.add(p)),
-                  onEdit: (p) { final i = _posts.indexWhere((x) => x.id == p.id); if (i >= 0) setState(() => _posts[i] = p); },
-                  onDelete: (id) => setState(() => _posts.removeWhere((p) => p.id == id)),
+                _QuizTab(
+                  clubs: _clubs,
+                  clubsLoading: _clubsLoading,
+                  token: _token ?? '',
+                  schoolId: _schoolId ?? '',
+                  canEdit: _canEdit(_role),
                 ),
               ],
             ),
@@ -428,8 +502,7 @@ class _CampusManagementViewState extends State<CampusManagementView>
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       tabs: const [
         Tab(child: Row(children: [Icon(Icons.group_outlined, size: 18), SizedBox(width: 8), Text('Clubs')])),
-        Tab(child: Row(children: [Icon(Icons.star_outline,   size: 18), SizedBox(width: 8), Text('Campus stars')])),
-        Tab(child: Row(children: [Icon(Icons.videocam_outlined, size: 18), SizedBox(width: 8), Text('Posts')])),
+        Tab(child: Row(children: [Icon(Icons.quiz_outlined, size: 18), SizedBox(width: 8), Text('Quiz')])),
       ],
     ),
   );
@@ -760,52 +833,123 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
   }
 
   Future<void> _uploadVideo({
-    required String title, required String topic,
-    required String level, required String academicYear, required dynamic videoFile,
+    required String title,
+    required String topic,
+    required String level,
+    required String academicYear,
+    required dynamic videoFile,
+    List<PlatformFile>? pdfFiles,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.uploadClubVideo}');
     final req = http.MultipartRequest('POST', uri)
       ..headers.addAll(_headers)
-      ..fields['schoolId']     = widget.schoolId
-      ..fields['clubId']       = widget.club.id
-      ..fields['title']        = title
-      ..fields['topic']        = topic
-      ..fields['level']        = level
+      ..fields['schoolId'] = widget.schoolId
+      ..fields['clubId'] = widget.club.id
+      ..fields['title'] = title
+      ..fields['topic'] = topic
+      ..fields['level'] = level
       ..fields['academicYear'] = academicYear;
-    req.files.add(await http.MultipartFile.fromPath('video', videoFile.path,
-        contentType: MediaType('video', _ext(videoFile.path))));
-    _logRequest('POST', uri, fields: {...req.fields, 'video': videoFile.path});
+
+    // 1. Dynamic video extension extraction
+    final videoExt = videoFile.path.split('.').last.toLowerCase();
+    req.files.add(
+      await http.MultipartFile.fromPath(
+        'video',
+        videoFile.path,
+        contentType: MediaType('video', videoExt.isEmpty ? 'mp4' : videoExt),
+      ),
+    );
+
+    // 2. Attach PDFs via the exact verified backend key array structure
+    if (pdfFiles != null) {
+      for (final pdf in pdfFiles) {
+        req.files.add(await http.MultipartFile.fromPath(
+          'files',
+          pdf.path!,
+          contentType: MediaType('application', 'pdf'),
+        ));
+      }
+    }
+
+    // 3. Clean Fixed Logging (Removed the buggy collection-if condition)
+    _logRequest('POST', uri, fields: {
+      ...req.fields,
+      'video': videoFile.path,
+      'pdfs_attached': pdfFiles != null ? pdfFiles.length.toString() : '0',
+    });
+
+    print('Sending ${req.files.length} total files via multipart.');
+
     try {
       final streamed = await req.send();
       final res = await http.Response.fromStream(streamed);
       _logResponse('POST', uri, res);
+
       if (res.statusCode == 200 || res.statusCode == 201) {
-        _snack('Video uploaded', success: true);
-        _fetchVideos();
+        final jsonResponse = json.decode(res.body);
+        if (jsonResponse['ok'] == true) {
+          Get.snackbar('Success', 'Club video uploaded successfully!');
+          _fetchVideos(); // Refresh video listing view
+        } else {
+          Get.snackbar('Failed', jsonResponse['message'] ?? 'Upload failed');
+        }
       } else {
-        _snack('Failed: ${_msg(res)}');
+        debugPrint("❌ Server Error Body: ${res.body}");
+        Get.snackbar('Server Error (${res.statusCode})', 'The server rejected the file combination.');
       }
     } catch (e) {
-      _logError('POST', uri, e);
-      _snack('Error: $e');
+      debugPrint("❌ Exception during upload: $e");
+      Get.snackbar('Error', 'An unexpected error occurred during submission.');
     }
   }
 
-  Future<void> _updateVideoDetails(ClubVideo v, String title, String topic, String level, String year) async {
+
+  Future<void> _updateVideoDetails(
+      ClubVideo v,
+      String title,
+      String topic,
+      String level,
+      String year, {
+        List<PlatformFile>? pdfFiles, // 🌟 Added optional PDF files parameter
+      }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.updateClubVideoDetails}/${v.id}');
-    final payload = {'title': title, 'topic': topic, 'level': level, 'academicYear': year};
-    _logRequest('PUT', uri, fields: payload);
+
+    // 1. Switch to MultipartRequest so we can handle binary file transmission
+    final req = http.MultipartRequest('PUT', uri)
+      ..headers.addAll(_headers)
+      ..fields['title'] = title
+      ..fields['topic'] = topic
+      ..fields['level'] = level
+      ..fields['academicYear'] = year;
+
+    // 2. Attach the new PDFs to verify the update functionality
+    if (pdfFiles != null && pdfFiles.isNotEmpty) {
+      for (final pdf in pdfFiles) {
+        req.files.add(await http.MultipartFile.fromPath(
+          'files', // 🌟 Matches the verified backend array key string format
+          pdf.path!,
+          contentType: MediaType('application', 'pdf'),
+        ));
+      }
+    }
+
+    print('Sending update request with ${req.files.length} new PDF files.');
+
     try {
-      final res = await http.put(uri,
-        headers: {..._headers, 'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
+      final streamed = await req.send();
+      final res = await http.Response.fromStream(streamed);
       _logResponse('PUT', uri, res);
-      if (res.statusCode == 200) { _snack('Updated', success: true); _fetchVideos(); }
-      else _snack('Failed: ${_msg(res)}');
+
+      if (res.statusCode == 200) {
+        print('res:${res.body}');
+        _snack('Updated details successfully!', success: true);
+        _fetchVideos(); // Refresh listing
+      } else {
+        _snack('Failed to update details: ${_msg(res)}');
+      }
     } catch (e) {
       _logError('PUT', uri, e);
-      _snack('Error: $e');
+      _snack('Error updating details: $e');
     }
   }
 
@@ -880,9 +1024,10 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
   void _showUploadDialog() {
     final titleCtrl = TextEditingController();
     final topicCtrl = TextEditingController();
-    final yearCtrl  = TextEditingController(text: '2025-2026');
+    final yearCtrl  = TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
     String level    = 'general';
     dynamic videoFile;
+    List<PlatformFile> pdfFiles = [];
     const levels = ['general', 'beginner', 'intermediate', 'advanced'];
 
     Get.dialog(StatefulBuilder(builder: (ctx, setS) => Dialog(
@@ -911,6 +1056,34 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
               if (f != null) setS(() => videoFile = f);
             },
           ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () async {
+              final result = await FilePicker.platform.pickFiles(
+                type: FileType.custom, allowedExtensions: ['pdf'], allowMultiple: true,
+              );
+              if (result != null) setS(() => pdfFiles = result.files);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: pdfFiles.isNotEmpty ? Colors.blue.shade300 : Colors.grey.shade300, width: 0.5),
+              ),
+              child: Row(children: [
+                Icon(pdfFiles.isNotEmpty ? Icons.check_circle : Icons.picture_as_pdf_outlined,
+                    size: 18, color: pdfFiles.isNotEmpty ? Colors.blue[700] : Colors.grey[500]),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  pdfFiles.isEmpty ? 'Attach PDF(s) — optional, needed for AI quiz generation'
+                      : '${pdfFiles.length} PDF(s) selected',
+                  style: TextStyle(fontSize: 12, color: pdfFiles.isNotEmpty ? Colors.blue[700] : Colors.grey[500]),
+                  overflow: TextOverflow.ellipsis,
+                )),
+              ]),
+            ),
+          ),
           const SizedBox(height: 20),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             TextButton(onPressed: Get.back, child: const Text('Cancel')),
@@ -922,8 +1095,14 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
               onPressed: () async {
                 if (titleCtrl.text.trim().isEmpty || videoFile == null) return;
                 Get.back();
-                await _uploadVideo(title: titleCtrl.text.trim(), topic: topicCtrl.text.trim(),
-                    level: level, academicYear: yearCtrl.text.trim(), videoFile: videoFile);
+                await _uploadVideo(
+                    title: titleCtrl.text.trim(),
+                    topic: topicCtrl.text.trim(),
+                    level: level,
+                    academicYear: yearCtrl.text.trim(),
+                    videoFile: videoFile,
+                    pdfFiles: pdfFiles.isEmpty ? null : pdfFiles,
+                );
               },
               child: const Text('Upload', style: TextStyle(fontSize: 13)),
             ),
@@ -936,45 +1115,164 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
   void _showEditDialog(ClubVideo v) {
     final titleCtrl = TextEditingController(text: v.title);
     final topicCtrl = TextEditingController(text: v.topic);
-    final yearCtrl  = TextEditingController(text: v.academicYear);
-    String level    = v.level;
-    const levels    = ['general', 'beginner', 'intermediate', 'advanced'];
+    String selectedLevel = v.level.isEmpty ? 'general' : v.level;
+    String selectedYear = v.academicYear.isEmpty
+        ? AcademicYearUtils.getCurrentAcademicYear()
+        : v.academicYear;
 
-    Get.dialog(StatefulBuilder(builder: (ctx, setS) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Edit video', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          _StyledInput(ctrl: titleCtrl, label: 'Title', hint: 'Video title'),
-          const SizedBox(height: 10),
-          _StyledInput(ctrl: topicCtrl, label: 'Topic', hint: 'Topic'),
-          const SizedBox(height: 10),
-          _StyledInput(ctrl: yearCtrl, label: 'Academic year', hint: '2025-2026'),
-          const SizedBox(height: 10),
-          _StyledDropdown(label: 'Level', value: level, items: levels,
-              onChanged: (v) => setS(() => level = v!)),
-          const SizedBox(height: 20),
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            TextButton(onPressed: Get.back, child: const Text('Cancel')),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700],
-                  foregroundColor: Colors.white, elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              onPressed: () {
-                Get.back();
-                _updateVideoDetails(v, titleCtrl.text.trim(), topicCtrl.text.trim(), level, yearCtrl.text.trim());
-              },
-              child: const Text('Save', style: TextStyle(fontSize: 13)),
+    // Local state variable to temporarily hold newly selected PDF files for updating
+    List<PlatformFile> selectedPdfs = [];
+
+    Get.bottomSheet(
+      StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-          ]),
-        ]),
-      ),
-    )));
-  }
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Edit Video Details',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Title *'),
+                  ),
+                  TextField(
+                    controller: topicCtrl,
+                    decoration: const InputDecoration(labelText: 'Topic *'),
+                  ),
+                  const SizedBox(height: 16),
 
+                  // --- 🌟 FIXED: Using your exact native file picker UI widget design ---
+                  const Text(
+                    'Add Documents (Optional)',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+
+                  GestureDetector(
+                    onTap: () async {
+                      final res = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['pdf'],
+                        allowMultiple: true,
+                      );
+                      if (res != null) {
+                        setModalState(() {
+                          selectedPdfs.addAll(res.files);
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade300, width: 0.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.file_present, size: 18, color: Colors.blue[700]),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Tap to attach new PDF files',
+                              style: TextStyle(fontSize: 13, color: Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Show selected files list below the input tile
+                  if (selectedPdfs.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Column(
+                      children: List.generate(selectedPdfs.length, (index) {
+                        final file = selectedPdfs[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.picture_as_pdf, size: 14, color: Colors.red),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  file.name,
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.cancel, size: 16, color: Colors.grey),
+                                onPressed: () {
+                                  setModalState(() {
+                                    selectedPdfs.removeAt(index);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Get.back(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (titleCtrl.text.trim().isEmpty ||
+                              topicCtrl.text.trim().isEmpty) {
+                            _snack('Please fill required fields');
+                            return;
+                          }
+                          Get.back();
+                          // Trigger update passing inputs along with new files
+                          _updateVideoDetails(
+                            v,
+                            titleCtrl.text.trim(),
+                            topicCtrl.text.trim(),
+                            selectedLevel,
+                            selectedYear,
+                            pdfFiles: selectedPdfs.isEmpty ? null : selectedPdfs,
+                          );
+                        },
+                        child: const Text('Save Changes'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
+    );
+  }
   // ═══════════════════════════════════════════════════════════════════════════
   //  BUILD
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1278,316 +1576,964 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  CAMPUS STARS TAB  (dummy — APIs not ready)
+//  QUIZ TAB
+//  Two ways to build a quiz for a club:
+//   • Manual   — add questions & options by hand
+//   • AI (PDF) — upload a PDF, backend generates questions, review + save
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _StarsTab extends StatefulWidget {
-  final List<CampusStar> stars;
-  final List<String> clubs;
-  final void Function(CampusStar) onAdd;
-  final void Function(CampusStar) onEdit;
-  final void Function(String) onDelete;
+class _QuizTab extends StatefulWidget {
+  final List<ClubCategory> clubs;
+  final bool clubsLoading;
+  final String token;
+  final String schoolId;
+  final bool canEdit;
 
-  const _StarsTab({required this.stars, required this.clubs,
-    required this.onAdd, required this.onEdit, required this.onDelete});
+  const _QuizTab({
+    required this.clubs, required this.clubsLoading,
+    required this.token, required this.schoolId, required this.canEdit,
+  });
 
   @override
-  State<_StarsTab> createState() => _StarsTabState();
+  State<_QuizTab> createState() => _QuizTabState();
 }
 
-class _StarsTabState extends State<_StarsTab> {
-  bool _showForm = false;
-  final _nameCtrl  = TextEditingController();
-  final _roleCtrl  = TextEditingController();
-  final _bioCtrl   = TextEditingController();
-  String _selectedClub = '';
-  String? _editId;
-  dynamic _pickedPhoto;
+class _QuizTabState extends State<_QuizTab> {
+  ClubCategory? _selectedClub;
+  List<Quiz> _quizzes = [];
+  bool _loading = false;
 
-  void _resetForm() {
-    _nameCtrl.clear(); _roleCtrl.clear(); _bioCtrl.clear();
-    _selectedClub = ''; _editId = null; _pickedPhoto = null;
+  Map<String, String> get _headers => {
+    'Authorization': 'Bearer ${widget.token}',
+    'Accept': 'application/json',
+  };
+
+  @override
+  void didUpdateWidget(covariant _QuizTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto-select the first club once clubs finish loading.
+    if (_selectedClub == null && widget.clubs.isNotEmpty) {
+      _selectedClub = widget.clubs.first;
+      _fetchQuizzes();
+    }
   }
 
-  void _startEdit(CampusStar s) {
-    _nameCtrl.text = s.name; _roleCtrl.text = s.role;
-    _bioCtrl.text  = s.bio;  _selectedClub  = s.club;
-    _editId = s.id; _pickedPhoto = null;
-    setState(() => _showForm = true);
+  Future<void> _fetchQuizzes() async {
+    if (_selectedClub == null) return;
+    setState(() => _loading = true);
+    // NOTE: add `getQuizzesByClub` to ApiConstants pointing at your quiz-list endpoint.
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getQuizzesByClub}')
+        .replace(queryParameters: {'clubId': _selectedClub!.id});
+    _logRequest('GET', uri);
+    try {
+      final res = await http.get(uri, headers: _headers);
+      _logResponse('GET', uri, res);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []).map((e) => Quiz.fromJson(e)).toList();
+        setState(() { _quizzes = list; _loading = false; });
+      } else {
+        setState(() { _quizzes = []; _loading = false; });
+      }
+    } catch (e) {
+      _logError('GET', uri, e);
+      setState(() { _quizzes = []; _loading = false; });
+    }
   }
 
-  void _submit() {
-    if (_nameCtrl.text.trim().isEmpty) return;
-    final star = CampusStar(
-      id: _editId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      name: _nameCtrl.text.trim(), role: _roleCtrl.text.trim(),
-      photoUrl: '', club: _selectedClub, bio: _bioCtrl.text.trim(),
-    );
-    _editId != null ? widget.onEdit(star) : widget.onAdd(star);
-    setState(() { _showForm = false; _resetForm(); });
+  Future<void> _deleteQuiz(Quiz q) async {
+    // NOTE: add `deleteQuiz` to ApiConstants pointing at your delete endpoint.
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deleteQuiz}/${q.id}');
+    _logRequest('DELETE', uri);
+    try {
+      final res = await http.delete(uri, headers: _headers);
+      _logResponse('DELETE', uri, res);
+      if (res.statusCode == 200) {
+        setState(() => _quizzes.removeWhere((x) => x.id == q.id));
+        Get.snackbar('Success', 'Quiz deleted', backgroundColor: const Color(0xFF22C55E), colorText: Colors.white);
+      } else {
+        Get.snackbar('Error', 'Failed to delete quiz', backgroundColor: Colors.redAccent, colorText: Colors.white);
+      }
+    } catch (e) {
+      _logError('DELETE', uri, e);
+      Get.snackbar('Error', 'Failed to delete quiz', backgroundColor: Colors.redAccent, colorText: Colors.white);
+    }
   }
 
-  String _initials(String name) {
-    final p = name.trim().split(' ');
-    return p.length >= 2 ? '${p[0][0]}${p[1][0]}'.toUpperCase() : name.substring(0, 2).toUpperCase();
+  void _confirmDelete(Quiz q) {
+    Get.dialog(AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Confirm', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      content: Text('Delete "${q.title}"?', style: const TextStyle(fontSize: 13)),
+      actions: [
+        TextButton(onPressed: Get.back, child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+          onPressed: () { Get.back(); _deleteQuiz(q); },
+          child: const Text('Delete', style: TextStyle(color: Colors.white, fontSize: 12)),
+        ),
+      ],
+    ));
+  }
+
+  Future<void> _openManualBuilder({Quiz? editing}) async {
+    if (_selectedClub == null) return;
+    final saved = await Navigator.push<bool>(context, MaterialPageRoute(
+      builder: (_) => _QuizBuilderScreen(
+        schoolId: widget.schoolId,
+        clubId: _selectedClub!.id,
+        token: widget.token,
+        source: 'manual',
+        editingQuiz: editing,
+      ),
+    ));
+    if (saved == true) _fetchQuizzes();
+  }
+
+  Future<void> _openAiGenerator() async {
+    if (_selectedClub == null) return;
+    final saved = await Navigator.push<bool>(context, MaterialPageRoute(
+      builder: (_) => _AiQuizUploadScreen(
+        clubId: _selectedClub!.id,
+        token: widget.token, schoolId: widget.schoolId,
+      ),
+    ));
+    if (saved == true) _fetchQuizzes();
+  }
+
+  Future<void> _openTakeQuiz(Quiz q) async {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => _QuizPreviewScreen(quiz: q),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(children: [
-      _SectionHeader(title: 'Campus stars', addLabel: 'Add star', showAdd: true,
-          onAdd: () { _resetForm(); setState(() => _showForm = !_showForm); }),
-      if (_showForm) _buildForm(),
-      if (widget.stars.isEmpty)
-        const _EmptyState(message: 'No campus stars yet. Add one!', icon: Icons.star_outline)
-      else
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))]),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Column(children: widget.stars.map((s) => _ItemCard(
-              leading: CircleAvatar(radius: 20, backgroundColor: Colors.blue.shade100,
-                  child: Text(_initials(s.name),
-                      style: TextStyle(color: Colors.blue[700], fontSize: 13, fontWeight: FontWeight.w600))),
-              title: s.name,
-              subtitle: '${s.role} · ${s.club}',
-              onEdit: () => _startEdit(s),
-              onDelete: () => widget.onDelete(s.id),
-            )).toList()),
+    if (widget.clubsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (widget.clubs.isEmpty) {
+      return const _EmptyState(
+        message: 'Create a club first — quizzes are attached to a club.',
+        icon: Icons.groups_outlined,
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: _StyledDropdown(
+            label: 'Club',
+            value: _selectedClub?.name ?? '',
+            items: widget.clubs.map((c) => c.name).toList(),
+            onChanged: (name) {
+              final club = widget.clubs.firstWhere((c) => c.name == name);
+              setState(() => _selectedClub = club);
+              _fetchQuizzes();
+            },
           ),
         ),
-    ]);
-  }
-
-  Widget _buildForm() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.amber.shade100)),
-      child: StatefulBuilder(builder: (ctx, setS) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_editId != null ? 'Edit star' : 'New campus star',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
-        const SizedBox(height: 12),
-        _StyledInput(ctrl: _nameCtrl, label: 'Full name', hint: 'e.g. Timothy White'),
-        const SizedBox(height: 12),
-        _StyledInput(ctrl: _roleCtrl, label: 'Role / Title', hint: 'e.g. Student leader'),
-        const SizedBox(height: 12),
-        _ImagePickerTile(label: 'Profile photo', pickedFile: _pickedPhoto, existingUrl: null,
-            onPick: () async {
-              final f = await ImagePicker().pickImage(source: ImageSource.gallery);
-              if (f != null) setS(() => _pickedPhoto = f);
-            }),
-        const SizedBox(height: 12),
-        if (widget.clubs.isNotEmpty)
-          _StyledDropdown(label: 'Club', value: _selectedClub, items: widget.clubs,
-              onChanged: (v) => setS(() => _selectedClub = v ?? '')),
-        const SizedBox(height: 12),
-        _StyledInput(ctrl: _bioCtrl, label: 'Bio (optional)', hint: 'Short bio…', maxLines: 3),
-        const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          TextButton(onPressed: () { setState(() { _showForm = false; _resetForm(); }); }, child: const Text('Cancel')),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: _submit,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700], foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
-            child: Text(_editId != null ? 'Update star' : 'Save star', style: const TextStyle(fontSize: 13)),
+        if (widget.canEdit)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(children: [
+              Expanded(child: _QuizActionCard(
+                icon: Icons.edit_note,
+                title: 'Create manually',
+                subtitle: 'Add questions & options yourself',
+                color: Colors.blue,
+                onTap: () => _openManualBuilder(),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _QuizActionCard(
+                icon: Icons.auto_awesome,
+                title: 'Generate with AI',
+                subtitle: 'Upload a PDF, we\'ll build it',
+                color: Colors.purple,
+                onTap: _openAiGenerator,
+              )),
+            ]),
           ),
-        ]),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text('Quizzes', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+        ),
+        if (_loading)
+          const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+        else if (_quizzes.isEmpty)
+          const _EmptyState(message: 'No quizzes yet for this club.', icon: Icons.quiz_outlined)
+        else
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Column(children: _quizzes.map((q) => _QuizListTile(
+                quiz: q,
+                canEdit: widget.canEdit,
+                onTap: () => _openTakeQuiz(q),
+                onEdit: () => _openManualBuilder(editing: q),
+                onDelete: () => _confirmDelete(q),
+              )).toList()),
+            ),
+          ),
       ],
-      )),
     );
   }
 }
 
+class _QuizActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title, subtitle;
+  final MaterialColor color;
+  final VoidCallback onTap;
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  POSTS TAB  (dummy — APIs not ready)
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _PostsTab extends StatefulWidget {
-  final List<CampusPost> posts;
-  final List<String> clubs;
-  final void Function(CampusPost) onAdd;
-  final void Function(CampusPost) onEdit;
-  final void Function(String) onDelete;
-
-  const _PostsTab({required this.posts, required this.clubs,
-    required this.onAdd, required this.onEdit, required this.onDelete});
+  const _QuizActionCard({
+    required this.icon, required this.title, required this.subtitle,
+    required this.color, required this.onTap,
+  });
 
   @override
-  State<_PostsTab> createState() => _PostsTabState();
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.shade100),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color[700], size: 22),
+          const SizedBox(height: 10),
+          Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color[900])),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(fontSize: 11, color: color[700]), maxLines: 2),
+        ]),
+      ),
+    );
+  }
 }
 
-class _PostsTabState extends State<_PostsTab> {
-  bool _showForm = false;
-  final _authorCtrl  = TextEditingController();
-  final _captionCtrl = TextEditingController();
-  String _mediaType    = 'video';
-  String _selectedClub = '';
-  String? _editId;
-  dynamic _pickedMedia;
+class _QuizListTile extends StatelessWidget {
+  final Quiz quiz;
+  final bool canEdit;
+  final VoidCallback onTap, onEdit, onDelete;
 
-  void _resetForm() {
-    _authorCtrl.clear(); _captionCtrl.clear();
-    _mediaType = 'video'; _selectedClub = ''; _editId = null; _pickedMedia = null;
-  }
+  const _QuizListTile({
+    required this.quiz, required this.canEdit,
+    required this.onTap, required this.onEdit, required this.onDelete,
+  });
 
-  void _startEdit(CampusPost p) {
-    _authorCtrl.text  = p.authorName;
-    _captionCtrl.text = p.caption;
-    _mediaType    = p.mediaType;
-    _selectedClub = p.clubTag;
-    _editId = p.id; _pickedMedia = null;
-    setState(() => _showForm = true);
-  }
-
-  void _submit() {
-    if (_authorCtrl.text.trim().isEmpty) return;
-    final post = CampusPost(
-      id: _editId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      authorName: _authorCtrl.text.trim(), authorPhotoUrl: '',
-      caption: _captionCtrl.text.trim(), mediaUrl: '', thumbnailUrl: '',
-      mediaType: _mediaType, clubTag: _selectedClub, timeAgo: 'Just now',
+  @override
+  Widget build(BuildContext context) {
+    final isAi = quiz.isGeneratedByAi;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: (isAi ? Colors.purple : Colors.blue).shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(isAi ? Icons.auto_awesome : Icons.edit_note,
+                color: (isAi ? Colors.purple : Colors.blue)[700], size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(quiz.title,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 3),
+              Text('${quiz.questions.length} questions · ${isAi ? "AI generated" : "Manual"}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          )),
+          Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+          if (canEdit) ...[
+            IconButton(
+              icon: Icon(Icons.edit_outlined, size: 18, color: Colors.blue[700]),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
+        ]),
+      ),
     );
-    _editId != null ? widget.onEdit(post) : widget.onAdd(post);
-    setState(() { _showForm = false; _resetForm(); });
+  }
+}
+
+
+// ─── Manual quiz builder (also used to review/edit AI-generated questions) ───
+
+class _QuizBuilderScreen extends StatefulWidget {
+  final String clubId;
+  final String token;
+  final String schoolId;
+  final String source; // 'manual' | 'ai'
+  final Quiz? editingQuiz;
+  final String? initialTitle;
+  final List<QuizQuestion>? initialQuestions;
+
+  const _QuizBuilderScreen({
+
+    required this.clubId, required this.token,required this.schoolId, required this.source,
+    this.editingQuiz, this.initialTitle, this.initialQuestions,
+  });
+
+  @override
+  State<_QuizBuilderScreen> createState() => _QuizBuilderScreenState();
+}
+
+class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
+  late TextEditingController _titleCtrl;
+  late List<QuizQuestion> _questions;
+  bool _saving = false;
+
+  Map<String, String> get _headers => {
+    'Authorization': 'Bearer ${widget.token}',
+    'Accept': 'application/json',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(
+      text: widget.editingQuiz?.title ?? widget.initialTitle ?? '',
+    );
+    _questions = widget.editingQuiz?.questions.map((q) => q.copy()).toList()
+        ?? widget.initialQuestions?.map((q) => q.copy()).toList()
+        ?? [_blankQuestion()];
   }
 
-  String _initials(String name) {
-    final p = name.trim().split(' ');
-    return p.length >= 2 ? '${p[0][0]}${p[1][0]}'.toUpperCase() : name.substring(0, 2).toUpperCase();
+  QuizQuestion _blankQuestion() => QuizQuestion(
+    id: DateTime.now().microsecondsSinceEpoch.toString(),
+    text: '',
+    options: ['', ''],
+    correctIndex: 0,
+  );
+
+  void _addQuestion() => setState(() => _questions.add(_blankQuestion()));
+  void _removeQuestion(int i) => setState(() => _questions.removeAt(i));
+  void _addOption(int qi) => setState(() => _questions[qi].options.add(''));
+  void _removeOption(int qi, int oi) => setState(() {
+    _questions[qi].options.removeAt(oi);
+    if (_questions[qi].correctIndex >= _questions[qi].options.length) {
+      _questions[qi].correctIndex = 0;
+    }
+  });
+
+  bool get _isValid {
+    if (_titleCtrl.text.trim().isEmpty) return false;
+    if (_questions.isEmpty) return false;
+    for (final q in _questions) {
+      if (q.text.trim().isEmpty) return false;
+      if (q.options.length < 2) return false;
+      if (q.options.any((o) => o.trim().isEmpty)) return false;
+    }
+    return true;
+  }
+
+  Future<void> _save() async {
+    if (!_isValid) {
+      Get.snackbar('Missing info', 'Fill in the quiz title, every question, and at least 2 options each',
+          backgroundColor: Colors.orange, colorText: Colors.white);
+      return;
+    }
+    setState(() => _saving = true);
+
+    final payload = {
+      'schoolId': widget.schoolId,
+      'clubId': widget.clubId,
+      'title': _titleCtrl.text.trim(),
+      //'source': widget.source,
+      'questions': _questions.map((q) => q.toJson()).toList(),
+    };
+
+    final isEditing = widget.editingQuiz != null;
+    // NOTE: add `createQuiz` / `updateQuiz` to ApiConstants pointing at your backend.
+    final uri = isEditing
+        ? Uri.parse('${ApiConstants.baseUrl}${ApiConstants.updateQuiz}/${widget.editingQuiz!.id}')
+        : Uri.parse('${ApiConstants.baseUrl}${ApiConstants.createQuiz}');
+
+    _logRequest(isEditing ? 'PUT' : 'POST', uri, fields: {'title': payload['title'] as String});
+    try {
+      final res = isEditing
+          ? await http.put(uri, headers: {..._headers, 'Content-Type': 'application/json'}, body: jsonEncode(payload))
+          : await http.post(uri, headers: {..._headers, 'Content-Type': 'application/json'}, body: jsonEncode(payload));
+      _logResponse(isEditing ? 'PUT' : 'POST', uri, res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        Get.snackbar('Success', isEditing ? 'Quiz updated' : 'Quiz created',
+            backgroundColor: const Color(0xFF22C55E), colorText: Colors.white);
+        if (mounted) Navigator.pop(context, true);
+      } else {
+        Get.snackbar('Error', 'Failed to save quiz', backgroundColor: Colors.redAccent, colorText: Colors.white);
+      }
+    } catch (e) {
+      _logError(isEditing ? 'PUT' : 'POST', uri, e);
+      Get.snackbar('Error', 'Failed to save quiz', backgroundColor: Colors.redAccent, colorText: Colors.white);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(children: [
-      _SectionHeader(title: 'Campus posts', addLabel: 'Add post', showAdd: true,
-          onAdd: () { _resetForm(); setState(() => _showForm = !_showForm); }),
-      if (_showForm) _buildForm(),
-      if (widget.posts.isEmpty)
-        const _EmptyState(message: 'No posts yet. Add one!', icon: Icons.article_outlined)
-      else
-        ...widget.posts.map((p) => Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))]),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(padding: const EdgeInsets.fromLTRB(14, 14, 14, 10), child: Row(children: [
-              CircleAvatar(radius: 18, backgroundColor: Colors.pink.shade100,
-                  child: Text(_initials(p.authorName),
-                      style: TextStyle(color: Colors.pink[700], fontSize: 12, fontWeight: FontWeight.w600))),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.authorName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Text(p.timeAgo, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-              ])),
-              if (p.clubTag.isNotEmpty)
-                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(20)),
-                    child: Text(p.clubTag, style: TextStyle(fontSize: 10, color: Colors.blue[700]))),
-              const SizedBox(width: 8),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, size: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                onSelected: (v) { if (v == 'edit') _startEdit(p); if (v == 'delete') widget.onDelete(p.id); },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit',   child: _PopupRow(Icons.edit_outlined,   'Edit')),
-                  PopupMenuItem(value: 'delete', child: _PopupRow(Icons.delete_outline,   'Delete', isDestructive: true)),
-                ],
-              ),
-            ])),
-            if (p.caption.isNotEmpty)
-              Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                  child: Text(p.caption, style: const TextStyle(fontSize: 13, height: 1.5))),
-            Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                child: Container(height: 80, decoration: BoxDecoration(color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10)),
-                  child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(p.mediaType == 'video' ? Icons.play_circle_outline : Icons.image_outlined,
-                        color: Colors.grey[400], size: 20),
-                    const SizedBox(width: 8),
-                    Text(p.mediaType == 'video' ? 'Video attached' : 'Image attached',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-                  ])),
-                )),
-          ]),
-        )),
-      const SizedBox(height: 24),
-    ]);
-  }
-
-  Widget _buildForm() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.green.shade100)),
-      child: StatefulBuilder(builder: (ctx, setS) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_editId != null ? 'Edit post' : 'New post',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
-        const SizedBox(height: 12),
-        _StyledInput(ctrl: _authorCtrl, label: 'Author name', hint: 'e.g. Cynthia Hall'),
-        const SizedBox(height: 12),
-        _StyledInput(ctrl: _captionCtrl, label: 'Caption', hint: 'Write about the event…', maxLines: 3),
-        const SizedBox(height: 12),
-        // Media type toggle
-        Text('Media type', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
-        const SizedBox(height: 6),
-        Row(children: ['image', 'video'].map((type) => Expanded(child: Padding(
-          padding: EdgeInsets.only(right: type == 'image' ? 6 : 0),
-          child: GestureDetector(
-            onTap: () => setS(() => _mediaType = type),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: _mediaType == type ? Colors.blue[700] : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300, width: 0.5),
-              ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(type == 'video' ? Icons.videocam_outlined : Icons.image_outlined,
-                    size: 16, color: _mediaType == type ? Colors.white : Colors.grey[600]),
-                const SizedBox(width: 6),
-                Text(type == 'video' ? 'Video' : 'Image',
-                    style: TextStyle(fontSize: 13,
-                        color: _mediaType == type ? Colors.white : Colors.grey[600])),
+    final isAi = widget.source == 'ai';
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1A1A2E)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.editingQuiz != null ? 'Edit quiz' : (isAi ? 'Review AI quiz' : 'New quiz'),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (isAi)
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                Icon(Icons.auto_awesome, color: Colors.purple[700], size: 16),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Generated from your PDF — review and edit before saving.',
+                    style: TextStyle(fontSize: 12, color: Colors.purple[700]))),
               ]),
             ),
+          _StyledInput(ctrl: _titleCtrl, label: 'Quiz title', hint: 'e.g. Chapter 3 recap'),
+          const SizedBox(height: 16),
+          ...List.generate(_questions.length, (qi) => _QuestionEditorCard(
+            index: qi,
+            question: _questions[qi],
+            canRemove: _questions.length > 1,
+            onChanged: () => setState(() {}),
+            onAddOption: () => _addOption(qi),
+            onRemoveOption: (oi) => _removeOption(qi, oi),
+            onRemoveQuestion: () => _removeQuestion(qi),
+          )),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _addQuestion,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Add question', style: TextStyle(fontSize: 13)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue[700],
+              side: BorderSide(color: Colors.blue.shade200),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
           ),
-        ))).toList()),
-        const SizedBox(height: 12),
-        // Pick from phone
-        _mediaType == 'video'
-            ? _VideoPickerTile(pickedFile: _pickedMedia, onPick: () async {
-          final f = await ImagePicker().pickVideo(source: ImageSource.gallery);
-          if (f != null) setS(() => _pickedMedia = f);
-        })
-            : _ImagePickerTile(label: 'Pick image', pickedFile: _pickedMedia, existingUrl: null,
-            onPick: () async {
-              final f = await ImagePicker().pickImage(source: ImageSource.gallery);
-              if (f != null) setS(() => _pickedMedia = f);
-            }),
-        const SizedBox(height: 12),
-        if (widget.clubs.isNotEmpty)
-          _StyledDropdown(label: 'Club tag', value: _selectedClub, items: widget.clubs,
-              onChanged: (v) => setS(() => _selectedClub = v ?? '')),
-        const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          TextButton(onPressed: () { setState(() { _showForm = false; _resetForm(); }); }, child: const Text('Cancel')),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: _submit,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700], foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
-            child: Text(_editId != null ? 'Update post' : 'Publish post', style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _saving ? null : _save,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[700], foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0,
+            ),
+            child: _saving
+                ? const SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(widget.editingQuiz != null ? 'Update quiz' : 'Save quiz', style: const TextStyle(fontSize: 14)),
           ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionEditorCard extends StatelessWidget {
+  final int index;
+  final QuizQuestion question;
+  final bool canRemove;
+  final VoidCallback onChanged;
+  final VoidCallback onAddOption;
+  final void Function(int) onRemoveOption;
+  final VoidCallback onRemoveQuestion;
+
+  const _QuestionEditorCard({
+    required this.index, required this.question, required this.canRemove,
+    required this.onChanged, required this.onAddOption,
+    required this.onRemoveOption, required this.onRemoveQuestion,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textCtrl = TextEditingController(text: question.text)
+      ..selection = TextSelection.collapsed(offset: question.text.length);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Question ${index + 1}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+          const Spacer(),
+          if (canRemove)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+              onPressed: onRemoveQuestion,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
         ]),
-      ],
-      )),
+        const SizedBox(height: 6),
+        TextField(
+          controller: textCtrl,
+          onChanged: (v) { question.text = v; },
+          maxLines: 2,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Type the question…',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+            filled: true, fillColor: Colors.grey.shade50,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text('Options (tap the circle to mark the correct answer)',
+            style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        const SizedBox(height: 6),
+        ...List.generate(question.options.length, (oi) {
+          final optCtrl = TextEditingController(text: question.options[oi])
+            ..selection = TextSelection.collapsed(offset: question.options[oi].length);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () { question.correctIndex = oi; onChanged(); },
+                child: Icon(
+                  question.correctIndex == oi ? Icons.check_circle : Icons.circle_outlined,
+                  size: 20,
+                  color: question.correctIndex == oi ? const Color(0xFF22C55E) : Colors.grey[400],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(
+                controller: optCtrl,
+                onChanged: (v) { question.options[oi] = v; },
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Option ${oi + 1}',
+                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  filled: true, fillColor: Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                ),
+              )),
+              if (question.options.length > 2)
+                IconButton(
+                  icon: Icon(Icons.close, size: 16, color: Colors.grey[500]),
+                  onPressed: () => onRemoveOption(oi),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+            ]),
+          );
+        }),
+        TextButton.icon(
+          onPressed: onAddOption,
+          icon: const Icon(Icons.add, size: 14),
+          label: const Text('Add option', style: TextStyle(fontSize: 12)),
+          style: TextButton.styleFrom(foregroundColor: Colors.blue[700], padding: EdgeInsets.zero),
+        ),
+      ]),
+    );
+  }
+}
+
+
+// ─── AI quiz generator: upload PDF → backend generates questions → review ────
+
+// ─── AI quiz generator: pick an existing club video + its PDF → generate ────
+
+class _AiQuizUploadScreen extends StatefulWidget {
+  final String clubId;
+  final String token;
+  final String schoolId;
+
+  const _AiQuizUploadScreen({required this.clubId, required this.token, required this.schoolId});
+
+  @override
+  State<_AiQuizUploadScreen> createState() => _AiQuizUploadScreenState();
+}
+
+class _AiQuizUploadScreenState extends State<_AiQuizUploadScreen> {
+  List<ClubVideo> _videos = [];
+  bool _videosLoading = true;
+
+  ClubVideo? _selectedVideo;
+  Map<String, String>? _selectedPdf; // {id, url, name}
+  final _questionCountCtrl = TextEditingController(text: '10');
+  final _yearCtrl = TextEditingController(text: '2025-2026');
+  bool _generating = false;
+
+  Map<String, String> get _headers => {
+    'Authorization': 'Bearer ${widget.token}',
+    'Accept': 'application/json',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVideos();
+  }
+
+  Future<void> _fetchVideos() async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllClubVideos}')
+        .replace(queryParameters: {'clubId': widget.clubId, 'page': '1', 'limit': '50'});
+    _logRequest('GET', uri);
+    try {
+      final res = await http.get(uri, headers: _headers);
+      _logResponse('GET', uri, res);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List).map((e) => ClubVideo.fromJson(e)).toList();
+        // Only videos that actually have a PDF attached are usable here.
+        final withPdfs = list.where((v) => v.pdfs.isNotEmpty).toList();
+        setState(() { _videos = withPdfs; _videosLoading = false; });
+      } else {
+        setState(() => _videosLoading = false);
+      }
+    } catch (e) {
+      _logError('GET', uri, e);
+      setState(() => _videosLoading = false);
+    }
+  }
+
+  Future<void> _generate() async {
+    if (_selectedVideo == null || _selectedPdf == null) {
+      Get.snackbar('Pick a PDF', 'Choose a video and one of its attached PDFs',
+          backgroundColor: Colors.orange, colorText: Colors.white);
+      return;
+    }
+    setState(() => _generating = true);
+
+    final payload = {
+      'schoolId': widget.schoolId,
+      'clubId': widget.clubId,
+      'clubVideoId': _selectedVideo!.id,
+      'pdfId': _selectedPdf!['id'],
+      'numberOfQuestions': int.tryParse(_questionCountCtrl.text.trim()) ?? 10,
+      'academicYear': _yearCtrl.text.trim(),
+      // classId / sectionId are optional per the docs — wire these in once
+      // this screen has access to a class/section picker.
+    };
+
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.generateQuizFromPdf}');
+    _logRequest('POST', uri, fields: payload.map((k, v) => MapEntry(k, '$v')));
+    try {
+      final res = await http.post(uri,
+        headers: {..._headers, 'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      _logResponse('POST', uri, res);
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final body = jsonDecode(res.body);
+        final data = body['data'] ?? body;
+        final title = data['title'] ?? '${_selectedVideo!.title} Quiz';
+        final questions = (data['questions'] as List? ?? [])
+            .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
+            .toList();
+
+        if (questions.isEmpty) {
+          Get.snackbar('No questions generated', 'Try a different PDF or add questions manually',
+              backgroundColor: Colors.orange, colorText: Colors.white);
+          setState(() => _generating = false);
+          return;
+        }
+
+        if (!mounted) return;
+        final saved = await Navigator.pushReplacement<bool, void>(context, MaterialPageRoute(
+          builder: (_) => _QuizBuilderScreen(
+            clubId: widget.clubId,
+            token: widget.token,
+            schoolId: widget.schoolId,
+            source: 'ai',
+            initialTitle: title,
+            initialQuestions: questions,
+          ),
+        ));
+        if (saved == true && mounted) Navigator.pop(context, true);
+      } else {
+        Get.snackbar('Error', 'Failed to generate quiz: ${_msg(res)}',
+            backgroundColor: Colors.redAccent, colorText: Colors.white);
+      }
+    } catch (e) {
+      _logError('POST', uri, e);
+      Get.snackbar('Error', 'Failed to generate quiz: $e', backgroundColor: Colors.redAccent, colorText: Colors.white);
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  String _msg(http.Response r) {
+    try { return jsonDecode(r.body)['message'] ?? '${r.statusCode}'; } catch (_) { return '${r.statusCode}'; }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1A1A2E)),
+          onPressed: _generating ? null : () => Navigator.pop(context),
+        ),
+        title: const Text('Generate quiz with AI',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+      ),
+      body: _generating
+          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const CircularProgressIndicator(),
+        const SizedBox(height: 16),
+        Text('Reading the PDF and building questions…',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+      ]))
+          : _videosLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _videos.isEmpty
+          ? const _EmptyState(
+        message: 'No videos with attached PDFs yet.\nUpload a video with a PDF first, then generate a quiz from it.',
+        icon: Icons.picture_as_pdf_outlined,
+      )
+          : ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Icon(Icons.auto_awesome, color: Colors.purple[700], size: 16),
+              const SizedBox(width: 8),
+              Expanded(child: Text(
+                'Pick a video and one of its attached PDFs — we\'ll auto-generate quiz questions from it.',
+                style: TextStyle(fontSize: 12, color: Colors.purple[700]),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          _StyledDropdown(
+            label: 'Video',
+            value: _selectedVideo?.title ?? '',
+            items: _videos.map((v) => v.title).toList(),
+            onChanged: (title) {
+              final video = _videos.firstWhere((v) => v.title == title);
+              setState(() {
+                _selectedVideo = video;
+                _selectedPdf = null; // reset — pick a PDF again for the new video
+                _yearCtrl.text = video.academicYear.isNotEmpty ? video.academicYear : _yearCtrl.text;
+              });
+            },
+          ),
+          if (_selectedVideo != null) ...[
+            const SizedBox(height: 16),
+            Text('PDF', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+            const SizedBox(height: 6),
+            ..._selectedVideo!.pdfs.map((pdf) {
+              final isSelected = _selectedPdf?['id'] == pdf['id'];
+              return GestureDetector(
+                onTap: () => setState(() => _selectedPdf = pdf),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.blue.shade50 : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isSelected ? Colors.blue.shade300 : Colors.grey.shade200),
+                  ),
+                  child: Row(children: [
+                    Icon(isSelected ? Icons.check_circle : Icons.picture_as_pdf,
+                        size: 18, color: isSelected ? Colors.blue[700] : Colors.redAccent),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(pdf['name'] ?? 'PDF',
+                        style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                  ]),
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 16),
+          _StyledInput(
+            ctrl: _questionCountCtrl,
+            label: 'Number of questions',
+            hint: 'e.g. 10',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          _StyledInput(ctrl: _yearCtrl, label: 'Academic year', hint: '2025-2026'),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _generate,
+            icon: const Icon(Icons.auto_awesome, size: 16),
+            label: const Text('Generate quiz', style: TextStyle(fontSize: 14)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple[700], foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ─── Read-only quiz preview / take screen ─────────────────────────────────────
+
+class _QuizPreviewScreen extends StatefulWidget {
+  final Quiz quiz;
+  const _QuizPreviewScreen({required this.quiz});
+
+  @override
+  State<_QuizPreviewScreen> createState() => _QuizPreviewScreenState();
+}
+
+class _QuizPreviewScreenState extends State<_QuizPreviewScreen> {
+  final Map<int, int> _selected = {}; // questionIndex -> optionIndex
+  bool _submitted = false;
+
+  int get _score {
+    int s = 0;
+    for (int i = 0; i < widget.quiz.questions.length; i++) {
+      if (_selected[i] == widget.quiz.questions[i].correctIndex) s++;
+    }
+    return s;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = widget.quiz;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1A1A2E)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(q.title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_submitted)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(14)),
+              child: Text('Score: $_score / ${q.questions.length}',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.green[800])),
+            ),
+          ...List.generate(q.questions.length, (qi) {
+            final question = q.questions[qi];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${qi + 1}. ${question.text}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                ...List.generate(question.options.length, (oi) {
+                  final isSelected = _selected[qi] == oi;
+                  final isCorrect  = oi == question.correctIndex;
+                  Color? bg;
+                  if (_submitted) {
+                    if (isCorrect) bg = Colors.green.shade50;
+                    else if (isSelected && !isCorrect) bg = Colors.red.shade50;
+                  } else if (isSelected) {
+                    bg = Colors.blue.shade50;
+                  }
+                  return GestureDetector(
+                    onTap: _submitted ? null : () => setState(() => _selected[qi] = oi),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: bg ?? Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isSelected ? Colors.blue.shade300 : Colors.grey.shade200),
+                      ),
+                      child: Row(children: [
+                        Icon(
+                          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          size: 16, color: isSelected ? Colors.blue[700] : Colors.grey[400],
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(question.options[oi], style: const TextStyle(fontSize: 13))),
+                        if (_submitted && isCorrect)
+                          Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
+                      ]),
+                    ),
+                  );
+                }),
+              ]),
+            );
+          }),
+          if (!_submitted)
+            ElevatedButton(
+              onPressed: () => setState(() => _submitted = true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[700], foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0,
+              ),
+              child: const Text('Submit', style: TextStyle(fontSize: 14)),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1621,36 +2567,6 @@ class _SectionHeader extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0,
           ),
         ),
-    ]),
-  );
-}
-
-class _ItemCard extends StatelessWidget {
-  final Widget leading;
-  final String title, subtitle;
-  final VoidCallback onEdit, onDelete;
-
-  const _ItemCard({required this.leading, required this.title, required this.subtitle,
-    required this.onEdit, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0)))),
-    child: Row(children: [
-      leading, const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
-        const SizedBox(height: 2),
-        Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-      ])),
-      IconButton(icon: Icon(Icons.edit_outlined, size: 18, color: Colors.blue[700]),
-          onPressed: onEdit, padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32)),
-      IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-          onPressed: onDelete, padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32)),
     ]),
   );
 }

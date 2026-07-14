@@ -296,10 +296,10 @@ class AuthController extends GetxController {
         case 'viceprincipal':
         case 'teacher':
         case 'student':
-          Get.offAllNamed(AppRoutes.DASHBOARD);
+          Get.offAllNamed(AppRoutes.ATTENDANCE_DASHBOARD);
           break;
         default:
-          Get.offAllNamed(AppRoutes.DASHBOARD);
+          Get.offAllNamed(AppRoutes.ATTENDANCE_DASHBOARD);
       }
       _isNavigating = false;
     });

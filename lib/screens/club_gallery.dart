@@ -101,6 +101,7 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
+        print('response to know pdf:${response.body}');
         final List<dynamic> list = decoded['data'] ?? [];
         setState(() {
           _videos   = list.map((j) => ClubVideo.fromJson(j)).toList();

@@ -5,6 +5,7 @@ import 'package:school_app/core/permissions/feature_flag_service.dart';
 import 'package:school_app/core/permissions/module_visibility.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/club_controller.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 import 'package:school_app/models/school_models.dart';
 import 'package:school_app/models/club_model.dart';
 import 'package:school_app/services/api_service.dart';
@@ -382,7 +383,7 @@ class ClubsController extends GetxController {
         'title': title,
         'topic': topic,
         'level': level,
-        'academicYear': '2025-2026',
+        'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
       });
 
       if (response.data['ok'] == true) {
