@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
 import 'package:school_app/controllers/attendance_controller.dart' as old_attendance;
+import 'package:school_app/core/utils/academic_year_utils.dart';
 
 class FeeCollectionScreen extends StatefulWidget {
   @override
@@ -249,6 +250,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
       chequeDate: paymentMode == 'cheque' ? chequeDateController.text : null,
      // isBusApplicable: isBusApplicable,
       remarks: remarksController.text,
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
     );
   }
 }

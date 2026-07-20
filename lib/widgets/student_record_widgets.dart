@@ -42,6 +42,7 @@ class FeeCollectionWidget extends StatelessWidget {
       sectionId: 'sectionA',
       amount: 5000.0,
       paymentMode: 'cash',
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
     );
   }
 

@@ -604,9 +604,20 @@ class _MenuBody extends StatelessWidget {
 
 
         ]),
+        _Section('Transport Management',[
+          _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
+          _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
+          _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
+          _Item('Fuel Log', Icons.gas_meter_outlined, AppRoutes.FUEL_LOG_MODULE),
+          _Item('Bus Routes', Icons.roundabout_right, AppRoutes.BUS_ROUTE_MODULE),
+
+
+        ]),
         _Section('Finance', [
+          _Item('Bill Book', Icons.recent_actors_outlined, AppRoutes.BILL_BOOK),
+
           _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
-          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
+          _Item('Admission Form', Icons.receipt, AppRoutes.ADMISSION_FORM),
           _Item('Admission Forms', Icons.menu_book, AppRoutes.ADMISSION_FORMS_VIEW),
           if (RoleModules.hasModule(role, 'feeCollection'))
             _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
@@ -645,6 +656,7 @@ class _MenuBody extends StatelessWidget {
           _Item('Profile Verification', Icons.perm_contact_calendar_outlined,
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
+
         _Section('Other', [
           _Item('Create Employee Profile', Icons.group_add_outlined, AppRoutes.CREATE_EMPLOYEE_PROFILE),
           _Item('Employee List', Icons.grading, AppRoutes.EMPLOYEE_LIST),
@@ -673,7 +685,7 @@ class _MenuBody extends StatelessWidget {
 
           if (RoleModules.hasModule(role, 'feeStructure'))
             _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
-          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
+          _Item('Admission Form', Icons.receipt, AppRoutes.ADMISSION_FORM),
           _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
           _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
@@ -700,12 +712,21 @@ class _MenuBody extends StatelessWidget {
           _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
 
         ]),
+
+        _Section('Transport Management',[
+          _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
+          _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
+          _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
+          _Item('Fuel Log', Icons.gas_meter_outlined, AppRoutes.FUEL_LOG_MODULE),
+          _Item('Bus Routes', Icons.roundabout_right, AppRoutes.BUS_ROUTE_MODULE),
+
+        ]),
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
         ]),
         _Section('Manage', [
           _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
-          _Item('Bill Book', Icons.receipt, AppRoutes.BILL_BOOK),
+          _Item('Admission Form', Icons.receipt, AppRoutes.ADMISSION_FORM),
           _Item('Admission Forms', Icons.menu_book, AppRoutes.ADMISSION_FORMS_VIEW),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
           // ── Student: Create then Manage ──────────────────────────────
@@ -920,7 +941,7 @@ class _NavItem extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
-                mainAxisAlignment: progress > 0.4
+                mainAxisAlignment: progress > 0.3
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
                 children: [
@@ -1071,11 +1092,19 @@ class _Footer extends StatelessWidget {
                             ((progress - 0.3) / 0.7).clamp(0.0, 1.0),
                             child: const Padding(
                               padding: EdgeInsets.only(left: 10),
-                              child: Text('Logout',
-                                  style: TextStyle(
-                                      color: _kLogoutClr,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500)),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                physics: const NeverScrollableScrollPhysics(),
+                                child: Text('Logout',
+                                    style: TextStyle(
+                                        color: _kLogoutClr,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+
                             ),
                           ),
                         ),

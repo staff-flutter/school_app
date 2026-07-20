@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:school_app/core/utils/academic_year_utils.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
@@ -33,19 +34,20 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   List<ClubsAndActivitiesStrings> apiClubs = [];
   bool isLoading = true;
- // final auth_ctrl = Get.find<AuthController>();
 
   // ── Quiz state ──
   List<ClubQuiz> _quizzes = [];
   bool _quizzesLoading = true;
 
+  // 🌟 NEW: State tracking for selected club dropdown filter
+  ClubsAndActivitiesStrings? _selectedClubFilter;
 
   final List<String> clubNames = ['Music', 'Dance', 'Science & Technology', 'Theatre', 'Arts & Culture', 'Dance', 'Science & Technology', 'Theatre' 'Music', 'Dance', 'Science & Technology', 'Theatre'];
 
   bool _isFetching = false;
   String? _lastFetchedSchoolId;
-  // ------------------------------------THE  CLUBS&ACTIVITIES FUNCTION -----------------------------
 
+  // ------------------------------------THE  CLUBS&ACTIVITIES FUNCTION -----------------------------
 
   Future<void> fetchClubsAndActivities() async {
     if (_isFetching) {
@@ -53,11 +55,9 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       return;
     }
 
-
     String baseUrl = ApiConstants.baseUrl;
     final String? token = _authController.storage.read('token');
 
-    // Always get schoolId from selected school in controller
     String? schoolId;
     final role = _authController.user.value?.role?.toLowerCase() ?? '';
 
@@ -76,6 +76,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       _isFetching = false;
       return;
     }
+    print('schoolId of Testing School:$schoolId');
     if (schoolId == _lastFetchedSchoolId && apiClubs.isNotEmpty) {
       debugPrint('⏭️ Skipping fetch — already have data for schoolId $schoolId');
       return;
@@ -96,6 +97,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       });
 
       if (response.statusCode == 200) {
+        print('fetching Clubs:${response.body}');
         final decodedData = jsonDecode(response.body);
         final List<dynamic> list = decodedData['data'] ?? [];
         setState(() {
@@ -105,7 +107,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
           isLoading = false;
         });
         _lastFetchedSchoolId = schoolId;
-        // Clubs are in — now pull in the quizzes that belong to them.
         await _fetchAllClubQuizzes();
       } else {
         setState(() {
@@ -119,8 +120,8 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         _quizzesLoading = false;
       });
       print("Error fetching clubs: $e");
-    }finally {
-      _isFetching = false; // NEW — always release, success or failure
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -138,8 +139,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     setState(() => _quizzesLoading = true);
     final String? token = _authController.storage.read('token');
 
-    // NEW: bail early with a clear log if there's no token — this is
-    // the #1 suspect for "works for correspondent, not other roles".
     if (token == null || token.isEmpty) {
       print('⚠️ No token available when fetching club quizzes');
       if (mounted) {
@@ -155,7 +154,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
     for (final club in apiClubs) {
       final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getQuizzesByClub}')
-          .replace(queryParameters: {'clubId': club.id});
+          .replace(queryParameters: {'clubId': club.id,'academicYear': AcademicYearUtils.getCurrentAcademicYear()});
       try {
         final res = await http.get(uri, headers: {
           'Authorization': 'Bearer $token',
@@ -164,18 +163,15 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body);
+          print('clubID:${club.id}');
+          print('response of fetching quizzes:${res.body}');
           final list = (body['data'] as List? ?? []);
-          print('✅ Quiz fetch for club ${club.id} (${club.name}): '
-              '${list.length} quizzes returned. Raw: ${res.body}');
-          print('➡️ Fetching quizzes for club ${club.id} (${club.name})');
+          print('✅ Quiz fetch for club ${club.id} (${club.name}): ${list.length} quizzes returned.');
+          print('body:$body');
           collected.addAll(list.map(
                   (e) => ClubQuiz.fromJson(e, clubNameFallback: club.name)));
         } else {
-          // NEW: this was previously silent. Now we can actually see
-          // why quizzes aren't showing up for a given role/club.
-          print(
-              '⚠️ Quiz fetch failed for club ${club.id} (${club.name}): '
-                  'status=${res.statusCode} body=${res.body}');
+          print('⚠️ Quiz fetch failed for club ${club.id} (${club.name}): status=${res.statusCode}');
         }
       } catch (e) {
         print('⚠️ Error fetching quizzes for club ${club.id}: $e');
@@ -184,7 +180,15 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
     if (mounted) {
       setState(() {
-        _quizzes = collected;
+        final Map<String, ClubQuiz> uniqueQuizzesMap = {};
+
+        for (var quiz in collected) {
+          if (quiz.id.isNotEmpty) {
+            uniqueQuizzesMap[quiz.id] = quiz;
+          }
+        }
+
+        _quizzes = uniqueQuizzesMap.values.toList();
         _quizzesLoading = false;
       });
     }
@@ -193,52 +197,39 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
   @override
   void initState() {
     super.initState();
-
-    // 1. Initial attempt to fetch data
     fetchClubsAndActivities();
 
     final role = _authController.user.value?.role?.toLowerCase() ?? '';
 
-    // 2. Re-fetch when correspondent switches school from sidebar
     if (role == 'correspondent') {
       ever(_school!.selectedSchool, (_) {
         if (mounted) {
-          // setState(() {
-          //   isLoading = true;
-          //   _quizzesLoading = true;
-          // });
           fetchClubsAndActivities();
         }
       });
     } else {
-      // 3. FIX FOR OTHER ROLES: Listen to user data loading/updates
+      // 🌟 FIXED: Removed the restrictive 'apiClubs.isEmpty' condition
+      // and attached dynamic listening checks for non-correspondent changes.
       ever(_authController.user, (user) {
-        if (mounted && user?.schoolId != null && user!.schoolId!.isNotEmpty && apiClubs.isEmpty) {
-          setState(() {
-            isLoading = true;
-            _quizzesLoading = true;
-          });
+        if (mounted && user?.schoolId != null && user!.schoolId!.isNotEmpty) {
           fetchClubsAndActivities();
         }
       });
     }
   }
 
-
   // --------------------------------------------- BUILD METHOD ----------------------------------------
-
 
   @override
   Widget build(BuildContext context) {
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Color(0xFFEEF3FB),
-        statusBarIconBrightness: Brightness.dark, // white icons
-        statusBarBrightness: Brightness.dark,       // iOS
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: Color(0xFFEEF3FB),
+        backgroundColor: const Color(0xFFEEF3FB),
         body: SafeArea(
           bottom: false,
           child: Padding(
@@ -263,104 +254,12 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     );
   }
 
-
-  // -------------------------- HEADER FOR UNIVERSITY OR SCHOOL NAME --------------------------------------
-
-  Widget _buildSchoolLogo() {
-    try {
-      final school = _authController.userSchool.value;
-      if (school != null && school['logo'] != null && school['logo']['url'] != null) {
-        return GestureDetector(
-          onTap: () => _showFullScreenSchoolLogo(school['logo']['url']),
-          child: Image.network(
-            school['logo']['url'],
-            width: 32,
-            height: 32,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return const Icon(
-                Icons.school_rounded,
-                color: Color(0xFF2563EB),
-                size: 30,
-              );
-            },
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle error silently
-    }
-
-    return const Icon(
-      Icons.school_rounded,
-      color: Color(0xFF2563EB),
-      size: 30,
-    );
-  }
-  void _showFullScreenSchoolLogo(String logoUrl) {
-    Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            GestureDetector(
-              onTap: () => Get.back(),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.black.withOpacity(0.9),
-                child: Center(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.network(
-                      logoUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        Get.back();
-                        Get.snackbar(
-                          'Error',
-                          'Failed to load logo',
-                          backgroundColor: Colors.red,
-                          colorText: Colors.white,
-                        );
-                        return const SizedBox();
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 50,
-              right: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: IconButton(
-                  onPressed: () => Get.back(),
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
   Widget _header() {
     return Obx(() {
       final role = _authController.user.value?.role?.toLowerCase() ?? '';
       final schoolName = role == 'correspondent'
           ? (_school?.selectedSchool.value?.name ?? '')
-          : (_authController.user.value?.schoolName ?? _authController.user.value?.schoolName ?? '');
+          : (_authController.user.value?.schoolName ?? '');
 
       return Row(
         children: [
@@ -388,10 +287,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       );
     });
   }
-
-
-  // -------------------------------------- CLUB CARDS (now vertical) ------------------------------------
-
 
   Widget _gridCards() {
     if (isLoading) return const Center(child: CircularProgressIndicator());
@@ -442,7 +337,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-
               ],
             ),
           ),
@@ -451,9 +345,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     );
   }
 
-
   // ------------------------------------------- QUIZZES SECTION -----------------------------------------
-
 
   Widget _quizzesSection() {
     if (_quizzesLoading) {
@@ -463,17 +355,65 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       );
     }
 
+    // 🌟 Dynamic Filter Logic: If a filter is selected, check match by clubId
+    final filteredQuizzes = _selectedClubFilter == null
+        ? _quizzes
+        : _quizzes.where((quiz) => quiz.clubId == _selectedClubFilter!.id).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        // 🌟 Redesigned dynamic row container handling Header text alongside Dropdown Selection
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Quizzes",
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const Text(
+              "Quizzes",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 12),
+            // Custom Styled Dropdown Selection Button matching the UI theme
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300, width: 0.5),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<ClubsAndActivitiesStrings?>(
+                    value: _selectedClubFilter,
+                    hint: const Text("All Clubs", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                    isDense: true,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+                    icon: Icon(Icons.keyboard_arrow_down, color: Colors.blue[700], size: 18),
+                    items: [
+                      // Allow clearing the filter completely
+                      const DropdownMenuItem<ClubsAndActivitiesStrings?>(
+                        value: null,
+                        child: Text("All Clubs"),
+                      ),
+                      ...apiClubs.map((club) {
+                        return DropdownMenuItem<ClubsAndActivitiesStrings?>(
+                          value: club,
+                          child: Text(club.name),
+                        );
+                      }),
+                    ],
+                    onChanged: (ClubsAndActivitiesStrings? newValue) {
+                      setState(() {
+                        _selectedClubFilter = newValue;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        if (_quizzes.isEmpty)
+        if (filteredQuizzes.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -485,7 +425,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
               children: [
                 Icon(Icons.quiz_outlined, size: 36, color: Colors.grey.shade300),
                 const SizedBox(height: 8),
-                Text('No quizzes available yet.',
+                Text('No quizzes available yet for this selection.',
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               ],
             ),
@@ -494,8 +434,8 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _quizzes.length,
-            itemBuilder: (context, index) => _quizCard(_quizzes[index]),
+            itemCount: filteredQuizzes.length,
+            itemBuilder: (context, index) => _quizCard(filteredQuizzes[index]),
           ),
       ],
     );
@@ -701,7 +641,7 @@ class _QuizAttemptPageState extends State<QuizAttemptPage> {
         'index': i,
         'selectedOptionIndex': _selected[i],
       }),
-      'academicYear': '2025-2026',
+      'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
       // classId / sectionId are optional on this endpoint — wire them in
       // here once the logged-in student's classId & sectionId are exposed
       // on AuthController, so attempts can be filtered by class/section.

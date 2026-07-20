@@ -8,12 +8,15 @@ import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/services/api_service.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'dart:typed_data';
+
+import '../core/utils/academic_year_utils.dart';
 class StudentRecordController extends GetxController {
   final ApiService _apiService = Get.find();
   final isLoading = false.obs;
   final studentRecords = <Map<String, dynamic>>[].obs;
   final currentStudentRecord = Rxn<Map<String, dynamic>>();
   final studentDues = Rxn<Map<String, dynamic>>();
+
 
   void _showSnackbar(String title, String message, Color color) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,6 +184,7 @@ class StudentRecordController extends GetxController {
     required String sectionId,
     required double amount,
     required String paymentMode,
+    required String academicYear,
     bool? manualDueAllocation,
     Map<String, dynamic>? paidHeads,
     List<Map<String, dynamic>>? cashDenominations,
@@ -235,6 +239,7 @@ class StudentRecordController extends GetxController {
   // Get student records with filters
   Future<Map<String, dynamic>?> getStudentRecords({
     required String schoolId,
+    required String academicYear,
     String? classId,
     String? sectionId,
     int page = 1,
@@ -245,6 +250,7 @@ class StudentRecordController extends GetxController {
       
       final queryParams = {
         'schoolId': schoolId,
+        'academicYear': academicYear,
         'page': page,
         'limit': limit,
       };
@@ -253,7 +259,7 @@ class StudentRecordController extends GetxController {
       if (sectionId != null) queryParams['sectionId'] = sectionId;
       
       final response = await _apiService.get(
-        '/api/studentrecord/getall',
+        ApiConstants.getAllStudentRecordsV1, // '/api/studentrecord/v1/getall'
         queryParameters: queryParams,
       );
 
@@ -300,9 +306,11 @@ class StudentRecordController extends GetxController {
       }) async {
     try {
       isLoading.value = true;
+      final resolvedYear = academicYear ?? AcademicYearUtils.getCurrentAcademicYear();
+
       final response = await _apiService.get(
         '${ApiConstants.getStudentRecord}/$schoolId/$studentId',
-        queryParameters: academicYear != null ? {'academicYear': academicYear} : null,
+        queryParameters: {'academicYear': resolvedYear},
       );
 
       if (response.data['ok'] == true) {

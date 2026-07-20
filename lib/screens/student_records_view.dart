@@ -54,6 +54,17 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
 
   Worker? _schoolWorker;
 
+  final selectedAcademicYear = AcademicYearUtils.getCurrentAcademicYear().obs;
+
+  List<String> _recentAcademicYears() {
+    final current = AcademicYearUtils.getCurrentAcademicYear();
+    final startYear = int.parse(current.split('-')[0]);
+    return List.generate(6, (i) {
+      final y = startYear - i;
+      return '$y-${y + 1}';
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -560,6 +571,26 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               ]),
             ),
           ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => _showAcademicYearFilterSheet(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _kPrimary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: _kPrimary, width: 1.5),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.calendar_today_rounded, size: 14, color: _kPrimary),
+                const SizedBox(width: 6),
+                Obx(() => Text(selectedAcademicYear.value,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kPrimary))),
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: _kPrimary),
+              ]),
+            ),
+          ),
           if (selectedClass.value != null || selectedSection.value != null) ...[
             const SizedBox(width: 8),
             GestureDetector(
@@ -798,9 +829,13 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
         schoolId: selectedSchool.value!.id,
         classId: selectedClass.value?.id,
         sectionId: selectedSection.value?.id,
+        academicYear: selectedAcademicYear.value,
       );
       if (response != null) {
         final records = List<Map<String, dynamic>>.from(response['data'] ?? []);
+        if (records.isNotEmpty) {
+          debugPrint('RAW RECORD: ${jsonEncode(records.first)}');
+        }
         studentRecords.value = records;
       } else {
         final message = response?['message'] ?? 'Failed to load student records';
@@ -1027,6 +1062,57 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       isScrollControlled: true,
     );
   }
+
+  void _showAcademicYearFilterSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Text('Select Academic Year',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          ),
+          ..._recentAcademicYears().map((year) => ListTile(
+            leading: Icon(Icons.calendar_today_rounded,
+                color: selectedAcademicYear.value == year ? _kPrimary : const Color(0xFF90A4BE)),
+            title: Text(year, style: const TextStyle(fontWeight: FontWeight.w600)),
+            trailing: selectedAcademicYear.value == year
+                ? const Icon(Icons.check_circle_rounded, color: _kPrimary) : null,
+            onTap: () {
+              selectedAcademicYear.value = year;
+              Get.back();
+              _applyFilter();
+            },
+          )),
+          const SizedBox(height: 20),
+        ]),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _openStudentDetails(Map<String, dynamic> record) async {
+    if (selectedSchool.value == null) return;
+    final studentId = record['_id'];
+    if (studentId == null) {
+      Get.snackbar('Error', 'Missing student ID for this record');
+      return;
+    }
+    final fullRecord = await recordController.getStudentRecord(
+      selectedSchool.value!.id,
+      studentId,
+      academicYear: selectedAcademicYear.value,
+    );
+    if (fullRecord != null) {
+      Get.to(() => StudentReceiptsView(studentRecord: fullRecord));
+    } else {
+      Get.snackbar('Error', 'Could not load student record details');
+    }
+  }
 }
 
 // ─── Records Tab ────────────────────────────────────────────────────────────
@@ -1087,30 +1173,11 @@ class _RecordsTab extends StatelessWidget {
   }
 
   Widget _buildRecordCard(Map<String, dynamic> record, BuildContext context, bool isTablet) {
-    final student = record['studentId'] ?? {};
-    final feeStructure = record['feeStructure'] ?? {};
-    final feePaid = record['feePaid'] ?? {};
-    final dues = record['dues'] ?? {};
-
-    final totalFees = (feeStructure['admissionFee'] ?? 0) +
-        (feeStructure['firstTermAmt'] ?? 0) +
-        (feeStructure['secondTermAmt'] ?? 0) +
-        (feeStructure['busFirstTermAmt'] ?? 0) +
-        (feeStructure['busSecondTermAmt'] ?? 0);
-
-    final totalPaid = (feePaid['admissionFee'] ?? 0) +
-        (feePaid['firstTermAmt'] ?? 0) +
-        (feePaid['secondTermAmt'] ?? 0) +
-        (feePaid['busFirstTermAmt'] ?? 0) +
-        (feePaid['busSecondTermAmt'] ?? 0);
-
-    final totalDues = (dues['admissionDues'] ?? 0) +
-        (dues['firstTermDues'] ?? 0) +
-        (dues['secondTermDues'] ?? 0) +
-        (dues['busfirstTermDues'] ?? 0) +
-        (dues['busSecondTermDues'] ?? 0);
-
+    final studentName = record['studentName'] ?? 'Unknown';
+    final srId = record['srId'] ?? 'N/A';
     final isPaid = record['isFullyPaid'] == true;
+    final feeStatus = (record['feeStatus'] ?? 'unpaid').toString();
+    final hasConcession = record['hasConcession'] == true;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 6),
@@ -1129,7 +1196,7 @@ class _RecordsTab extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => Get.to(() => StudentReceiptsView(studentRecord: record)),
+          onTap: () => parent._openStudentDetails(record),   // see step 2
           child: Padding(
             padding: EdgeInsets.all(isTablet ? 20 : 14),
             child: Column(
@@ -1140,12 +1207,12 @@ class _RecordsTab extends StatelessWidget {
                     CircleAvatar(
                       radius: isTablet ? 26 : 18,
                       backgroundColor: isPaid ? AppTheme.successGreen.withOpacity(0.15) : _kPrimary.withOpacity(0.12),
-                      backgroundImage: student['studentImage']?['url'] != null
-                          ? NetworkImage(student['studentImage']['url'])
+                      backgroundImage: record['studentImage']?['url'] != null
+                          ? NetworkImage(record['studentImage']['url'])
                           : null,
-                      child: student['studentImage']?['url'] == null
+                      child: record['studentImage']?['url'] == null
                           ? Text(
-                        student['studentName']?.toString().substring(0, 1).toUpperCase() ?? 'S',
+                        studentName.toString().substring(0, 1).toUpperCase(),
                         style: TextStyle(
                           color: isPaid ? AppTheme.successGreen : _kPrimary,
                           fontSize: isTablet ? 16 : 13,
@@ -1159,39 +1226,20 @@ class _RecordsTab extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            student['studentName'] ?? 'Unknown',
-                            style: TextStyle(
-                              fontSize: isTablet ? 18 : 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryText,
-                            ),
-                          ),
+                          Text(studentName, style: TextStyle(
+                              fontSize: isTablet ? 18 : 13, fontWeight: FontWeight.bold, color: AppTheme.primaryText)),
                           const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _kPrimary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'SR: ${student['srId'] ?? 'N/A'}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: _kPrimary,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${record['className']} - ${record['sectionName']}',
-                                style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
-                              ),
-                            ],
-                          ),
+                          Row(children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                              child: Text('SR: $srId', style: const TextStyle(fontWeight: FontWeight.w600, color: _kPrimary, fontSize: 11)),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(child: Text('${record['className']} - ${record['sectionName']}', style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,)),
+                          ]),
                         ],
                       ),
                     ),
@@ -1200,15 +1248,18 @@ class _RecordsTab extends StatelessWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isPaid ? AppTheme.successGreen : _kPrimary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            isPaid ? 'PAID' : 'PENDING',
-                            style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
-                          ),
+                          decoration: BoxDecoration(color: isPaid ? AppTheme.successGreen : _kPrimary, borderRadius: BorderRadius.circular(20)),
+                          child: Text(isPaid ? 'PAID' : feeStatus.toUpperCase(),
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                         ),
+                        if (hasConcession) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(20)),
+                            child: Text('CONCESSION', style: TextStyle(color: Colors.orange.shade800, fontSize: 8, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         PopupMenuButton<String>(
                           padding: EdgeInsets.zero,
@@ -1216,97 +1267,23 @@ class _RecordsTab extends StatelessWidget {
                           icon: Icon(Icons.more_vert, color: AppTheme.mutedText),
                           onSelected: (value) => _handleRecordAction(value, record, context),
                           itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'view',
-                              child: Row(children: [
-                                Icon(Icons.visibility, size: 18),
-                                SizedBox(width: 8),
-                                Text('View Details'),
-                              ]),
-                            ),
+                            const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility, size: 18), SizedBox(width: 8), Text('View Details')])),
                             if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'PATCH /api/studentrecord/togglestatus'))
-                              const PopupMenuItem(
-                                value: 'toggle',
-                                child: Row(children: [
-                                  Icon(Icons.toggle_on, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Toggle Status'),
-                                ]),
-                              ),
+                              const PopupMenuItem(value: 'toggle', child: Row(children: [Icon(Icons.toggle_on, size: 18), SizedBox(width: 8), Text('Toggle Status')])),
                             if (ApiPermissions.hasApiAccess(Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '', 'DELETE /api/studentrecord/deleterecord'))
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(children: [
-                                  Icon(Icons.delete, size: 18, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Delete Record', style: TextStyle(color: Colors.red)),
-                                ]),
-                              ),
+                              const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Delete Record', style: TextStyle(color: Colors.red))])),
                           ],
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _kPrimary.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _kPrimary.withOpacity(0.08)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildSummaryItem('Total', '₹$totalFees', AppTheme.primaryBlue, isTablet)),
-                      Container(width: 1, height: 32, color: _kPrimary.withOpacity(0.15)),
-                      Expanded(child: _buildSummaryItem('Paid', '₹$totalPaid', AppTheme.successGreen, isTablet)),
-                      Container(width: 1, height: 32, color: _kPrimary.withOpacity(0.15)),
-                      Expanded(child: _buildSummaryItem('Dues', '₹$totalDues', AppTheme.errorRed, isTablet)),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 10),
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                    expansionTileTheme: ExpansionTileThemeData(
-                      backgroundColor: Colors.grey.shade50,
-                      collapsedBackgroundColor: Colors.grey.shade50,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                  child: ExpansionTile(
-                    tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    leading: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade400,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: const Icon(Icons.receipt, color: Colors.white, size: 13),
-                    ),
-                    title: Text(
-                      'Fee Breakdown',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryText),
-                    ),
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
-                        child: Column(
-                          children: [
-                            _buildFeeRow('Admission Fee', feeStructure['admissionFee'], feePaid['admissionFee'], isTablet),
-                            _buildFeeRow('First Term', feeStructure['firstTermAmt'], feePaid['firstTermAmt'], isTablet),
-                            _buildFeeRow('Second Term', feeStructure['secondTermAmt'], feePaid['secondTermAmt'], isTablet),
-                            _buildFeeRow('Bus First Term', feeStructure['busFirstTermAmt'], feePaid['busFirstTermAmt'], isTablet),
-                            _buildFeeRow('Bus Second Term', feeStructure['busSecondTermAmt'], feePaid['busSecondTermAmt'], isTablet),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                Row(children: [
+                  Icon(Icons.info_outline, size: 13, color: AppTheme.mutedText),
+                  const SizedBox(width: 6),
+                  Text('Tap for full fee breakdown', style: TextStyle(fontSize: 11, color: AppTheme.mutedText, fontStyle: FontStyle.italic)),
+                ]),
               ],
             ),
           ),
@@ -1314,7 +1291,6 @@ class _RecordsTab extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildSummaryItem(String label, String value, Color color, bool isTablet) {
     return Column(
       children: [
@@ -1386,19 +1362,17 @@ class _RecordsTab extends StatelessWidget {
 
   void _handleRecordAction(String action, Map<String, dynamic> record, BuildContext context) async {
     final controller = Get.find<StudentRecordController>();
+    final recordId = record['recordId'];   // student-record document id, not student id
     switch (action) {
       case 'view':
-        Get.to(() => StudentRecordDetailsPage(
-          schoolId: record['schoolId'],
-          studentId: record['studentId']?['_id'],
-        ));
+        parent._openStudentDetails(record);
         break;
       case 'toggle':
-        await controller.toggleStudentStatus(record['_id'], !record['isActive']);
+        await controller.toggleStudentStatus(recordId, !(record['isActive'] == true));
         parent._applyFilter();
         break;
       case 'delete':
-        await controller.deleteStudentRecord(record['_id']);
+        await controller.deleteStudentRecord(recordId);
         parent._applyFilter();
         break;
     }

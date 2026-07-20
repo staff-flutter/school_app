@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
@@ -37,14 +38,12 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
       }
 
       if (studentId != null && schoolId != null) {
-        
         final studentRecord = await studentRecordController.getStudentRecord(schoolId, studentId);
         if (studentRecord != null) {
           setState(() {
             studentRecordData = studentRecord;
             isLoadingStudent = false;
           });
-          
         } else {
           setState(() {
             isLoadingStudent = false;
@@ -56,7 +55,6 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
         });
       }
     } catch (e) {
-      
       setState(() {
         isLoadingStudent = false;
       });
@@ -65,45 +63,51 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
 
   @override
   Widget build(BuildContext context) {
-
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-    
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Modern Header
-            _buildModernHeader(context, isTablet),
-            
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(isTablet ? 24.0 : 16.0),
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(maxWidth: isTablet ? 800 : double.infinity),
-                    child: Column(
-                      children: [
-                        _buildStudentInfo(isTablet),
-                        const SizedBox(height: 16),
-                        _buildFeeStructure(isTablet),
-                        const SizedBox(height: 16),
-                        _buildPaymentInfo(isTablet),
-                        const SizedBox(height: 16),
-                        _buildProofUploads(isTablet),
-                        if (widget.receiptData['receipts'] != null && (widget.receiptData['receipts'] as List).isNotEmpty) ...[
+
+    return  AnnotatedRegion<SystemUiOverlayStyle>(
+    value: const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    ),
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Modern Header
+              _buildModernHeader(context, isTablet),
+
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(isTablet ? 24.0 : 16.0),
+                  child: Center(
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: isTablet ? 800 : double.infinity),
+                      child: Column(
+                        children: [
+                          _buildStudentInfo(isTablet),
                           const SizedBox(height: 16),
-                          _buildReceiptsList(isTablet),
+                          _buildFeeStructure(isTablet),
+                          const SizedBox(height: 16),
+                          _buildPaymentInfo(isTablet),
+                          const SizedBox(height: 16),
+                          _buildProofUploads(isTablet),
+                          if (widget.receiptData['receipts'] != null && (widget.receiptData['receipts'] as List).isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            _buildReceiptsList(isTablet),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -188,6 +192,12 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
   }
 
   Widget _buildStudentInfo(bool isTablet) {
+    // Dynamically check studentRecordData first, then fallback to receiptData
+    final studentType = studentRecordData?['newOld'] ??
+        studentRecordData?['studentType'] ??
+        widget.receiptData['newOld'] ??
+        'N/A';
+
     return _buildModernSection(
       'Student Information',
       Icons.person,
@@ -199,27 +209,46 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
         _buildInfoRow('Section', _getSectionName(), isTablet),
         _buildInfoRow('Roll Number', widget.receiptData['rollNumber']?.toString() ?? 'N/A', isTablet),
         _buildInfoRow('Academic Year', widget.receiptData['academicYear'] ?? 'N/A', isTablet),
-        _buildInfoRow('Student Type', widget.receiptData['newOld'] ?? 'N/A', isTablet),
+        _buildInfoRow('Student Type', studentType.toString(), isTablet), // Updated this line
         _buildInfoRow('Bus Applicable', widget.receiptData['isBusApplicable'] == true ? 'Yes' : 'No', isTablet),
       ],
     );
   }
 
   Widget _buildFeeStructure(bool isTablet) {
-    final feeStructure = studentRecordData?['feeStructure'] as Map<String, dynamic>? ?? {};
-    final feePaid = studentRecordData?['feePaid'] as Map<String, dynamic>? ?? {};
-    final dues = studentRecordData?['dues'] as Map<String, dynamic>? ?? {};
-    
+    // Try both v1 structures and original structures dynamically
+    final feeStructure = studentRecordData?['feeStructurev1'] as Map<String, dynamic>? ??
+        studentRecordData?['feeStructure'] as Map<String, dynamic>? ?? {};
+    final feePaid = studentRecordData?['feePaidv1'] as Map<String, dynamic>? ??
+        studentRecordData?['feePaid'] as Map<String, dynamic>? ?? {};
+    final dues = studentRecordData?['duesv1'] as Map<String, dynamic>? ??
+        studentRecordData?['dues'] as Map<String, dynamic>? ?? {};
+
+    // Get all unique fee item labels dynamically from the keys of the map structures
+    final allFeeKeys = <String>{...feeStructure.keys, ...feePaid.keys, ...dues.keys}.toList();
+
+    List<Widget> feeRows = [];
+    for (var key in allFeeKeys) {
+      // Clean up dynamic camelCase keys into displayable labels (e.g. "admissionFee" -> "Admission Fee")
+      final label = key.replaceAllMapped(RegExp(r'(A-Z)'), (match) => ' ${match.group(0)}').capitalizeFirst ?? key;
+      feeRows.add(
+        _buildFeeRow(label, feeStructure[key], feePaid[key], dues[key], isTablet),
+      );
+    }
+
+    if (feeRows.isEmpty) {
+      feeRows.add(const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Text('No structural fee rows parsed.', style: TextStyle(color: Colors.grey)),
+      ));
+    }
+
     return _buildModernSection(
       'Fee Structure & Payment Status',
       Icons.account_balance_wallet,
       isTablet,
       [
-        _buildFeeRow('Admission Fee', feeStructure['admissionFee'], feePaid['admissionFee'], dues['admissionDues'], isTablet),
-        _buildFeeRow('First Term', feeStructure['firstTermAmt'], feePaid['firstTermAmt'], dues['firstTermDues'], isTablet),
-        _buildFeeRow('Second Term', feeStructure['secondTermAmt'], feePaid['secondTermAmt'], dues['secondTermDues'], isTablet),
-        _buildFeeRow('Bus First Term', feeStructure['busFirstTermAmt'], feePaid['busFirstTermAmt'], dues['busfirstTermDues'], isTablet),
-        _buildFeeRow('Bus Second Term', feeStructure['busSecondTermAmt'], feePaid['busSecondTermAmt'], dues['busSecondTermDues'], isTablet),
+        ...feeRows,
         const Divider(),
         _buildTotalRow(feeStructure, feePaid, isTablet),
       ],
@@ -251,7 +280,7 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
 
   Widget _buildReceiptsList(bool isTablet) {
     final receipts = widget.receiptData['receipts'] as List? ?? [];
-    
+
     return _buildModernSection(
       'Payment Receipts',
       Icons.receipt,
@@ -399,7 +428,7 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
     final totalAmount = (total ?? 0).toDouble();
     final paidAmount = (paid ?? 0).toDouble();
     final dueAmount = (due ?? 0).toDouble();
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(12),
@@ -473,20 +502,11 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
   }
 
   Widget _buildTotalRow(Map<String, dynamic> feeStructure, Map<String, dynamic> feePaid, bool isTablet) {
-    final totalFee = (feeStructure['admissionFee'] ?? 0) +
-                    (feeStructure['firstTermAmt'] ?? 0) +
-                    (feeStructure['secondTermAmt'] ?? 0) +
-                    (feeStructure['busFirstTermAmt'] ?? 0) +
-                    (feeStructure['busSecondTermAmt'] ?? 0);
-    
-    final totalPaid = (feePaid['admissionFee'] ?? 0) +
-                     (feePaid['firstTermAmt'] ?? 0) +
-                     (feePaid['secondTermAmt'] ?? 0) +
-                     (feePaid['busFirstTermAmt'] ?? 0) +
-                     (feePaid['busSecondTermAmt'] ?? 0);
-    
-    final totalDue = totalFee - totalPaid;
-    
+    // Dynamically calculate the aggregated sum instead of relying on explicit object paths
+    final double totalFee = feeStructure.values.fold(0.0, (sum, item) => sum + (item ?? 0).toDouble());
+    final double totalPaid = feePaid.values.fold(0.0, (sum, item) => sum + (item ?? 0).toDouble());
+    final double totalDue = totalFee - totalPaid;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -644,99 +664,69 @@ class _ReceiptDetailViewState extends State<ReceiptDetailView> {
   }
 
   String _getStudentDisplayName() {
-    // First check if we have student record data from API
     if (studentRecordData != null && studentRecordData!['studentId'] is Map) {
       final studentInfo = studentRecordData!['studentId'];
       if (studentInfo['studentName'] != null) {
         return studentInfo['studentName'].toString();
       }
     }
-
-    // Try different ways to get student name from receipt data
     if (widget.receiptData['studentName'] != null && widget.receiptData['studentName'].toString().isNotEmpty) {
       return widget.receiptData['studentName'].toString();
     }
-
-    // Check if studentId is an object with studentName
     if (widget.receiptData['studentId'] is Map && widget.receiptData['studentId']['studentName'] != null) {
       return widget.receiptData['studentId']['studentName'].toString();
     }
-
-    // If still loading student data
     if (isLoadingStudent) {
       return 'Loading...';
     }
-
     return 'Student Record';
   }
 
   String _getStudentId() {
-    // First check if we have student record data from API
     if (studentRecordData != null && studentRecordData!['studentId'] is Map) {
       final studentInfo = studentRecordData!['studentId'];
       if (studentInfo['srId'] != null) {
         return studentInfo['srId'].toString();
       }
     }
-
-    // Try to get srId from studentId object if available
     if (widget.receiptData['studentId'] is Map && widget.receiptData['studentId']['srId'] != null) {
       return widget.receiptData['studentId']['srId'].toString();
     }
-
-    // If still loading student data
     if (isLoadingStudent) {
       return 'Loading...';
     }
-
     return 'N/A';
   }
 
   String _getClassName() {
-    // First check if we have student record data from API
     if (studentRecordData != null && studentRecordData!['classId'] is Map && studentRecordData!['classId']['name'] != null) {
       return studentRecordData!['classId']['name'].toString();
     }
-
-    // Check if className is directly available in receipt
     if (widget.receiptData['className'] != null) {
       return widget.receiptData['className'].toString();
     }
-
-    // Check if classId is an object with name in receipt
     if (widget.receiptData['classId'] is Map && widget.receiptData['classId']['name'] != null) {
       return widget.receiptData['classId']['name'].toString();
     }
-
-    // If still loading student data
     if (isLoadingStudent) {
       return 'Loading...';
     }
-
     return 'N/A';
   }
 
   String _getSectionName() {
-    // First check if we have student record data from API
     if (studentRecordData != null && studentRecordData!['sectionId'] is Map && studentRecordData!['sectionId']['name'] != null) {
       return studentRecordData!['sectionId']['name'].toString();
     }
-
-    // Check if sectionName is directly available in receipt
     if (widget.receiptData['sectionName'] != null) {
       return widget.receiptData['sectionName'].toString();
     }
-
-    // Check if sectionId is an object with name in receipt
     if (widget.receiptData['sectionId'] is Map && widget.receiptData['sectionId']['name'] != null) {
       return widget.receiptData['sectionId']['name'].toString();
     }
-
-    // If still loading student data
     if (isLoadingStudent) {
       return 'Loading...';
     }
-
     return 'N/A';
   }
 

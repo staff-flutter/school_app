@@ -172,7 +172,7 @@ class AccountingController extends GetxController {
     }
   }
 
-  Future<void> collectFee({
+  Future<String?> collectFee({
     required String studentId,
     required String classId,
     required String sectionId,
@@ -188,7 +188,7 @@ class AccountingController extends GetxController {
 
       if (schoolId == null || schoolId.isEmpty) {
         Get.snackbar('Error', 'School ID not found');
-        return;
+        return null;
       }
 
       // Create FormData for multipart request
@@ -202,6 +202,8 @@ class AccountingController extends GetxController {
         MapEntry('sectionId', sectionId),
         MapEntry('amount', amount.toString()),
         MapEntry('paymentMode', paymentMode),
+        if (additionalData?['billBookId'] != null)
+          MapEntry('billBookId', additionalData!['billBookId'].toString()),
         MapEntry('studentName', additionalData?['studentName'] ?? ''),
         MapEntry('newOld', additionalData?['newOld'] ?? 'old'),
         MapEntry(
@@ -248,16 +250,27 @@ class AccountingController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
+        print('responseToSeeTheBillNumber:${response.data}');
         Get.snackbar('Success', response.data['message'] ?? 'Fee collected successfully', backgroundColor: Colors.green, colorText: Colors.white);
         // Clear form and reset state
+        print('📄 collectFee response data: ${response.data}');
+        final data = response.data['data'];
+        // final billNo = data is Map
+        //     ? (data['billNo'] ?? data['billNumber'] ?? data['receiptNo'])?.toString()
+        //     : null;
+
+        final billNo = _findBillNumber(response.data['data'])?.toString();
+        print('📄 collectFee response data: ${response.data}');
         selectedStudent.value = null;
         cashDenominations.clear();
         selectedFiles.clear();
+        return billNo;
         // Refresh the page or navigate back
        // Navigator.pop(Get.context!);
       } else {
         
         Get.snackbar('Error', response.data['message'] ?? 'Fee collection failed',backgroundColor: Colors.red,colorText: Colors.white);
+        return null;
       }
     } on DioException catch (dioError) {
 
@@ -272,9 +285,11 @@ class AccountingController extends GetxController {
       }
       
       Get.snackbar('Error', errorMessage,backgroundColor: Colors.red,colorText: Colors.white);
+      return null;
     } catch (e) {
       
       Get.snackbar('Error', 'Fee collection failed: ${e.toString()}',backgroundColor: Colors.red,colorText: Colors.white);
+      return null;
     } finally {
       isLoading.value = false;
     }
@@ -873,4 +888,22 @@ class AccountingController extends GetxController {
       
     }
   }
-}
+
+  dynamic _findBillNumber(dynamic json) {
+    const keys = ['billNo', 'billNumber', 'receiptNo', 'receiptNumber'];
+    if (json is Map) {
+      for (final k in keys) {
+        if (json[k] != null) return json[k];
+      }
+      for (final v in json.values) {
+        final found = _findBillNumber(v);
+        if (found != null) return found;
+      }
+    } else if (json is List) {
+      for (final item in json) {
+        final found = _findBillNumber(item);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }}

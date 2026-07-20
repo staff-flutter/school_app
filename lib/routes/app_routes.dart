@@ -41,6 +41,7 @@ class AppRoutes {
   static const String FEE_SETUP           = '/fee-setup';
 
   static const String BILL_BOOK           = '/bill-book';
+  static const String ADMISSION_FORM      = '/admission-form';
   static const String ADMISSION_FORMS_VIEW = '/admission-forms-view';
   static const String ADMISSION_BOOK       = '/admission-book';
   static const String STUDENT_DETAILS     = '/student-details';
@@ -66,6 +67,14 @@ class AppRoutes {
   static const String STUDENT_PROFILE_VERIFICATION = '/student-profile-verification';
   static const String SUBSCRIPTION_MANAGEMENT     = '/subscription-management';
   static const String teacherClasses              = '/my-classes';
+
+  // Transport Routes
+  static const String DRIVER_MODULE     = '/driver-module';
+  static const String BUS_MODULE        = '/bus-module';
+  static const String DAILY_TRIP_LOG_MODULE = '/daily-trip-log-module';
+  static const String FUEL_LOG_MODULE = '/fuel_log_module';
+  static const String BUS_ROUTE_MODULE = '/bus-routes-page';
+
 
   // Backward compatibility aliases
   static const String timetableManagement   = TIMETABLE_MANAGEMENT;
@@ -94,6 +103,8 @@ class AppRoutes {
   static const String announcements         = '/announcements';
   static const String transactionDetail     = '/transaction_detail';
   static const String receiptDetail         = '/receipt_detail';
+
+
 
   static List<GetPage> routes = [
     GetPage(name: login,     page: () => LoginView()),

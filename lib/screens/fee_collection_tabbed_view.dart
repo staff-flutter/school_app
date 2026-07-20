@@ -1518,7 +1518,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
                         child: const Icon(Icons.receipt, color: Colors.green, size: 20),
                       ),
                       title: Text(
-                        'Receipt #${receipt['receiptNo'] ?? 'N/A'}',
+                        'Receipt #${receipt['billNo'] ?? receipt['receiptNo'] ?? receipt['billNumber'] ?? 'N/A'}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
@@ -2450,7 +2450,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         amount: amount,
         paymentMode: controller.selectedPaymentMode.value,
         additionalData: additionalData,
-      ).then((_) {
+      ).then((billNo) {
         // Clear form fields after successful submission
         manualDueAllocation.value = false;
         selectedPaidHeads.clear();
@@ -2465,6 +2465,11 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         _busPointController.clear();
         showPaymentDetails.value = false;
         isStudentSelectorCollapsed.value = false;
+        if (billNo != null && billNo.isNotEmpty) {
+          Get.snackbar('Bill Number', 'BillNo #$billNo',
+              backgroundColor: Colors.green, colorText: Colors.white,
+              duration: const Duration(seconds: 4));
+        }
       });
     }else {
       // Scroll to the first error so user can see it

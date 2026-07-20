@@ -7,22 +7,38 @@ import 'package:school_app/bindings/marks_upload_binding.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_controller.dart';
 import 'package:school_app/screens/fee_set_up_view.dart';
+import 'package:school_app/screens/fuel_log_detail_page.dart';
 import '../bindings/feestructure_binding.dart';
+import '../bindings/transport_binding.dart';
 import '../controllers/clubs_controller.dart';
 import '../controllers/finance_ledger_controller.dart';
+import '../screens/Bill_Book.dart';
 import '../screens/accounting_dashboard_with_api_integration.dart';
 import '../screens/admin_attendance.dart';
 import '../screens/admission_book.dart';
 import '../screens/admission_form_detail_view.dart';
 import '../screens/admission_forms.dart';
 import '../screens/attendance_dashboard.dart';
-import '../screens/bill_book_page.dart';
+import '../screens/admission_form.dart';
+import '../screens/bus_create_page.dart';
+import '../screens/bus_module.dart';
+import '../screens/bus_profile_page.dart';
+import '../screens/bus_route_detail_page.dart';
+import '../screens/bus_route_form_page.dart';
+import '../screens/bus_route_list_page.dart';
 import '../screens/clubs_&_activities_creating.dart' hide CampusManagementView;
 import '../screens/create_employee_profile_page.dart';
 import '../screens/create_student_profile_page.dart';
+import '../screens/daily_trip_log_create_page.dart';
+import '../screens/daily_trip_log_profile_page.dart';
+import '../screens/daily_trip_module.dart';
+import '../screens/driver_create_page.dart';
+import '../screens/driver_module.dart';
+import '../screens/driver_profile_page.dart';
 import '../screens/employee_list_page.dart';
 import '../screens/enhanced_profile_view.dart';
 import '../screens/finance_dashboard_view.dart';
+import '../screens/fuel_log_list_page.dart';
 import '../screens/home_page.dart';
 import '../controllers/attendance_controller.dart';
 import '../screens/attendance_view.dart';
@@ -152,6 +168,90 @@ class AppPages {
           }),
     ),
     GetPage(
+      name: AppRoutes.DRIVER_MODULE,
+      page: () => RoleAwareWrapper(child: DriverDirectoryScreen(
+        onCreateDriver: () async {
+          final shouldRefresh = await Get.to(() => const DriverCreateScreen());
+          if (shouldRefresh == true) {
+            // your directory already refreshes via RefreshIndicator/re-fetch on return
+          }
+        },
+        onEditDriver: (driver) async {
+          final shouldRefresh = await Get.to(() => DriverCreateScreen(driver: driver));
+          // shouldRefresh == true means the directory list should reload too
+        },
+        onViewDriver: (driver) {
+          Get.to(() => DriverProfileScreen(
+            driverId: driver['_id'].toString(),
+            onEdit: (currentDriver) async {
+              // Get.to returns the popped value (true on successful update)
+              return await Get.to(() => DriverCreateScreen(driver: currentDriver));
+            },
+          ));
+        },
+      )),
+      binding: TransportBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.BUS_MODULE,
+      page: () => RoleAwareWrapper(child: BusDirectoryScreen(
+        onRegisterBus: () async {
+          final shouldRefresh = await Get.to(() => const BusCreateScreen());
+        },
+        onEditBus: (bus) async {
+          return await Get.to(() => BusCreateScreen(bus: bus));
+        },
+        onViewBus: (bus) {
+          Get.to(() => BusProfileScreen(
+            busId: bus['_id'].toString(),
+            onEdit: (currentBus) async {
+              return await Get.to(() => BusCreateScreen(bus: currentBus));
+            },
+          ));
+        },
+      )),
+      binding: TransportBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.DAILY_TRIP_LOG_MODULE,
+      page: () => RoleAwareWrapper(child: DailyTripLogDirectoryScreen(
+        onLogTrip: () async {
+          await Get.to(() => const DailyTripLogCreateScreen());
+        },
+        onEditTripLog: (log) async {
+          return await Get.to(() => DailyTripLogCreateScreen(tripLog: log));
+        },
+        onViewTripLog: (log) {
+          Get.to(() => DailyTripLogProfileScreen(
+            tripLogId: log['_id'].toString(),
+            onEdit: (currentLog) async {
+              return await Get.to(() => DailyTripLogCreateScreen(tripLog: currentLog));
+            },
+          ));
+        },
+      )),
+      binding: TransportBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.BUS_ROUTE_MODULE,
+      page: () => RoleAwareWrapper(
+        child: BusRouteListScreen(
+          schoolId: Get.find<AuthController>().schoolId.toString(),
+        ),
+      ),
+      binding: TransportBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.FUEL_LOG_MODULE,
+      page: () => RoleAwareWrapper(
+        child: FuelLogListScreen(
+          schoolId: Get.find<AuthController>().schoolId.toString(),
+        ),
+      ),
+      binding: TransportBinding(),
+    ),
+
+    GetPage(
       name: '/teacher-classes',
       page: () => RoleAwareWrapper(child: const TeacherClassesView()),
       binding: BindingsBuilder(() {
@@ -190,12 +290,20 @@ class AppPages {
       binding: AccountingBinding(),
     ),
     GetPage(
-      name: AppRoutes.BILL_BOOK,
+      name: AppRoutes.ADMISSION_FORM,
       page: () => RoleAwareWrapper(child: const AdmissionBillBookView()),
       binding: BindingsBuilder(() {
        BillAdmissionBinding().dependencies();
        SchoolBinding().dependencies();
        }),
+    ),
+    GetPage(
+      name: AppRoutes.BILL_BOOK,
+      page: () => RoleAwareWrapper(child: const BillBookManagementScreen()),
+      binding: BindingsBuilder(() {
+        BillAdmissionBinding().dependencies();
+        SchoolBinding().dependencies();
+      }),
     ),
     GetPage(
       name: AppRoutes.ADMISSION_FORMS_VIEW,
@@ -509,6 +617,7 @@ class AppPages {
       name: AppRoutes.TIMETABLE_MANAGEMENT,
       page: () => RoleAwareWrapper(child: TimeTablePage()),
       middlewares: [RoleGuard()],
+      binding: SchoolBinding(),
     ),
     GetPage(
       name: AppRoutes.HOMEWORK_MANAGEMENT,

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/student_record_controller.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
+import 'package:school_app/core/utils/academic_year_utils.dart';
 
 class StudentRecordIntegration extends StatelessWidget {
   const StudentRecordIntegration({super.key});
@@ -130,6 +131,7 @@ class StudentRecordIntegration extends StatelessWidget {
         sectionId: 'demo_section',
         amount: 1000.0,
         paymentMode: 'cash',
+        academicYear: AcademicYearUtils.getCurrentAcademicYear(),
       );
     }
   }

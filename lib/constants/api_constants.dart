@@ -227,4 +227,90 @@ class ApiConstants {
   static const String getSingleAttempt = '/api/club/quiz/attempt/get';
   static const String deleteAttempt = '/api/club/quiz/attempt/delete';
 
+
+  // ─── Transport: Driver Endpoints ───────────────────────────────────────────
+  // POST /api/transport/driver/create
+  //   multipart/form-data — schoolId (required), name, phone, assignedBusId,
+  //   dateOfBirth, joinedDate, emergencyContact, address, documents (JSON array),
+  //   photo, documents_0/documents_1/... (per-document attachment files)
+  static const String createDriver           = '/api/transport/driver/create';
+  // GET /api/transport/driver — query: schoolId, status, search (all optional)
+  static const String getAllDrivers          = '/api/transport/driver';
+  // GET /api/transport/driver/dropdown/:schoolId
+  static const String getDriverDropdown      = '/api/transport/driver/dropdown';
+  // GET /api/transport/driver/:id
+  static const String getDriver              = '/api/transport/driver';
+  // PUT /api/transport/driver/:id — multipart/form-data
+  static const String updateDriver           = '/api/transport/driver';
+  // DELETE /api/transport/driver/:id
+  static const String deleteDriver           = '/api/transport/driver';
+  // DELETE /api/transport/driver/:id/documents/:documentId/files/:fileId
+  static const String deleteDriverDocumentFile = '/api/transport/driver';
+
+  // ─── Transport: Bus Endpoints ──────────────────────────────────────────────
+  // POST /api/transport/bus/create
+  //   multipart/form-data — all Bus schema fields; statutoryDocuments as JSON
+  //   array; files via statutoryDocuments_0, statutoryDocuments_1, ...
+  static const String createBus              = '/api/transport/bus/create';
+  // GET /api/transport/bus/ — query: schoolId, operationalStatus, search
+  static const String getAllBuses            = '/api/transport/bus/';
+  // GET /api/transport/bus/dropdown/:schoolId
+  static const String getBusDropdown         = '/api/transport/bus/dropdown';
+  // GET /api/transport/bus/:id
+  static const String getBus                 = '/api/transport/bus';
+  // PUT /api/transport/bus/:id — multipart/form-data, partial update
+  static const String updateBus               = '/api/transport/bus';
+  // DELETE /api/transport/bus/:id
+  static const String deleteBus               = '/api/transport/bus';
+  // DELETE /api/transport/bus/:id/documents/:documentId/files/:fileId
+  static const String deleteBusDocumentFile   = '/api/transport/bus';
+
+  // ─── Transport: Daily Trip Log Endpoints ───────────────────────────────────
+  static const String createDailyTripLog     = '/api/transport/dailytriplog/create';
+  // GET /api/transport/dailytriplog/ — query: schoolId, busId, academicYear, page, limit
+  static const String getAllDailyTripLogs    = '/api/transport/dailytriplog/';
+  // GET /api/transport/dailytriplog/:id
+  static const String getDailyTripLog        = '/api/transport/dailytriplog';
+  // PUT /api/transport/dailytriplog/:id
+  static const String updateDailyTripLog     = '/api/transport/dailytriplog';
+  // DELETE /api/transport/dailytriplog/:id
+  static const String deleteDailyTripLog     = '/api/transport/dailytriplog';
+
+  // ─── Transport: Fuel Log Endpoints ─────────────────────────────────────────
+  static const String createFuelLog          = '/api/transport/fuellog/create';
+  // GET /api/transport/fuellog/ — query: schoolId, busId, academicYear, search,
+  //   fromDate, toDate, minAmount, maxAmount, page, limit
+  static const String getAllFuelLogs         = '/api/transport/fuellog/';
+  // GET /api/transport/fuellog/:id — schoolId passed as query param
+  static const String getFuelLog             = '/api/transport/fuellog';
+  // PUT /api/transport/fuellog/:id
+  static const String updateFuelLog          = '/api/transport/fuellog';
+  // DELETE /api/transport/fuellog/:id
+  static const String deleteFuelLog          = '/api/transport/fuellog';
+
+  // ─── Transport: Bus Route Endpoints ────────────────────────────────────────
+  // POST /api/transport/busroute/ — stops: [{ stopName, landmark, order, latitude, longitude, googlePlaceId }]
+  static const String createBusRoute         = '/api/transport/bus-route/';
+  // POST /api/transport/busroute/:routeId/assignments
+  //   assignments: [{ busId, driverId, shift, stopTimings: [{ stopName, time }] }]
+  static const String addBusRouteAssignments = '/api/transport/bus-route';
+  // PUT /api/transport/busroute/:routeId/assignments — needs assignmentId in body
+  static const String updateBusRouteAssignment = '/api/transport/bus-route';
+  // DELETE /api/transport/busroute/:routeId/assignments — needs assignmentId in body
+  static const String deleteBusRouteAssignment = '/api/transport/bus-route';
+  // GET /api/transport/busroute/ — query: schoolId, search, minFee, maxFee, page, limit
+  static const String getAllBusRoutes        = '/api/transport/bus-route';
+  // GET /api/transport/busroute/drop-down — query: schoolId
+  static const String getBusRouteDropdown    = '/api/transport/bus-route/drop-down';
+  // GET /api/transport/busroute/:routeId
+  static const String getBusRoute            = '/api/transport/bus-route';
+  // PUT /api/transport/busroute/:routeId
+  static const String updateBusRoute         = '/api/transport/bus-route';
+  // DELETE /api/transport/busroute/:routeId
+  static const String deleteBusRoute         = '/api/transport/bus-route';
+
+  static const String getDailyTripLogAnalytics = '/api/transport/dailytriplog/analytics';
+  static const String getFuelLogAnalytics       = '/api/transport/fuellog/analytics';
+
+
 }

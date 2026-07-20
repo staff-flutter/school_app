@@ -62,6 +62,7 @@ class ApiTestExamples {
         {"label": "500", "count": 10}
       ],
       remarks: "First term fee payment",
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
       //isBusApplicable: true,
     );
 
@@ -83,6 +84,7 @@ class ApiTestExamples {
       bankName: "SBI",
       chequeDate: "2025-12-25",
       remarks: "Full term fee via cheque",
+      academicYear: AcademicYearUtils.getCurrentAcademicYear(),
     );
 
   }

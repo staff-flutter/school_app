@@ -295,7 +295,7 @@ class _StudentReceiptsViewState extends State<StudentReceiptsView> {
         return;
       }
 
-      final response = await controller.getStudentRecord(schoolId, studentId);
+      final response = await controller.getStudentRecord(schoolId, studentId,academicYear: widget.studentRecord['academicYear'],);
 
       if (response != null) {
         

@@ -5,7 +5,7 @@ import 'package:school_app/controllers/bill_admission_controller.dart';
 
 import '../controllers/school_controller.dart';
 import 'admission_form_detail_view.dart';
-import 'bill_book_page.dart';
+import 'admission_form.dart';
 
 class AdmissionFormListView extends StatefulWidget {
   const AdmissionFormListView({super.key});

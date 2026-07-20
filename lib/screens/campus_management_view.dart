@@ -864,7 +864,7 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
     if (pdfFiles != null) {
       for (final pdf in pdfFiles) {
         req.files.add(await http.MultipartFile.fromPath(
-          'files',
+          'pdf',
           pdf.path!,
           contentType: MediaType('application', 'pdf'),
         ));
@@ -1096,12 +1096,12 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
                 if (titleCtrl.text.trim().isEmpty || videoFile == null) return;
                 Get.back();
                 await _uploadVideo(
-                    title: titleCtrl.text.trim(),
-                    topic: topicCtrl.text.trim(),
-                    level: level,
-                    academicYear: yearCtrl.text.trim(),
-                    videoFile: videoFile,
-                    pdfFiles: pdfFiles.isEmpty ? null : pdfFiles,
+                  title: titleCtrl.text.trim(),
+                  topic: topicCtrl.text.trim(),
+                  level: level,
+                  academicYear: yearCtrl.text.trim(),
+                  videoFile: videoFile,
+                  pdfFiles: pdfFiles.isEmpty ? null : pdfFiles,
                 );
               },
               child: const Text('Upload', style: TextStyle(fontSize: 13)),
@@ -1623,7 +1623,7 @@ class _QuizTabState extends State<_QuizTab> {
     setState(() => _loading = true);
     // NOTE: add `getQuizzesByClub` to ApiConstants pointing at your quiz-list endpoint.
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getQuizzesByClub}')
-        .replace(queryParameters: {'clubId': _selectedClub!.id});
+        .replace(queryParameters: {'clubId': _selectedClub!.id.toString()});
     _logRequest('GET', uri);
     try {
       final res = await http.get(uri, headers: _headers);
@@ -1631,7 +1631,10 @@ class _QuizTabState extends State<_QuizTab> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final list = (body['data'] as List? ?? []).map((e) => Quiz.fromJson(e)).toList();
-        setState(() { _quizzes = list; _loading = false; });
+        final Map<String, Quiz> uniqueMap = {
+          for (final q in list) if (q.id.isNotEmpty) q.id: q,
+        };
+        setState(() { _quizzes = uniqueMap.values.toList(); _loading = false; });
       } else {
         setState(() { _quizzes = []; _loading = false; });
       }
@@ -1970,10 +1973,12 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
       'schoolId': widget.schoolId,
       'clubId': widget.clubId,
       'title': _titleCtrl.text.trim(),
+      'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
       //'source': widget.source,
       'questions': _questions.map((q) => q.toJson()).toList(),
     };
-
+    final year = AcademicYearUtils.getCurrentAcademicYear();
+    print('📅 [QUIZ SAVE] computed academicYear = $year');
     final isEditing = widget.editingQuiz != null;
     // NOTE: add `createQuiz` / `updateQuiz` to ApiConstants pointing at your backend.
     final uri = isEditing
@@ -1987,6 +1992,7 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
           : await http.post(uri, headers: {..._headers, 'Content-Type': 'application/json'}, body: jsonEncode(payload));
       _logResponse(isEditing ? 'PUT' : 'POST', uri, res);
       if (res.statusCode == 200 || res.statusCode == 201) {
+        print('responseOfManualQuiz:${res.body}');
         Get.snackbar('Success', isEditing ? 'Quiz updated' : 'Quiz created',
             backgroundColor: const Color(0xFF22C55E), colorText: Colors.white);
         if (mounted) Navigator.pop(context, true);
@@ -2206,7 +2212,7 @@ class _AiQuizUploadScreenState extends State<_AiQuizUploadScreen> {
   ClubVideo? _selectedVideo;
   Map<String, String>? _selectedPdf; // {id, url, name}
   final _questionCountCtrl = TextEditingController(text: '10');
-  final _yearCtrl = TextEditingController(text: '2025-2026');
+  final _yearCtrl = TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
   bool _generating = false;
 
   Map<String, String> get _headers => {
@@ -2273,25 +2279,38 @@ class _AiQuizUploadScreenState extends State<_AiQuizUploadScreen> {
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
         final data = body['data'] ?? body;
+        final generatedQuizId = data['_id']?.toString();
         final title = data['title'] ?? '${_selectedVideo!.title} Quiz';
         final questions = (data['questions'] as List? ?? [])
             .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
             .toList();
 
-        if (questions.isEmpty) {
-          Get.snackbar('No questions generated', 'Try a different PDF or add questions manually',
-              backgroundColor: Colors.orange, colorText: Colors.white);
-          setState(() => _generating = false);
-          return;
-        }
+        // if (questions.isEmpty) {
+        //   Get.snackbar('No questions generated', 'Try a different PDF or add questions manually',
+        //       backgroundColor: Colors.orange, colorText: Colors.white);
+        //   setState(() => _generating = false);
+        //   return;
+        // }
 
         if (!mounted) return;
+        final alreadySaved = generatedQuizId != null && generatedQuizId.isNotEmpty;
+
         final saved = await Navigator.pushReplacement<bool, void>(context, MaterialPageRoute(
           builder: (_) => _QuizBuilderScreen(
             clubId: widget.clubId,
             token: widget.token,
             schoolId: widget.schoolId,
             source: 'ai',
+            editingQuiz: alreadySaved
+                ? Quiz(
+              id: generatedQuizId!,
+              title: title,
+              clubId: widget.clubId,
+              isGeneratedByAi: true,
+              questions: questions,
+              createdAt: '',
+            )
+                : null,
             initialTitle: title,
             initialQuestions: questions,
           ),
