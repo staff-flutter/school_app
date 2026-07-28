@@ -59,15 +59,20 @@ class ClubCategory {
     required this.isActive,
   });
 
-  factory ClubCategory.fromJson(Map<String, dynamic> j) => ClubCategory(
-    id:           j['_id']         ?? '',
-    name:         j['name']        ?? '',
-    description:  j['description'] ?? '',
-    thumbnailUrl: j['thumbnail'] is Map
-        ? j['thumbnail']['url']
-        : j['thumbnail'],
-    isActive:     j['isActive']    ?? true,
-  );
+  factory ClubCategory.fromJson(Map<String, dynamic> j) {
+    debugPrint('🖼️ [LIST TILE] raw thumbnail json: ${j['thumbnail']}');
+    debugPrint('🖼️ [LIST TILE] resolved thumbnailUrl: ${j['thumbnail'] is Map ? j['thumbnail']['url'] : j['thumbnail']}');
+
+    return ClubCategory(
+      id:           j['_id']         ?? '',
+      name:         j['name']        ?? '',
+      description:  j['description'] ?? '',
+      thumbnailUrl: j['thumbnail'] is Map
+          ? j['thumbnail']['url']
+          : j['thumbnail'],
+      isActive:     j['isActive']    ?? true,
+    );
+  }
 }
 
 class ClubVideo {
@@ -251,7 +256,7 @@ class _CampusManagementViewState extends State<CampusManagementView>
 
   // ── API: clubs ────────────────────────────────────────────────────────────
 
-  Future<void> _fetchClubs({int page = 1}) async {
+  Future<void> _fetchClubs({int page = 1, bool forceRefresh = false}) async {
     if (_schoolId == null) {
       debugPrint('⚠️ [CLUB API] GET getAllClubs skipped — schoolId is null');
       setState(() => _clubsLoading = false);
@@ -435,6 +440,7 @@ class _CampusManagementViewState extends State<CampusManagementView>
                   isLoading: _clubsLoading,
                   canEdit: _canEdit(_role),
                   hasMore: _clubPage < _clubTotal,
+                  onRefresh: () => _fetchClubs(page: 1, forceRefresh: true),
                   onLoadMore: () => _fetchClubs(page: _clubPage + 1),
                   onTapClub: (club) => Navigator.push(context, MaterialPageRoute(
                     builder: (_) => _ClubVideosScreen(
@@ -518,6 +524,7 @@ class _ClubsTab extends StatefulWidget {
   final bool isLoading;
   final bool canEdit;
   final bool hasMore;
+  final Future<void> Function() onRefresh;
   final VoidCallback onLoadMore;
   final void Function(ClubCategory) onTapClub;
   final Future<void> Function(String name, String desc, dynamic thumb) onCreate;
@@ -525,9 +532,16 @@ class _ClubsTab extends StatefulWidget {
   final void Function(ClubCategory) onDelete;
 
   const _ClubsTab({
-    required this.clubs, required this.isLoading, required this.canEdit,
-    required this.hasMore, required this.onLoadMore, required this.onTapClub,
-    required this.onCreate, required this.onEdit, required this.onDelete,
+    required this.clubs, 
+    required this.isLoading, 
+    required this.canEdit,
+    required this.hasMore,
+    required this.onRefresh,
+    required this.onLoadMore, 
+    required this.onTapClub,
+    required this.onCreate, 
+    required this.onEdit, 
+    required this.onDelete,
   });
 
   @override
@@ -574,28 +588,32 @@ class _ClubsTabState extends State<_ClubsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        _SectionHeader(
-          title: 'Club categories',
-          addLabel: 'Add club',
-          showAdd: widget.canEdit,
-          onAdd: () { _resetForm(); setState(() => _showForm = !_showForm); },
-        ),
-        if (_showForm && widget.canEdit) _buildForm(),
-        if (widget.isLoading)
-          const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
-        else if (widget.clubs.isEmpty)
-          const _EmptyState(message: 'No clubs yet. Add one!', icon: Icons.groups_outlined)
-        else
-          _buildList(),
-        if (widget.hasMore)
-          Center(child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: TextButton(onPressed: widget.onLoadMore,
-                child: Text('Load more', style: TextStyle(color: Colors.blue[700], fontSize: 13))),
-          )),
-      ],
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          _SectionHeader(
+            title: 'Club categories',
+            addLabel: 'Add club',
+            showAdd: widget.canEdit,
+            onAdd: () { _resetForm(); setState(() => _showForm = !_showForm); },
+          ),
+          if (_showForm && widget.canEdit) _buildForm(),
+          if (widget.isLoading)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (widget.clubs.isEmpty)
+            const _EmptyState(message: 'No clubs yet. Add one!', icon: Icons.groups_outlined)
+          else
+            _buildList(),
+          if (widget.hasMore)
+            Center(child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: TextButton(onPressed: widget.onLoadMore,
+                  child: Text('Load more', style: TextStyle(color: Colors.blue[700], fontSize: 13))),
+            )),
+        ],
+      ),
     );
   }
 
@@ -1722,72 +1740,75 @@ class _QuizTabState extends State<_QuizTab> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: _StyledDropdown(
-            label: 'Club',
-            value: _selectedClub?.name ?? '',
-            items: widget.clubs.map((c) => c.name).toList(),
-            onChanged: (name) {
-              final club = widget.clubs.firstWhere((c) => c.name == name);
-              setState(() => _selectedClub = club);
-              _fetchQuizzes();
-            },
+    return RefreshIndicator(
+      onRefresh: _fetchQuizzes,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: _StyledDropdown(
+              label: 'Club',
+              value: _selectedClub?.name ?? '',
+              items: widget.clubs.map((c) => c.name).toList(),
+              onChanged: (name) {
+                final club = widget.clubs.firstWhere((c) => c.name == name);
+                setState(() => _selectedClub = club);
+                _fetchQuizzes();
+              },
+            ),
           ),
-        ),
-        if (widget.canEdit)
+          if (widget.canEdit)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(children: [
+                Expanded(child: _QuizActionCard(
+                  icon: Icons.edit_note,
+                  title: 'Create manually',
+                  subtitle: 'Add questions & options yourself',
+                  color: Colors.blue,
+                  onTap: () => _openManualBuilder(),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _QuizActionCard(
+                  icon: Icons.auto_awesome,
+                  title: 'Generate with AI',
+                  subtitle: 'Upload a PDF, we\'ll build it',
+                  color: Colors.purple,
+                  onTap: _openAiGenerator,
+                )),
+              ]),
+            ),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(children: [
-              Expanded(child: _QuizActionCard(
-                icon: Icons.edit_note,
-                title: 'Create manually',
-                subtitle: 'Add questions & options yourself',
-                color: Colors.blue,
-                onTap: () => _openManualBuilder(),
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: _QuizActionCard(
-                icon: Icons.auto_awesome,
-                title: 'Generate with AI',
-                subtitle: 'Upload a PDF, we\'ll build it',
-                color: Colors.purple,
-                onTap: _openAiGenerator,
-              )),
-            ]),
+            child: Text('Quizzes', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
           ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text('Quizzes', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
-        ),
-        if (_loading)
-          const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
-        else if (_quizzes.isEmpty)
-          const _EmptyState(message: 'No quizzes yet for this club.', icon: Icons.quiz_outlined)
-        else
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+          if (_loading)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (_quizzes.isEmpty)
+            const _EmptyState(message: 'No quizzes yet for this club.', icon: Icons.quiz_outlined)
+          else
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Column(children: _quizzes.map((q) => _QuizListTile(
+                  quiz: q,
+                  canEdit: widget.canEdit,
+                  onTap: () => _openTakeQuiz(q),
+                  onEdit: () => _openManualBuilder(editing: q),
+                  onDelete: () => _confirmDelete(q),
+                )).toList()),
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Column(children: _quizzes.map((q) => _QuizListTile(
-                quiz: q,
-                canEdit: widget.canEdit,
-                onTap: () => _openTakeQuiz(q),
-                onEdit: () => _openManualBuilder(editing: q),
-                onDelete: () => _confirmDelete(q),
-              )).toList()),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

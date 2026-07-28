@@ -1185,7 +1185,9 @@ class TransportController extends GetxController {
     try {
       isLoading.value = true;
       final response = await _apiService.get('${ApiConstants.getFuelLogAnalytics}/$schoolId');
-      if (response.data['ok'] == true) return response.data['data'];
+      if (response.data['ok'] == true) {
+        print('response of getFuelLogAnalytics:${response.data}');
+        return response.data['data'];}
       _showSnackbar('Error', response.data['message'] ?? 'Failed to load fuel log analytics', AppTheme.errorRed);
       return null;
     } catch (e) {

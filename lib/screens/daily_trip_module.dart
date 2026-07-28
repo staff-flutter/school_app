@@ -73,6 +73,8 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
     _loadLogs();
     if (_schoolId != null) {
       _controller.getBusDropdown(_schoolId!);
+      _controller.getDailyTripLogAnalytics(_schoolId!);
+      _controller.getFuelLogAnalytics(_schoolId!);
     }
   }
 

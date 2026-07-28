@@ -288,6 +288,51 @@ Widget _emptyState({required IconData icon, required String title, required Stri
   );
 }
 
+/// Styled search bar — used across all management tabs for consistency.
+Widget _searchBar({
+  required TextEditingController controller,
+  required String hint,
+  required ValueChanged<String> onChanged,
+  VoidCallback? onClear,
+}) {
+  return Container(
+    margin: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+    decoration: BoxDecoration(
+      color: _DS.surface,
+      borderRadius: BorderRadius.circular(100),
+      border: Border.all(color: _DS.border),
+      boxShadow: _DS.shadow,
+    ),
+    child: TextField(
+      controller: controller,
+      onChanged: onChanged,
+      style: const TextStyle(fontSize: 14, color: _DS.textPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: _DS.textMuted, fontSize: 14),
+        prefixIcon: const Icon(Icons.search_rounded, color: _DS.textMuted, size: 20),
+        suffixIcon: controller.text.isNotEmpty
+            ? GestureDetector(
+          onTap: () {
+            controller.clear();
+            onChanged('');
+            if (onClear != null) onClear();
+          },
+          child: const Icon(Icons.close_rounded, color: _DS.textMuted, size: 18),
+        )
+            : null,
+        filled: true,
+        fillColor: Colors.transparent,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+      ),
+    ),
+  );
+}
+
 // ─── MAIN VIEW ────────────────────────────────────────────────────────────────
 
 class SchoolManagementView extends StatefulWidget {
@@ -763,50 +808,85 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   Widget _buildSchoolsTab() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
+    final searchQuery = ''.obs;
+    final searchCtrl = TextEditingController();
+
+    List<School> _filterSchools(List<School> schools) {
+      final q = searchQuery.value.trim().toLowerCase();
+      if (q.isEmpty) return schools;
+      return schools.where((s) {
+        final name = s.name.toLowerCase();
+        final code = (s.schoolCode ?? '').toLowerCase();
+        return name.contains(q) || code.contains(q);
+      }).toList();
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator(color: _DS.accent));
-        }
-        return RefreshIndicator(
-          onRefresh: controller.refreshSchools,
-          color: _DS.accent,
-          child: controller.schools.isEmpty
-              ? _emptyState(icon: Icons.school_outlined,
-              title: 'No Schools Yet',
-              subtitle: 'Create your first school to get started')
-              : ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-            itemCount: controller.schools.length+1,
-
-
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                    child: Row(children: [
-                      Text('${controller.schools.length} school${controller.schools.length == 1 ? '' : 's'}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                              color: _DS.textMuted)),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: controller.refreshSchools,
-                        child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.refresh_rounded, size: 14, color: _DS.accent),
-                          SizedBox(width: 4),
-                          Text('Refresh', style: TextStyle(fontSize: 12, color: _DS.accent,
-                              fontWeight: FontWeight.w600)),
-                        ]),
-                      ),
-                    ]),
-                  );
-                }
-                return _buildSchoolCard(controller.schools[index - 1], currentUserRole);            }
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Column(children: [
+          _searchBar(
+            controller: searchCtrl,
+            hint: 'Search schools by name or code',
+            onChanged: (v) => searchQuery.value = v,
           ),
-        );
-      }),
+          Expanded(
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator(color: _DS.accent));
+              }
+              final filtered = _filterSchools(controller.schools);
+              return RefreshIndicator(
+                onRefresh: controller.refreshSchools,
+                color: _DS.accent,
+                child: filtered.isEmpty
+                    ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    _emptyState(
+                      icon: controller.schools.isEmpty
+                          ? Icons.school_outlined
+                          : Icons.search_off_rounded,
+                      title: controller.schools.isEmpty ? 'No Schools Yet' : 'No Matches',
+                      subtitle: controller.schools.isEmpty
+                          ? 'Create your first school to get started'
+                          : 'No schools match "${searchQuery.value}"',
+                    ),
+                  ],
+                )
+                    : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
+                  itemCount: filtered.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                        child: Row(children: [
+                          Text('${filtered.length} school${filtered.length == 1 ? '' : 's'}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                                  color: _DS.textMuted)),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: controller.refreshSchools,
+                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.refresh_rounded, size: 14, color: _DS.accent),
+                              SizedBox(width: 4),
+                              Text('Refresh', style: TextStyle(fontSize: 12, color: _DS.accent,
+                                  fontWeight: FontWeight.w600)),
+                            ]),
+                          ),
+                        ]),
+                      );
+                    }
+                    return _buildSchoolCard(filtered[index - 1], currentUserRole);
+                  },
+                ),
+              );
+            }),
+          ),
+        ]),
+      ),
       floatingActionButton: ApiPermissions.hasApiAccess(currentUserRole, 'POST /api/school/create')
           ? _buildFAB(onPressed: () => Get.toNamed('/create-school'),
           icon: Icons.add_rounded, label: 'Add School')
@@ -999,6 +1079,8 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   Widget _buildClassesTab() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
+    final searchQuery = ''.obs;
+    final searchCtrl = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.schools.isEmpty) controller.getAllSchools();
@@ -1006,25 +1088,61 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         controller.getAllClasses(controller.selectedSchool.value!.id);
     });
 
+    Future<void> _refreshClasses() async {
+      if (controller.selectedSchool.value != null) {
+        await controller.getAllClasses(controller.selectedSchool.value!.id);
+      }
+    }
+
+    List<SchoolClass> _filterClasses(List<SchoolClass> classes) {
+      final q = searchQuery.value.trim().toLowerCase();
+      if (q.isEmpty) return classes;
+      return classes.where((c) => c.name.toLowerCase().contains(q)).toList();
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Obx(() {
-        if (controller.isLoading.value)
-          return const Center(child: CircularProgressIndicator(color: _DS.accent));
-        if (controller.classes.isEmpty)
-          return _emptyState(
-            icon: Icons.class_outlined,
-            title: 'No Classes',
-            subtitle: 'Add classes to organize your students',
-          );
-        final sortedClasses = ClassUtils.sortClasses(controller.classes);
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-          itemCount: sortedClasses.length,
-          itemBuilder: (context, i) =>
-              _buildClassCard(sortedClasses[i], currentUserRole),
-        );
-      }),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Column(children: [
+          _searchBar(
+            controller: searchCtrl,
+            hint: 'Search classes by name',
+            onChanged: (v) => searchQuery.value = v,
+          ),
+          Expanded(
+            child: Obx(() {
+              if (controller.isLoading.value)
+                return const Center(child: CircularProgressIndicator(color: _DS.accent));
+              final sortedClasses = ClassUtils.sortClasses(controller.classes);
+              final filtered = _filterClasses(sortedClasses);
+              return RefreshIndicator(
+                onRefresh: _refreshClasses,
+                color: _DS.accent,
+                child: filtered.isEmpty
+                    ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    _emptyState(
+                      icon: sortedClasses.isEmpty ? Icons.class_outlined : Icons.search_off_rounded,
+                      title: sortedClasses.isEmpty ? 'No Classes' : 'No Matches',
+                      subtitle: sortedClasses.isEmpty
+                          ? 'Add classes to organize your students'
+                          : 'No classes match "${searchQuery.value}"',
+                    ),
+                  ],
+                )
+                    : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) =>
+                      _buildClassCard(filtered[i], currentUserRole),
+                ),
+              );
+            }),
+          ),
+        ]),
+      ),
       floatingActionButton: ApiPermissions.hasApiAccess(
           currentUserRole, 'POST /api/class/create')
           ? _buildFAB(
@@ -1044,9 +1162,9 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         const SizedBox(width: 14),
         Expanded(
             child: Text(schoolClass.name,
-                style: const TextStyle(
-            fontSize: 15, fontWeight: FontWeight.w600,
-                    color: _DS.textPrimary,),
+              style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w600,
+                color: _DS.textPrimary,),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             )),
@@ -1080,6 +1198,8 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
     final isCorrespondent = currentUserRole == 'correspondent';
+    final searchQuery = ''.obs;
+    final searchCtrl = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.schools.isEmpty) controller.getAllSchools();
@@ -1087,22 +1207,67 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
         controller.getAllSections(schoolId: controller.selectedSchool.value!.id);
     });
 
+    Future<void> _refreshSections() async {
+      if (controller.selectedSchool.value != null) {
+        await controller.getAllSections(schoolId: controller.selectedSchool.value!.id);
+      }
+    }
+
+    List<Section> _filterSections(List<Section> sections) {
+      final q = searchQuery.value.trim().toLowerCase();
+      if (q.isEmpty) return sections;
+      return sections.where((s) {
+        final name = s.name.toLowerCase();
+        final className = (s.className ?? '').toLowerCase();
+        final room = (s.roomNumber ?? '').toLowerCase();
+        return name.contains(q) || className.contains(q) || room.contains(q);
+      }).toList();
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body:
-        Obx(() {
-          if (controller.isLoading.value)
-            return const Center(child: CircularProgressIndicator(color: _DS.accent));
-          if (controller.sections.isEmpty)
-            return _emptyState(icon: Icons.group_outlined,
-                title: 'No Sections', subtitle: 'Add sections to organize classes');
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-            itemCount: controller.sections.length,
-            itemBuilder: (context, i) =>
-                _buildSectionCard(context, controller.sections[i], currentUserRole),
-          );
-        }),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Column(children: [
+          _searchBar(
+            controller: searchCtrl,
+            hint: 'Search sections by name, class, or room',
+            onChanged: (v) => searchQuery.value = v,
+          ),
+          Expanded(
+            child: Obx(() {
+              if (controller.isLoading.value)
+                return const Center(child: CircularProgressIndicator(color: _DS.accent));
+              final filtered = _filterSections(controller.sections);
+              return RefreshIndicator(
+                onRefresh: _refreshSections,
+                color: _DS.accent,
+                child: filtered.isEmpty
+                    ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    _emptyState(
+                      icon: controller.sections.isEmpty
+                          ? Icons.group_outlined
+                          : Icons.search_off_rounded,
+                      title: controller.sections.isEmpty ? 'No Sections' : 'No Matches',
+                      subtitle: controller.sections.isEmpty
+                          ? 'Add sections to organize classes'
+                          : 'No sections match "${searchQuery.value}"',
+                    ),
+                  ],
+                )
+                    : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) =>
+                      _buildSectionCard(context, filtered[i], currentUserRole),
+                ),
+              );
+            }),
+          ),
+        ]),
+      ),
       floatingActionButton: ApiPermissions.hasApiAccess(
           currentUserRole, 'POST /api/section/create')
           ? _buildFAB(
@@ -1180,6 +1345,27 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     final selectedSection = Rxn<Section>();
     final isFiltersExpanded = true.obs;
     final canManageClubs = ['correspondent', 'administrator'].contains(currentUserRole);
+    final searchQuery = ''.obs;
+    final searchCtrl = TextEditingController();
+
+    Future<void> _refreshStudents() async {
+      if (controller.selectedSchool.value == null) return;
+      await controller.getAllStudents(
+        schoolId: controller.selectedSchool.value!.id,
+        classId: selectedClass.value?.id,
+        sectionId: selectedSection.value?.id,
+      );
+    }
+
+    List<Student> _filterStudents(List<Student> students) {
+      final q = searchQuery.value.trim().toLowerCase();
+      if (q.isEmpty) return students;
+      return students.where((s) {
+        final name = (s.name ?? '').toLowerCase();
+        final roll = (s.rollNumber ?? '').toLowerCase();
+        return name.contains(q) || roll.contains(q);
+      }).toList();
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1285,6 +1471,16 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           }),
         ),
 
+        // ── Search ─────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: _searchBar(
+            controller: searchCtrl,
+            hint: 'Search students by name or roll number',
+            onChanged: (v) => searchQuery.value = v,
+          ),
+        ),
+
         // ── Student list ───────────────────────────────────────────
         Expanded(
           child: Obx(() {
@@ -1292,27 +1488,45 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               return const Center(
                   child: CircularProgressIndicator(color: _DS.accent));
 
-            final studentsToShow = controller.students;
+            final studentsToShow = _filterStudents(controller.students);
 
-            if (studentsToShow.isEmpty)
-              return _emptyState(
-                icon: Icons.people_outline_rounded,
-                title: 'No Students',
-                subtitle: controller.selectedSchool.value == null
-                    ? 'Select a school to view students'
-                    : 'No students found',
-              );
-
-            final sorted = List<Student>.from(studentsToShow)
-              ..sort((a, b) => (a.name ?? '')
-                  .toLowerCase()
-                  .compareTo((b.name ?? '').toLowerCase()));
-
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-              itemCount: sorted.length,
-              itemBuilder: (context, i) =>
-                  _buildStudentCard(sorted[i], currentUserRole, canManageClubs),
+            return RefreshIndicator(
+              onRefresh: _refreshStudents,
+              color: _DS.accent,
+              child: studentsToShow.isEmpty
+                  ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _emptyState(
+                    icon: controller.students.isEmpty
+                        ? Icons.people_outline_rounded
+                        : Icons.search_off_rounded,
+                    title: controller.students.isEmpty ? 'No Students' : 'No Matches',
+                    subtitle: controller.selectedSchool.value == null
+                        ? 'Select a school to view students'
+                        : (controller.students.isEmpty
+                        ? 'No students found'
+                        : 'No students match "${searchQuery.value}"'),
+                  ),
+                ],
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                itemCount: () {
+                  final sorted = List<Student>.from(studentsToShow)
+                    ..sort((a, b) => (a.name ?? '')
+                        .toLowerCase()
+                        .compareTo((b.name ?? '').toLowerCase()));
+                  return sorted.length;
+                }(),
+                itemBuilder: (context, i) {
+                  final sorted = List<Student>.from(studentsToShow)
+                    ..sort((a, b) => (a.name ?? '')
+                        .toLowerCase()
+                        .compareTo((b.name ?? '').toLowerCase()));
+                  return _buildStudentCard(sorted[i], currentUserRole, canManageClubs);
+                },
+              ),
             );
           }),
         ),
@@ -1365,9 +1579,9 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           ),
           const SizedBox(height: 2),
           Text(
-              (student.rollNumber == null || student.rollNumber!.trim().isEmpty)
-                  ? 'No roll number' : 'Roll: ${student.rollNumber}',
-              style: const TextStyle(fontSize: 12, color: _DS.textMuted),
+            (student.rollNumber == null || student.rollNumber!.trim().isEmpty)
+                ? 'No roll number' : 'Roll: ${student.rollNumber}',
+            style: const TextStyle(fontSize: 12, color: _DS.textMuted),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
 
@@ -1489,36 +1703,6 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
             child: const Icon(Icons.expand_less_rounded, color: _DS.textMuted),
           ),
       ]),
-      // const SizedBox(height: 14),
-      // Obx(() {
-      //   final authController = Get.find<AuthController>();
-      //   final isCorrespondent =
-      //       authController.user.value?.role?.toLowerCase() == 'correspondent';
-      //   if (isCorrespondent) {
-      //     return _dropdown<School>(
-      //       value: controller.selectedSchool.value,
-      //       hint: 'Select School',
-      //       icon: Icons.school_rounded,
-      //       selectedItemBuilder: controller.schools.map((s) =>
-      //           Text(s.name, overflow: TextOverflow.ellipsis,
-      //               style: const TextStyle(color: _DS.textPrimary, fontSize: 15))).toList(),
-      //       items: controller.schools.map((s) => DropdownMenuItem(
-      //         value: s, child: _dropdownItem(Icons.school_rounded, s.name),
-      //       )).toList(),
-      //       onChanged: (School? s) {
-      //         controller.selectedSchool.value = s;
-      //         selectedClass.value = null;
-      //         selectedSection.value = null;
-      //         if (s != null) controller.getAllClasses(s.id);
-      //       },
-      //     );
-      //   } else {
-      //     if (controller.selectedSchool.value != null && controller.sections.isEmpty)
-      //       WidgetsBinding.instance.addPostFrameCallback((_) =>
-      //           controller.getAllSections(schoolId: controller.selectedSchool.value!.id));
-      //     return _readonlySchoolChip();
-      //   }
-      // }),
       const SizedBox(height: 10),
       Obx(() {
         final sortedClasses = ClassUtils.sortClasses(controller.classes);
@@ -1588,6 +1772,8 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   Widget _buildUsersTab() {
     final authController = Get.find<AuthController>();
     final currentUserRole = authController.user.value?.role?.toLowerCase() ?? '';
+    final searchQuery = ''.obs;
+    final searchCtrl = TextEditingController();
 
     const roles = [
       'all', 'correspondent', 'teacher', 'principal',
@@ -1601,6 +1787,25 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       if (schoolId != null) {
         userController.loadUsers(schoolId: schoolId, role: role);
       }
+    }
+
+    Future<void> _refreshUsers() async {
+      final schoolId = controller.selectedSchool.value?.id ??
+          authController.user.value?.schoolId;
+      if (schoolId != null) {
+        await userController.loadUsers(
+            schoolId: schoolId, role: userController.selectedRole.value);
+      }
+    }
+
+    List<Map<String, dynamic>> _filterUsers(List<Map<String, dynamic>> users) {
+      final q = searchQuery.value.trim().toLowerCase();
+      if (q.isEmpty) return users;
+      return users.where((u) {
+        final name = (u['userName'] ?? '').toString().toLowerCase();
+        final email = (u['email'] ?? '').toString().toLowerCase();
+        return name.contains(q) || email.contains(q);
+      }).toList();
     }
 
     void showRoleSheet() {
@@ -1753,6 +1958,16 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           ]),
         ),
 
+        // ── Search ───────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: _searchBar(
+            controller: searchCtrl,
+            hint: 'Search users by name or email',
+            onChanged: (v) => searchQuery.value = v,
+          ),
+        ),
+
         // ── User list ───────────────────────────────────────────────
         Expanded(
           child: Obx(() {
@@ -1760,20 +1975,34 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               return const Center(
                   child: CircularProgressIndicator(color: _DS.accent));
 
-            if (userController.users.isEmpty)
-              return _emptyState(
-                icon: Icons.person_outline_rounded,
-                title: 'No Users Found',
-                subtitle: 'Add users to manage your school',
-              );
+            final filtered = _filterUsers(userController.users);
 
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-              itemCount: userController.users.length,
-              itemBuilder: (context, index) {
-                final user = userController.users[index];
-                return _buildUserCard(user, currentUserRole);
-              },
+            return RefreshIndicator(
+              onRefresh: _refreshUsers,
+              color: _DS.accent,
+              child: filtered.isEmpty
+                  ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _emptyState(
+                    icon: userController.users.isEmpty
+                        ? Icons.person_outline_rounded
+                        : Icons.search_off_rounded,
+                    title: userController.users.isEmpty ? 'No Users Found' : 'No Matches',
+                    subtitle: userController.users.isEmpty
+                        ? 'Add users to manage your school'
+                        : 'No users match "${searchQuery.value}"',
+                  ),
+                ],
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final user = filtered[index];
+                  return _buildUserCard(user, currentUserRole);
+                },
+              ),
             );
           }),
         ),
@@ -2005,7 +2234,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     );
   }
   // ─── Attendance Tab ────────────────────────────────────────────────────────
- // Widget _buildAttendanceTab() => SingleChildScrollView(child: _AttendanceTab());
+  // Widget _buildAttendanceTab() => SingleChildScrollView(child: _AttendanceTab());
 
   // ─── Shared helpers ────────────────────────────────────────────────────────
   Widget _readonlySchoolChip({String? name}) {
@@ -3802,8 +4031,8 @@ class _AttendanceTabState extends State<_AttendanceTab> {
       const SizedBox(height: 14),
       isLandscape && isTablet
           ? Row(children: [
-       //  Expanded(child:
-       // // _buildSchoolSelector()),
+        //  Expanded(child:
+        // // _buildSchoolSelector()),
         const SizedBox(width: 12),
         Expanded(child: _buildClassSelector()),
       ])

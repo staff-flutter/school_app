@@ -25,7 +25,12 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
   bool _loading = true;
   bool _editMode = false;
   bool _changed = false;
+  bool get _isLinkedToStudent {
+    final id = _formData?['studentId']?.toString() ?? '';
+    return id.isNotEmpty && id != 'null';
+  }
 
+  String get _linkedStudentId => _formData?['studentId']?.toString() ?? '';
   // Matches the IAdmissionForm schema's status enum exactly.
   static const List<String> _statusOptions = ['Pending', 'Approved', 'Rejected'];
 
@@ -444,6 +449,31 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
   }
 
   Widget _buildLinkingSection(bool saving) {
+    if (_isLinkedToStudent) {
+      // Already linked — show a read-only confirmation instead of the input.
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFBBF7D0)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Color(0xFF15803D)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Linked to Student Profile\nStudent ID: $_linkedStudentId',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF15803D)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Not linked yet — show the input + link button as before.
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -496,5 +526,4 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
         ],
       ),
     );
-  }
-}
+  }}

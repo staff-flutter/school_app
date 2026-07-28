@@ -136,6 +136,11 @@ class _StudentReceiptsViewState extends State<StudentReceiptsView> {
                           'Receipt #${receipt['receiptNo'] ?? receipt['_id']?.toString().substring(0, 8) ?? 'N/A'}',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
+                        if (receipt['billNo'] != null)
+                          Text(
+                            'Bill Number: ${receipt['billNo']}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                          ),
                         Text('Amount: ₹${receipt['amountPaid'] ?? receipt['amount'] ?? '0'}'),
                         Text('Payment Mode: ${(receipt['paymentMode'] ?? 'N/A').toString().toUpperCase()}'),
                         Text('Date: ${_formatDate(paymentDate)}'),

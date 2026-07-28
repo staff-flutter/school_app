@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import '../services/api_service.dart';
 
@@ -80,8 +79,7 @@ class TimetableController extends GetxController {
 
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        Navigator.pop(Get.context!);
-        Get.snackbar('Success', 'Day added to timetable successfully');
+        Get.snackbar('Success', 'Day added to timetable successfully');   // FIX: no Navigator.pop — dialog is already closed by the caller
         // Reload timetables after adding day
         await getAllTimetables(schoolId: schoolId, classId: classId, sectionId: sectionId);
         return true;
@@ -93,11 +91,9 @@ class TimetableController extends GetxController {
 
 
         final errorMsg = e.response?.data?['message'] ?? 'Failed to add day';
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', errorMsg);
+        Get.snackbar('Error', errorMsg);   // FIX: no Navigator.pop — dialog is already closed by the caller
       } else {
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', 'Failed to add day');
+        Get.snackbar('Error', 'Failed to add day');   // FIX: no Navigator.pop — dialog is already closed by the caller
       }
       return false;
     } finally {
@@ -125,8 +121,7 @@ class TimetableController extends GetxController {
 
 
       if (response.statusCode == 200) {
-        Navigator.pop(Get.context!);
-        Get.snackbar('Success', 'Day updated successfully');
+        Get.snackbar('Success', 'Day updated successfully');   // FIX: no Navigator.pop — dialog is already closed by the caller
         return true;
       }
       return false;
@@ -136,11 +131,9 @@ class TimetableController extends GetxController {
 
 
         final errorMsg = e.response?.data?['message'] ?? 'Failed to update day';
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', errorMsg);
+        Get.snackbar('Error', errorMsg);   // FIX: no Navigator.pop — dialog is already closed by the caller
       } else {
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', 'Failed to Update day');
+        Get.snackbar('Error', 'Failed to Update day');   // FIX: no Navigator.pop — dialog is already closed by the caller
       }
       return false;
     } finally {
@@ -180,11 +173,9 @@ class TimetableController extends GetxController {
 
 
         final errorMsg = e.response?.data?['message'] ?? 'Failed to delete day';
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', errorMsg);
+        Get.snackbar('Error', errorMsg);   // FIX: no Navigator.pop — dialog is already closed by the caller
       } else {
-        Navigator.pop(Get.context!);
-        Get.snackbar('Error', 'Failed to Delete day');
+        Get.snackbar('Error', 'Failed to Delete day');   // FIX: no Navigator.pop — dialog is already closed by the caller
       }
       return false;
     } finally {

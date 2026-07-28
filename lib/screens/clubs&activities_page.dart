@@ -49,10 +49,14 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   // ------------------------------------THE  CLUBS&ACTIVITIES FUNCTION -----------------------------
 
-  Future<void> fetchClubsAndActivities() async {
+  Future<void> fetchClubsAndActivities({bool isRefresh = false}) async {
     if (_isFetching) {
       debugPrint('⏭️ Skipping duplicate fetchClubsAndActivities — one is already in flight');
       return;
+    }
+
+    if (isRefresh) {
+      _lastFetchedSchoolId = null;
     }
 
     String baseUrl = ApiConstants.baseUrl;
@@ -77,10 +81,12 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       return;
     }
     print('schoolId of Testing School:$schoolId');
-    if (schoolId == _lastFetchedSchoolId && apiClubs.isNotEmpty) {
+    if (!isRefresh && schoolId == _lastFetchedSchoolId && apiClubs.isNotEmpty) {
       debugPrint('⏭️ Skipping fetch — already have data for schoolId $schoolId');
       return;
     }
+
+    _isFetching = true;
     final queryParameters = {
       "schoolId": schoolId,
       "page": "1",
@@ -234,18 +240,22 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 50.0),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-                  _header(),
-                  const SizedBox(height: 20),
-                  _gridCards(),
-                  const SizedBox(height: 24),
-                  _quizzesSection(),
-                  SizedBox(height: AppTheme.navBarPadding(context)),
-                ],
+            child: RefreshIndicator(
+              onRefresh: () => fetchClubsAndActivities(isRefresh: true),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    _header(),
+                    const SizedBox(height: 20),
+                    _gridCards(),
+                    const SizedBox(height: 24),
+                    _quizzesSection(),
+                    SizedBox(height: AppTheme.navBarPadding(context)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -305,6 +315,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       itemBuilder: (BuildContext context, int index) {
         final club = apiClubs[index];
         final clubId = apiClubs[index].id;
+        final bool hasThumbnail = club.thumbnail != null && club.thumbnail!.isNotEmpty;
         return _BounceCard(
           onTap: () {
             Navigator.push(
@@ -312,33 +323,61 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
               MaterialPageRoute(builder: (context) => SchoolGalleryPage(clubName: club.name, description: club.description, clubId: clubId,)),
             );
           },
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff4A90E2).withOpacity(0.4),
-                  blurRadius: 10,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  club.name,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: hasThumbnail
+                      ? Image.network(
+                    club.thumbnail!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(colors: [Color(0xff4A90E2), Color(0xff6FD3F7)]),
+                      ),
+                    ),
+                  )
+                      : Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(colors: [Color(0xff4A90E2), Color(0xff6FD3F7)]),
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+              if (hasThumbnail)
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(color: Colors.black.withOpacity(0.45)),
+                  ),
+                ),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xff4A90E2).withOpacity(0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      club.name,
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -355,7 +394,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       );
     }
 
-    // 🌟 Dynamic Filter Logic: If a filter is selected, check match by clubId
     final filteredQuizzes = _selectedClubFilter == null
         ? _quizzes
         : _quizzes.where((quiz) => quiz.clubId == _selectedClubFilter!.id).toList();
@@ -363,7 +401,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 🌟 Redesigned dynamic row container handling Header text alongside Dropdown Selection
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -372,7 +409,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 12),
-            // Custom Styled Dropdown Selection Button matching the UI theme
             Flexible(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -389,7 +425,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                     style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
                     icon: Icon(Icons.keyboard_arrow_down, color: Colors.blue[700], size: 18),
                     items: [
-                      // Allow clearing the filter completely
                       const DropdownMenuItem<ClubsAndActivitiesStrings?>(
                         value: null,
                         child: Text("All Clubs"),
@@ -492,9 +527,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
   }
 }
 
-
-// ---------------------------------------- MODEL CLASS TO GET THE DATA FOR UI NEED not in use ------------------------------------
-
+// ---------------------------------------- MODEL CLASSES & ATTEMPT PAGE REMAIN UNCHANGED ------------------------------------
 
 class ClubsAndActivitiesStrings1{
   final String universityName;
@@ -505,10 +538,8 @@ class ClubsAndActivitiesStrings1{
 
   ClubsAndActivitiesStrings1({required this.universityName, required this. clubName, required this.studentName, required this.videoURL, required this.description});
 
-
   factory ClubsAndActivitiesStrings1.fromJson(Map<String, dynamic> json) {
     return ClubsAndActivitiesStrings1(
-
       universityName: json['universityName'] ?? "Unknown",
       clubName: json['clubName'] ?? "Unknown",
       studentName: json['studentName'] ?? "Unknown",
@@ -517,10 +548,6 @@ class ClubsAndActivitiesStrings1{
     );
   }
 }
-
-
-// ---------------------------------------- MODEL CLASS TO GET THE DATA WHICH IS PRESENT IN DATABASE ------------------
-
 
 class ClubsAndActivitiesStrings {
   final String id;
@@ -536,19 +563,22 @@ class ClubsAndActivitiesStrings {
   });
 
   factory ClubsAndActivitiesStrings.fromJson(Map<String, dynamic> json) {
+    String? thumbnailUrl;
+    if (json['thumbnail'] is Map) {
+      thumbnailUrl = json['thumbnail']['url']?.toString();
+    } else if (json['thumbnail'] is String) {
+      thumbnailUrl = json['thumbnail'];
+    }
+    debugPrint('🖼️ [BIG CARD] raw thumbnail json: ${json['thumbnail']}');
+    debugPrint('🖼️ [BIG CARD] resolved thumbnailUrl: $thumbnailUrl');
     return ClubsAndActivitiesStrings(
       id: json['_id'] ?? "",
       name: json['name'] ?? "Unknown Club",
       description: json['description'] ?? "",
-      thumbnail: json['thumbnail'],
+      thumbnail: thumbnailUrl,
     );
   }
 }
-
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  QUIZ MODELS
-// ═════════════════════════════════════════════════════════════════════════════
 
 class ClubQuizQuestion {
   final String questionText;
@@ -594,12 +624,6 @@ class ClubQuiz {
   }
 }
 
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  QUIZ ATTEMPT PAGE — student answers each question, submits for auto-grading
-//  (POST /api/club/quiz/attempt/create), then sees score + correct answers.
-// ═════════════════════════════════════════════════════════════════════════════
-
 class QuizAttemptPage extends StatefulWidget {
   final ClubQuiz quiz;
   const QuizAttemptPage({super.key, required this.quiz});
@@ -642,9 +666,6 @@ class _QuizAttemptPageState extends State<QuizAttemptPage> {
         'selectedOptionIndex': _selected[i],
       }),
       'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
-      // classId / sectionId are optional on this endpoint — wire them in
-      // here once the logged-in student's classId & sectionId are exposed
-      // on AuthController, so attempts can be filtered by class/section.
     };
 
     try {
@@ -843,10 +864,6 @@ class _QuizAttemptPageState extends State<QuizAttemptPage> {
     );
   }
 }
-
-
-// -------------------------------------------- BOUNCE CARD ---------------------------------------------
-
 
 class _BounceCard extends StatefulWidget {
   final Widget child;

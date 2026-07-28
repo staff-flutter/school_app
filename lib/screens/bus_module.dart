@@ -153,13 +153,15 @@ class _BusDirectoryScreenState extends State<BusDirectoryScreen> {
               if (_controller.isLoading.value && _controller.buses.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
               }
+
               final visible = _visibleBuses;
-              if (visible.isEmpty) {
-                return _buildEmptyState();
-              }
+
               return RefreshIndicator(
                 onRefresh: _loadBuses,
-                child: ListView.separated(
+                child: visible.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(12),
                   itemCount: visible.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -258,28 +260,32 @@ class _BusDirectoryScreenState extends State<BusDirectoryScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.grey.shade200,
-              child: const Icon(Icons.directions_bus_outlined, size: 32, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            const Text('No Buses Found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text(
-              'Adjust your filters or register a new bus to see data here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-          ],
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(32),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: Colors.grey.shade200,
+                child: const Icon(Icons.directions_bus_outlined, size: 32, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              const Text('No Buses Found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(
+                'Adjust your filters or register a new bus to see data here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -622,8 +628,7 @@ class _BusCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('Next: $nextService', style: TextStyle(fontSize: 11, color: Colors.grey.shade600),overflow: TextOverflow.ellipsis,
-                        maxLines: 1,),
+                      child: Text('Next: $nextService', style: TextStyle(fontSize: 11, color: Colors.grey.shade600), overflow: TextOverflow.ellipsis, maxLines: 1),
                     ),
                   ],
                 ),

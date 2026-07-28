@@ -312,5 +312,49 @@ class ApiConstants {
   static const String getDailyTripLogAnalytics = '/api/transport/dailytriplog/analytics';
   static const String getFuelLogAnalytics       = '/api/transport/fuellog/analytics';
 
+  // ─── EB: Premises Endpoints ────────────────────────────────────────────────
+  // GET /api/premises/get/:schoolId — fetch all premises for a school
+  static const String getAllPremises   = '/api/premises/get';                    //api no: 225
+  // POST /api/premises/create/:schoolId
+  static const String createPremises   = '/api/premises/create';                 //api no: 226
+  // PUT /api/premises/update/:schoolId/:premisesId
+  static const String updatePremises   = '/api/premises/update';                 //api no: 227
+  // DELETE /api/premises/delete/:schoolId/:premisesId
+  static const String deletePremises   = '/api/premises/delete';                 //api no: 228
+  // GET /api/premises/get/:schoolId/:premisesId — fetch a single premises
+  static const String getPremises      = '/api/premises/get';                    //api no: 229
+
+  // ─── EB: Log Endpoints ─────────────────────────────────────────────────────
+  // GET /api/eb/logs/get-all/:schoolId
+  //   query (optional): premisesId, fromDate, toDate, minReading, maxReading, search
+  static const String getAllEBLogs     = '/api/eb/logs/get-all';                 //api no: 230
+  // GET /api/eb/logs/get/:schoolId/:logId
+  static const String getEBLog         = '/api/eb/logs/get';                     //api no: 231
+  // POST /api/eb/logs/create/:schoolId — all fields except ebLogNo
+  static const String createEBLog      = '/api/eb/logs/create';                  //api no: 232
+  // PUT /api/eb/logs/update/:schoolId/:logId
+  static const String updateEBLog      = '/api/eb/logs/update';                  //api no: 233
+  // DELETE /api/eb/logs/delete/:schoolId/:logId
+  static const String deleteEBLog      = '/api/eb/logs/delete';                  //api no: 234
+
+  // Analytics base — actual routes are built as:
+  //   GET  <base>/:schoolId/premises              — per-premises analytics cards   //api no: 235
+  //   GET  <base>/:schoolId/dashboard              — overall EB dashboard summary   //api no: 236
+  //   GET  <base>/:schoolId/linechart/consumption  — query: period, premisesId,
+  //                                                  fromDate, toDate               //api no: 237
+  //   GET  <base>/:schoolId/bill/kpi                — projected billing KPIs        //api no: 238
+  static const String ebLogsAnalyticsBase = '/api/eb/logs/analytics';
+
+  // ─── EB: Tariff Endpoints ──────────────────────────────────────────────────
+  // GET /api/eb/tariff/get-all/:schoolId
+  static const String getAllTariffs    = '/api/eb/tariff/get-all';               //api no: 239
+  // GET /api/eb/tariff/get/:schoolId/:tariffId
+  static const String getTariff        = '/api/eb/tariff/get';                   //api no: 240
+  // POST /api/eb/tariff/create/:schoolId — slabs sent as array of slab objects
+  static const String createTariff     = '/api/eb/tariff/create';                //api no: 241
+  // PUT /api/eb/tariff/update/:schoolId/:tariffId — send complete slabs array if updating slabs
+  static const String updateTariff     = '/api/eb/tariff/update';                //api no: 242
+  // DELETE /api/eb/tariff/delete/:schoolId/:tariffId
+  static const String deleteTariff     = '/api/eb/tariff/delete';                //api no: 243
 
 }

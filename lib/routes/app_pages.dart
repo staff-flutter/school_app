@@ -3,11 +3,14 @@ import 'package:get/get.dart';
 import 'package:school_app/bindings/SchoolBinding.dart';
 import 'package:school_app/bindings/attendance_binding.dart';
 import 'package:school_app/bindings/bill_admission_binding.dart';
+import 'package:school_app/bindings/eb_binding.dart';
 import 'package:school_app/bindings/marks_upload_binding.dart';
 import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/student_controller.dart';
+import 'package:school_app/screens/EB%20Log%20Module.dart';
 import 'package:school_app/screens/fee_set_up_view.dart';
 import 'package:school_app/screens/fuel_log_detail_page.dart';
+import 'package:school_app/screens/tariff_module.dart';
 import '../bindings/feestructure_binding.dart';
 import '../bindings/transport_binding.dart';
 import '../controllers/clubs_controller.dart';
@@ -32,9 +35,11 @@ import '../screens/create_student_profile_page.dart';
 import '../screens/daily_trip_log_create_page.dart';
 import '../screens/daily_trip_log_profile_page.dart';
 import '../screens/daily_trip_module.dart';
+import '../screens/dashboard_for_Transportion_analytics.dart';
 import '../screens/driver_create_page.dart';
 import '../screens/driver_module.dart';
 import '../screens/driver_profile_page.dart';
+import '../screens/eb_dashboard.dart';
 import '../screens/employee_list_page.dart';
 import '../screens/enhanced_profile_view.dart';
 import '../screens/finance_dashboard_view.dart';
@@ -46,6 +51,7 @@ import '../screens/login_page_for_daily_grades.dart';
 import '../screens/login_view.dart';
 import '../screens/onboarding screen1.dart';
 import '../screens/parent_management_page.dart';
+import '../screens/premises_module.dart';
 import '../screens/schedule_of_teacher.dart';
 import '../screens/set_fee_configuration_page.dart';
 import '../screens/simple_communications_view.dart';
@@ -250,7 +256,41 @@ class AppPages {
       ),
       binding: TransportBinding(),
     ),
-
+    GetPage(
+      name: AppRoutes.TRANSPORTATION_ANALYTICS_DASHBOARD,
+      page: () => RoleAwareWrapper(
+        child: TransportationAnalyticsScreen(),
+      ),
+      binding: TransportBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.PREMISES_MODULE,
+      page: () => RoleAwareWrapper(
+        child: PremisesListScreen(),
+      ),
+      binding: EbBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.EB_LOG_MODULE,
+      page: () => RoleAwareWrapper(
+        child: EBLogListScreen(),
+      ),
+      binding: EbBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.TARIFF_MODULE,
+      page: () => RoleAwareWrapper(
+        child: TariffListScreen(),
+      ),
+      binding: EbBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.EB_DASHBOARD,
+      page: () => RoleAwareWrapper(
+        child: EBDashboardScreen(),
+      ),
+      binding: EbBinding(),
+    ),
     GetPage(
       name: '/teacher-classes',
       page: () => RoleAwareWrapper(child: const TeacherClassesView()),
@@ -504,10 +544,12 @@ class AppPages {
       name: '${AppRoutes.TEACHER_ATTENDANCE}',
       page: () => RoleAwareWrapper(child: const AdminAttendanceView()),
       binding: BindingsBuilder(() {
-        if (Get.isRegistered<ParentAttendanceController>()) {
-          Get.delete<ParentAttendanceController>();
+        if (!Get.isRegistered<SchoolController>()) {
+          Get.put(SchoolController());
         }
-        Get.put(ParentAttendanceController());
+        if (!Get.isRegistered<ParentAttendanceController>()) {
+          Get.put(ParentAttendanceController());
+        }
       }),
     ),
     GetPage(

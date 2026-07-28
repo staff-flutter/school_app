@@ -101,6 +101,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _AuthCtrl = Get.find<AuthController>();
+  Worker? _classesWorker;
 
   // ── Attendance state ────────────────────────────────────────────────────────
   String? _selectedClassId;
@@ -133,24 +134,41 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadClassesFromController();
-    _loadCalendarEvents();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadClassesFromController();
+      _loadCalendarEvents();
+    });
   }
 
   @override
   void dispose() {
+    _classesWorker?.dispose();
     _tabController.dispose();
     _eventNameCtrl.dispose();
     _eventDescCtrl.dispose();
     super.dispose();
   }
 
-  void _loadClassesFromController() {
+  Future<void> _loadClassesFromController() async {
     try {
       final sc = Get.find<SchoolController>();
-      final schoolId = sc.selectedSchool.value?.id;
-      if (schoolId != null) sc.getAllClasses(schoolId);
-
+      String? schoolId = sc.selectedSchool.value?.id;
+      if (schoolId == null || schoolId.isEmpty) {
+        schoolId = _AuthCtrl.user.value?.schoolId;
+      }
+      _classesWorker?.dispose();
+      _classesWorker = ever(sc.classes, (list) {
+        if (!mounted) return;
+        setState(() {
+          _classes = list
+              .map((c) => {'id': c.id ?? '', 'name': c.name ?? ''})
+              .where((c) => c['id']!.isNotEmpty)
+              .toList();
+        });
+      });
+      if (schoolId != null && schoolId.isNotEmpty) {
+        await sc.getAllClasses(schoolId);
+      }
       ever(sc.classes, (list) {
         if (!mounted) return;
         setState(() {
@@ -160,29 +178,44 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         });
       });
 
-      if (sc.classes.isNotEmpty) {
+      if (sc.classes.isNotEmpty && mounted) {
         setState(() {
           _classes = sc.classes
-              .map((c) => {'id': c.id, 'name': c.name})
+              .map((c) => {'id': c.id ?? '', 'name': c.name ?? ''})
+              .where((c) => c['id']!.isNotEmpty)
               .toList();
         });
       }
-    } catch (_) {}
+    } catch (e) {}
   }
 
   Future<void> _loadSections(String classId) async {
     try {
       final sc = Get.find<SchoolController>();
+      setState(() {
+        _sections = [];
+        _selectedSectionId = null;
+        _classHasSections = false;
+      });
       await sc.getAllSections(classId: classId);
       if (!mounted) return;
+      final fetchedSections = sc.sections
+          .map((s) => {'id': s.id ?? '', 'name': s.name ?? ''})
+          .where((s) => s['id']!.isNotEmpty)
+          .toList();
       setState(() {
-        _sections = sc.sections
-            .map((s) => {'id': s.id, 'name': s.name})
-            .toList();
-        _selectedSectionId = null;
-        _classHasSections = _sections.isNotEmpty;
+        _sections = fetchedSections;
+        _classHasSections = fetchedSections.isNotEmpty;
       });
-    } catch (_) {}
+    } catch (_) {
+
+      if (mounted) {
+        setState(() {
+          _sections = [];
+          _classHasSections = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadStudents({bool fromRefresh = false}) async {

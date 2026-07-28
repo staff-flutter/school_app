@@ -65,7 +65,6 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
   int _currentPage = 1;
   final int _limit = 15;
 
-  // TODO: confirm these role values against your backend's actual role enum.
   static const List<String> _roleOptions = [
     'All',
     'Teacher',
@@ -136,12 +135,7 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     }
     final pathRole = _selectedRole == 'All' ? 'all' : _selectedRole.toLowerCase();
     try {
-      // ApiConstants.getUsersByRole = '/api/user'
-      // TODO: confirm the exact query param names your backend expects here
-      // (schoolId / role / search / page / limit are reasonable guesses
-      // based on the pattern used by every other getall endpoint in this app).
       final query = <String, dynamic>{
-        //'schoolId': schoolId,
         'page': _currentPage,
         'limit': _limit,
       };
@@ -152,7 +146,6 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       final response = await _apiService.get('${ApiConstants.getUsersByRole}/$pathRole/$schoolId', queryParameters: query);
 
       final raw = response.data;
-      print('response:$raw');
       Map<String, dynamic> body;
       if (raw is Map) {
         body = Map<String, dynamic>.from(raw);
@@ -173,7 +166,6 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       setState(() {
         _staff.addAll(parsed);
 
-        // If your backend provides a totalCount field:
         final totalCount = body['totalCount'] ?? body['total'] ?? 0;
         if (_staff.length >= totalCount) {
           _hasMore = false;
@@ -227,8 +219,6 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
     final schoolId = _resolvedSchoolId;
     setState(() => _deletingId = member.id);
     try {
-      // ApiConstants.deleteUser = '/api/user/delete'
-      // TODO: confirm whether userId is a path segment or a query/body param.
       final resp = await _apiService.dio.delete(
         '${ApiConstants.deleteUser}/${member.id}',
         options: dio.Options(headers: {'x-school-id': schoolId}),
@@ -279,8 +269,6 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
 
     final schoolId = _resolvedSchoolId;
     try {
-      // ApiConstants.assignRole = '/api/user/assignrole'
-      // TODO: confirm body shape — guessed { userId, role }.
       final resp = await _apiService.dio.put(
         ApiConstants.assignRole,
         data: {'userId': member.id, 'role': result},
@@ -320,25 +308,45 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         children: [
           _buildSearchAndFilter(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null && _staff.isEmpty
-                ? Center(child: Text(_error!))
-                : _staff.isEmpty
-                ? const Center(child: Text('No staff found. Tap "Add Staff" to create one.'))
-                : ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: _staff.length + (_hasMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _staff.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  );
-                }
-                return _buildStaffCard(_staff[index], index);
-              },
+            child: RefreshIndicator(
+              onRefresh: _fetchInitial,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null && _staff.isEmpty
+                  ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                  Center(child: Text(_error!)),
+                ],
+              )
+                  : _staff.isEmpty
+                  ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                  const Center(
+                    child: Text('No staff found. Tap "Add Staff" to create one.'),
+                  ),
+                ],
+              )
+                  : ListView.builder(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: _staff.length + (_hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _staff.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+                  return _buildStaffCard(_staff[index], index);
+                },
+              ),
             ),
           ),
         ],

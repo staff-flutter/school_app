@@ -74,6 +74,13 @@ class AppRoutes {
   static const String DAILY_TRIP_LOG_MODULE = '/daily-trip-log-module';
   static const String FUEL_LOG_MODULE = '/fuel_log_module';
   static const String BUS_ROUTE_MODULE = '/bus-routes-page';
+  static const String TRANSPORTATION_ANALYTICS_DASHBOARD = '/transportation-analytics-dashboard';
+
+  // EB Routes
+  static const String PREMISES_MODULE = '/premises-module';
+  static const String EB_LOG_MODULE = '/eb-log-module';
+  static const String TARIFF_MODULE = '/tariff-module';
+  static const String EB_DASHBOARD = '/eb-dashboard';
 
 
   // Backward compatibility aliases
@@ -99,6 +106,8 @@ class AppRoutes {
   static const String studentRecords        = STUDENT_RECORDS;
   static const String subscriptionManagement = SUBSCRIPTION_MANAGEMENT;
   static const String transactiondetail     = transactionDetail;
+
+
   static const String students              = '/students';
   static const String announcements         = '/announcements';
   static const String transactionDetail     = '/transaction_detail';

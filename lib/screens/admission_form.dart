@@ -1,9 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:school_app/constants/api_constants.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/bill_admission_controller.dart';
+import 'package:school_app/models/school_models.dart';
+import 'package:school_app/models/student_model.dart';
 
 import '../controllers/school_controller.dart';
+import 'admission_form_detail_view.dart';
 
 class AdmissionBillBookView extends StatefulWidget {
   const AdmissionBillBookView({super.key});
@@ -33,12 +39,22 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       return _authController.user.value?.schoolId;
     }
   }
+
+  // --- Student picker (class → section → student) used to autofill the form ---
+  final selectedClass = Rxn<SchoolClass>();
+  final selectedSection = Rxn<Section>();
+  final selectedStudent = Rxn<Student>();
+  final classHasSections = true.obs;
+  bool _isFetchingStudentDetails = false;
+
+  String? _getToken() => _authController.storage.read('token');
+
   // --- Form Field Controllers (mapped to the IAdmissionForm schema) ---
   // 1. Student Details
   final _studentNameController = TextEditingController();
   final _dobController = TextEditingController();
   final _ageController = TextEditingController();
-  String _gender = 'Male';
+  String? _gender ;
   final _motherTongueController = TextEditingController();
   final _religionController = TextEditingController();
   final _communityController = TextEditingController();
@@ -73,12 +89,36 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   void initState() {
     super.initState();
     _ensureSchoolLoaded();
+    ever(_schoolController.selectedSchool, (_) {
+      if (mounted) {
+        _previewFormNumber();
+      }
+    });
   }
 
   Future<void> _ensureSchoolLoaded() async {
     if (_schoolController.selectedSchool.value == null) {
       await _schoolController.getAllSchools();
-      if (mounted) setState(() {});
+    }
+
+    if (mounted) {
+      await _previewFormNumber();
+    }
+  }
+
+  Future<void> _previewFormNumber() async {
+    final String? resolvedSchoolId = schoolId; // getter checking role / selected school
+    if (resolvedSchoolId == null || resolvedSchoolId.isEmpty) {
+      debugPrint('⚠️ School ID not resolved yet');
+      return;
+    }
+
+    final nextNum = await _controller.getNextFormNumberPreview(schoolId: resolvedSchoolId);
+
+    if (mounted && nextNum != null && nextNum.isNotEmpty) {
+      setState(() {
+        _formNumberLabel = nextNum;
+      });
     }
   }
   @override
@@ -153,50 +193,99 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   Future<void> _saveRecord() async {
     if (!_validateRequiredFields()) return;
 
-    //final schoolId = _authController.user.value?.schoolId;
-   // if (schoolId == null) {
-      final String? resolvedSchoolId = schoolId;
-        if (resolvedSchoolId == null) {
+    final String? resolvedSchoolId = schoolId;
+    if (resolvedSchoolId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('School ID not found. Please login again.')),
       );
       return;
     }
 
-    // Step 1: ask the active Admission Book for a new blank form + form number.
-   // final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: schoolId);
-    final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: resolvedSchoolId);
-    if (linkResult == null) return; // controller already showed the error
-    debugPrint('🔍 generateNewAdmissionFormLink result: $linkResult');
+    if (_admissionFormId == null) {
+      final linkResult = await _controller.generateNewAdmissionFormLink(schoolId: resolvedSchoolId);
+      if (linkResult == null) return;
 
-    final newAdmissionFormId = linkResult['_id'] ?? linkResult['id'] ?? linkResult['admissionFormId'];
-    final newFormNumber = linkResult['formNumber'];
+      _admissionFormId = (linkResult['_id'] ?? linkResult['id'] ?? linkResult['admissionFormId'])?.toString();
+      final assignedFormNumber = linkResult['formNumber']?.toString();
+      if (assignedFormNumber != null) {
+        setState(() => _formNumberLabel = assignedFormNumber);
+      }
+    }
 
-    if (newAdmissionFormId == null) {
+    if (_admissionFormId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not generate an admission form ID. Please try again.')),
       );
       return;
     }
-    debugPrint('📝 Submitting payload: $_formPayload');
 
-    // Step 2: submit the filled-in details against that form id.
     final submitted = await _controller.submitAdmissionForm(
-      admissionFormId: newAdmissionFormId.toString(),
+      admissionFormId: _admissionFormId!,
       formData: _formPayload,
     );
-
     if (!submitted) return;
 
-    setState(() {
-      _admissionFormId = newAdmissionFormId.toString();
-      _formNumberLabel = newFormNumber?.toString() ?? newAdmissionFormId.toString();
-    });
+    // Capture these BEFORE _clearFormForNextEntry() wipes the controllers.
+    final savedFormId = _admissionFormId!;
+    final savedFormNumber = _formNumberLabel;
+    final knownStudentId = _studentIdController.text.trim();
+
+    bool linked = false;
+    if (knownStudentId.isNotEmpty) {
+      linked = await _controller.linkAdmissionFormToStudent(
+        admissionFormId: savedFormId,
+        studentId: knownStudentId,
+      );
+    }
+    // if (knownStudentId.isNotEmpty) {
+    //   // Student was chosen via the chip picker (or typed manually) — link it now.
+    //   await _controller.linkAdmissionFormToStudent(
+    //     admissionFormId: savedFormId,
+    //     studentId: knownStudentId,
+    //   );
+    // }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Form Saved! Form No. $_formNumberLabel')),
+      SnackBar(content: Text('Form Saved! Form No. $savedFormNumber')),
     );
+
+    setState(() => _admissionFormId = null);
+    _clearFormForNextEntry();
+    await _previewFormNumber();
+
+    // No student was linked during save — offer to link one now, or later.
+    if (!linked && mounted) {
+      _showLinkStudentDialog(savedFormId, savedFormNumber, prefillId: knownStudentId);
+    }
+  }
+  void _clearFormForNextEntry() {
+    _studentNameController.clear();
+    _dobController.clear();
+    _ageController.clear();
+    _gender = null;
+    _motherTongueController.clear();
+    _religionController.clear();
+    _communityController.clear();
+    _emisNumberController.clear();
+    _academicYearController.text = _defaultAcademicYear();
+    _admissionSoughtForController.clear();
+    _examinationPassedController.clear();
+    _mobileNumberController.clear();
+    _currentAddressController.clear();
+    _permanentAddressController.clear();
+    _permanentSameAsCurrent = false;
+    _fatherNameController.clear();
+    _fatherEducationController.clear();
+    _fatherOccupationController.clear();
+    _motherNameController.clear();
+    _motherEducationController.clear();
+    _motherOccupationController.clear();
+    _studentIdController.clear();
+    selectedClass.value = null;
+    selectedSection.value = null;
+    selectedStudent.value = null;
+    classHasSections.value = true;
   }
 
   Future<void> _assignStudentProfile() async {
@@ -219,6 +308,498 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       admissionFormId: _admissionFormId!,
       studentId: studentId,
     );
+  }
+
+  // ─── Class → Section → Student picker used to autofill the form ───────────
+
+  void _resetSelection({bool clearForm = false}) {
+    setState(() {
+      selectedClass.value = null;
+      selectedSection.value = null;
+      selectedStudent.value = null;
+      classHasSections.value = true;
+    });
+  }
+
+  void _showClassSelectorSheet() {
+    final sid = schoolId;
+    if (sid == null || sid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('School could not be resolved. Please login again.')),
+      );
+      return;
+    }
+    if (_schoolController.classes.isEmpty && !_schoolController.isLoading.value) {
+      _schoolController.getAllClasses(sid);
+    }
+
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        constraints: BoxConstraints(maxHeight: Get.height * 0.65),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2)),
+              ),
+              const Text('Select Class', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F2042))),
+              const Divider(),
+              Expanded(
+                child: Obx(() {
+                  if (_schoolController.isLoading.value) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final sortedClasses = List<SchoolClass>.from(_schoolController.classes)
+                    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                  if (sortedClasses.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text('No classes found', style: TextStyle(color: Colors.black54)),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: sortedClasses.length,
+                    itemBuilder: (context, index) {
+                      final c = sortedClasses[index];
+                      final isSelected = selectedClass.value?.id == c.id;
+                      return ListTile(
+                        leading: const Icon(Icons.class_rounded, color: Color(0xFF1E3A8A)),
+                        title: Text(c.name,
+                            style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: const Color(0xFF0F2042))),
+                        trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF1E3A8A)) : null,
+                        onTap: () {
+                          setState(() {
+                            selectedClass.value = c;
+                            selectedSection.value = null;
+                            selectedStudent.value = null;
+                            classHasSections.value = c.hasSections;
+                          });
+                          Get.back();
+                          final sid2 = schoolId;
+                          if (sid2 == null) return;
+                          if (c.hasSections) {
+                            _schoolController.getAllSections(classId: c.id, schoolId: sid2);
+                            _showSectionSelectorSheet();
+                          } else {
+                            _schoolController.getAllStudents(schoolId: sid2, classId: c.id);
+                            _showStudentSelectorSheet();
+                          }
+                        },
+                      );
+                    },
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  void _showSectionSelectorSheet() {
+    if (selectedClass.value == null) return;
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        constraints: BoxConstraints(maxHeight: Get.height * 0.65),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2)),
+              ),
+              Obx(() => Text(
+                  'Select Section for ${selectedClass.value?.name ?? ""}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F2042)))),
+              const Divider(),
+              Expanded(
+                child: Obx(() {
+                  if (_schoolController.isLoading.value) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final classSections = _schoolController.sections
+                      .where((s) => s.classId == selectedClass.value?.id)
+                      .toList();
+                  if (classSections.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text('No sections found for this class', style: TextStyle(color: Colors.black54)),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: classSections.length,
+                    itemBuilder: (context, index) {
+                      final sec = classSections[index];
+                      final isSelected = selectedSection.value?.id == sec.id;
+                      return ListTile(
+                        leading: const Icon(Icons.group_rounded, color: Color(0xFF1E3A8A)),
+                        title: Text(sec.name,
+                            style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: const Color(0xFF0F2042))),
+                        trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF1E3A8A)) : null,
+                        onTap: () {
+                          setState(() {
+                            selectedSection.value = sec;
+                            selectedStudent.value = null;
+                          });
+                          Get.back();
+                          final sid2 = schoolId;
+                          if (sid2 == null) return;
+                          _schoolController.getAllStudents(
+                            schoolId: sid2,
+                            classId: selectedClass.value?.id,
+                            sectionId: sec.id,
+                          );
+                          _showStudentSelectorSheet();
+                        },
+                      );
+                    },
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  void _showStudentSelectorSheet() {
+    if (selectedClass.value == null) return;
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        constraints: BoxConstraints(maxHeight: Get.height * 0.65),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2)),
+              ),
+              const Text('Select Student', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F2042))),
+              const Divider(),
+              Expanded(
+                child: Obx(() {
+                  if (_schoolController.isLoading.value) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final students = _schoolController.students;
+                  if (students.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text('No students found for this selection', style: TextStyle(color: Colors.black54)),
+                      ),
+                    );
+                  }
+                  final sorted = List<Student>.from(students)
+                    ..sort((a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: sorted.length,
+                    itemBuilder: (context, index) {
+                      final st = sorted[index];
+                      final isSelected = selectedStudent.value?.id == st.id;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFFE0F2FE),
+                          child: Text(
+                            (st.name ?? 'S').isNotEmpty ? st.name!.substring(0, 1).toUpperCase() : 'S',
+                            style: const TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        title: Text(st.name ?? 'Unknown',
+                            style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: const Color(0xFF0F2042))),
+                        subtitle: Text('Roll No: ${st.rollNumber ?? "N/A"}'),
+                        trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF1E3A8A)) : null,
+                        onTap: () {
+                          setState(() => selectedStudent.value = st);
+                          Get.back();
+                          _fetchAndAutofillStudent(st.id);
+                        },
+                      );
+                    },
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  // ─── Autofill: pulls the full student profile and fills the form fields ───
+
+  String _formatDobForDisplay(String raw) {
+    if (raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed != null) {
+      return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+    }
+    return raw; // already in DD/MM/YYYY or another display format
+  }
+
+  String _computeAgeFromDob(String raw) {
+    if (raw.isEmpty) return '';
+    DateTime? dob = DateTime.tryParse(raw);
+    if (dob == null && raw.contains('/')) {
+      final parts = raw.split('/');
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+        if (day != null && month != null && year != null) {
+          dob = DateTime(year, month, day);
+        }
+      }
+    }
+    if (dob == null) return '';
+    final now = DateTime.now();
+    int age = now.year - dob.year;
+    if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) age--;
+    return age >= 0 ? age.toString() : '';
+  }
+
+  Future<void> _fetchAndAutofillStudent(String studentId) async {
+    setState(() => _isFetchingStudentDetails = true);
+
+    final uri = Uri.parse('${ApiConstants.baseUrl}/api/student/get/$studentId');
+
+    try {
+      final response = await http.get(uri, headers: {
+        'Authorization': 'Bearer ${_getToken()}',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not load that student\'s profile.')),
+          );
+        }
+        return;
+      }
+
+      final decoded = jsonDecode(response.body);
+      final Map<String, dynamic> doc = decoded['data'] ?? decoded['student'] ?? decoded;
+      final Map<String, dynamic> m = doc['mandatory'] ?? {};
+      final Map<String, dynamic> n = doc['nonMandatory'] ?? {};
+
+      String v(String key) {
+        for (final src in [m, n, doc]) {
+          if (src[key] != null && src[key].toString().isNotEmpty && src[key].toString() != 'null') {
+            return src[key].toString();
+          }
+        }
+        return '';
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _studentIdController.text = studentId;
+
+        final rawName = v('studentName').isNotEmpty ? v('studentName') : v('aadhaarName');
+        _studentNameController.text = rawName;
+
+        _dobController.text = _formatDobForDisplay(v('dob'));
+        _ageController.text = _computeAgeFromDob(v('dob'));
+
+        final genderVal = v('gender');
+        if (['male', 'female', 'other'].contains(genderVal.toLowerCase())) {
+          _gender = genderVal[0].toUpperCase() + genderVal.substring(1).toLowerCase();
+        }
+
+        _motherTongueController.text = v('motherTongue');
+        _religionController.text = v('religion');
+        final communityVal = v('community').isNotEmpty ? v('community') : v('caste');
+        _communityController.text = communityVal;
+        _emisNumberController.text = v('emisNumber');
+
+        _mobileNumberController.text = v('mobileNumber');
+        _currentAddressController.text = v('address');
+        if (!_permanentSameAsCurrent) {
+          final permanentVal = v('permanentAddress');
+          if (permanentVal.isNotEmpty) _permanentAddressController.text = permanentVal;
+        }
+
+        _fatherNameController.text = v('fatherName');
+        _motherNameController.text = v('motherName');
+
+        // Default "sought for" to the class the student is already enrolled in —
+        // editable if this admission is for a different grade.
+        if (selectedClass.value != null) {
+          _admissionSoughtForController.text = selectedClass.value!.name;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Autofilled from ${_studentNameController.text.isEmpty ? "student profile" : _studentNameController.text}. '
+            'Father/Mother education & occupation and exam details still need manual entry.')),
+      );
+    } catch (e) {
+      debugPrint('Autofill fetch error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Something went wrong while loading the student profile.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFetchingStudentDetails = false);
+    }
+  }
+
+  Widget _selectorChip({
+    required IconData icon,
+    required String label,
+    required bool isSet,
+    required VoidCallback onTap,
+    bool enabled = true,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.5,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSet ? const Color(0xFF1E3A8A) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF1E3A8A)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: isSet ? Colors.white : const Color(0xFF1E3A8A)),
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 85),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSet ? Colors.white : const Color(0xFF1E3A8A),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: isSet ? Colors.white : const Color(0xFF1E3A8A)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentSelectorBar() {
+    return Obx(() => Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFF1E3A8A)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Autofill from an existing student',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A))),
+              ),
+              if (selectedClass.value != null || selectedSection.value != null || selectedStudent.value != null)
+                GestureDetector(
+                  onTap: () => _resetSelection(),
+                  child: const Text('Clear', style: TextStyle(fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.w700)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+              child: Row(
+            children: [
+              _selectorChip(
+                icon: Icons.class_rounded,
+                label: selectedClass.value?.name ?? 'Select Class',
+                isSet: selectedClass.value != null,
+                onTap: _showClassSelectorSheet,
+              ),
+              SizedBox(width: 10),
+              _selectorChip(
+                icon: Icons.group_rounded,
+                label: selectedSection.value?.name ??
+                    (classHasSections.value ? 'Select Section' : 'No Sections'),
+                isSet: selectedSection.value != null,
+                enabled: selectedClass.value != null && classHasSections.value,
+                onTap: _showSectionSelectorSheet,
+              ),
+              SizedBox(width: 10),
+              _selectorChip(
+                icon: Icons.person_rounded,
+                label: selectedStudent.value?.name ?? 'Select Student',
+                isSet: selectedStudent.value != null,
+                enabled: selectedClass.value != null,
+                onTap: _showStudentSelectorSheet,
+              ),
+            ],
+              )
+          ),
+          if (_isFetchingStudentDetails) ...[
+            const SizedBox(height: 10),
+            const Row(children: [
+              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 8),
+              Text('Loading student details…', style: TextStyle(fontSize: 11, color: Colors.black54)),
+            ]),
+          ],
+        ],
+      ),
+    ));
   }
 
   @override
@@ -253,6 +834,8 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildStudentSelectorBar(),
+                      _buildLinkPreviewBanner(),
                       _buildBookHeader(),
                       const SizedBox(height: 24),
                       _buildStudentDetailsSection(),
@@ -273,7 +856,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildStudentIDLinkingSection(),
+                    //  _buildStudentIDLinkingSection(),
                     ],
                   ),
                 ),
@@ -289,51 +872,98 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   Widget _buildBookHeader() {
     return Obx(() {
       final school = _schoolController.selectedSchool.value;
-      final schoolName = school?.name ?? 'School Name Not Set';
+      final rawSchoolName = school?.name ?? 'School Name Not Set';
       final schoolAddress = school?.address ?? '';
-      //final schoolPhone = school?.phone ?? ''; // adjust field name to match your School model
+
+      // Convert ALL CAPS text to Title Case for cleaner layout readability
+      final schoolName = rawSchoolName.isNotEmpty
+          ? rawSchoolName
+          .split(' ')
+          .map((str) => str.isNotEmpty
+          ? '${str[0].toUpperCase()}${str.substring(1).toLowerCase()}'
+          : '')
+          .join(' ')
+          : 'School Name Not Set';
 
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [_buildFormNumberBadge()]),
+          // Form Number aligned to top right
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildFormNumberBadge(),
+          ),
+          const SizedBox(height: 8),
+
+          // Header main row: Icon + School Info
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF0F2042), width: 2),
+                  border: Border.all(color: const Color(0xFF0F2042), width: 1.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.shield_rounded, size: 30, color: Color(0xFF0F2042)),
+                child: const Icon(Icons.shield_rounded, size: 28, color: Color(0xFF0F2042)),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(schoolName.toUpperCase(),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F2042), letterSpacing: 0.5)),
                     Text(
-                      [
-                        if (schoolAddress.isNotEmpty) schoolAddress,
-                       // if (schoolPhone.isNotEmpty) 'Contact: $schoolPhone',
-                      ].join(' | '),
-                      style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                      schoolName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15, // Reduced font size to avoid aggressive line wrapping
+                        height: 1.25,
+                        color: Color(0xFF0F2042),
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    const Text('REGISTRATION & ADMISSION MASTER RECORD',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A))),
+                    if (schoolAddress.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        schoolAddress,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
+
+          const SizedBox(height: 12),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 8),
+
+          // Document Title centered underneath
+          const Center(
+            child: Text(
+              'REGISTRATION & ADMISSION MASTER RECORD',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF1E3A8A),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
         ],
       );
     });
   }
-
   Widget _buildFormNumberBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -395,7 +1025,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
 
   Widget _buildGenderDropdown() {
     return DropdownButtonFormField<String>(
-      initialValue: _gender,
+      value: _gender,
       decoration: InputDecoration(
         labelText: 'Gender',
         labelStyle: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.normal),
@@ -609,4 +1239,149 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       ),
     );
   }
-}
+
+  Future<void> _showLinkStudentDialog(
+      String admissionFormId,
+      String formNumber, {
+        String prefillId = '',
+      }) async {
+    final tempController = TextEditingController(text: prefillId);
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Link Student Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              prefillId.isNotEmpty
+                  ? 'Form No. $formNumber was saved, but linking to Student ID "$prefillId" failed. Confirm and retry, or skip and link it later.'
+                  : 'Form No. $formNumber was saved without a linked student profile.\nEnter a Student ID to link it now, or skip and link it later.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: tempController,
+              decoration: const InputDecoration(hintText: 'Student ID', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              final carriedId = tempController.text.trim();
+              Navigator.of(ctx).pop();
+              // Carry the known ID forward so it isn't lost — the detail
+              // view will prefill its Student ID field with it.
+              Get.to(() => AdmissionFormDetailView(
+                admissionFormId: admissionFormId,
+                prefillStudentId: carriedId.isNotEmpty ? carriedId : null,
+              ));
+            },
+            child: const Text('Skip'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final sid = tempController.text.trim();
+              if (sid.isEmpty) return;
+              final ok = await _controller.linkAdmissionFormToStudent(
+                admissionFormId: admissionFormId,
+                studentId: sid,
+              );
+              if (ok) Navigator.of(ctx).pop();
+            },
+            child: const Text('Link'),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildLinkPreviewBanner() {
+    return Obx(() {
+      final pickedStudent = selectedStudent.value;
+      final typedId = _studentIdController.text.trim();
+
+      // Nothing selected and nothing typed — allow manual entry inline.
+      if (pickedStudent == null && typedId.isEmpty) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF7ED),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFED7AA)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Text Label On Top
+              const Row(
+                children: [
+                  Icon(Icons.link_off_rounded, size: 16, color: Color(0xFFB45309)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'No student will be linked. Select above or enter ID:',
+                      style: TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Student ID Box Below
+              SizedBox(
+                height: 38,
+                child: TextField(
+                  controller: _studentIdController,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Enter Student ID...',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      // Something will be linked — show a clear, read-only preview.
+      final displayName = pickedStudent?.name ?? 'Manually entered ID';
+      final displayId = typedId.isNotEmpty ? typedId : (pickedStudent?.id ?? '');
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFBBF7D0)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.link_rounded, size: 16, color: Color(0xFF15803D)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Will link to: $displayName  (ID: $displayId)',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  selectedStudent.value = null;
+                  _studentIdController.clear();
+                });
+              },
+              child: const Text('Unlink', style: TextStyle(fontSize: 11, color: Colors.redAccent)),
+            ),
+          ],
+        ),
+      );
+    });
+  }}

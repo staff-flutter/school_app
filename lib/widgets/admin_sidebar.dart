@@ -592,6 +592,8 @@ class _MenuBody extends StatelessWidget {
     // ── CORRESPONDENT ──────────────────────────────────────────────────────
     if (role == 'correspondent') {
       return [
+
+
         _Section('Menu', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ACCOUNTING_DASHBOARD),
           if (RoleModules.hasModule(role, 'schoolManagement'))
@@ -601,21 +603,11 @@ class _MenuBody extends StatelessWidget {
             _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
           _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
           _Item('Attendance', Icons.how_to_reg_rounded, AppRoutes.TEACHER_ATTENDANCE),
-
-
         ]),
-        _Section('Transport Management',[
-          _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
-          _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
-          _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
-          _Item('Fuel Log', Icons.gas_meter_outlined, AppRoutes.FUEL_LOG_MODULE),
-          _Item('Bus Routes', Icons.roundabout_right, AppRoutes.BUS_ROUTE_MODULE),
 
 
-        ]),
         _Section('Finance', [
           _Item('Bill Book', Icons.recent_actors_outlined, AppRoutes.BILL_BOOK),
-
           _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
           _Item('Admission Form', Icons.receipt, AppRoutes.ADMISSION_FORM),
           _Item('Admission Forms', Icons.menu_book, AppRoutes.ADMISSION_FORMS_VIEW),
@@ -626,14 +618,14 @@ class _MenuBody extends StatelessWidget {
           // _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
              _Item('Fee Configuration', Icons.request_quote, AppRoutes.FEE_SETUP),
           _Item('Student Records', Icons.folder_shared_rounded, AppRoutes.STUDENT_RECORDS),
-
-
             _Item('Transactions', Icons.swap_horiz_rounded, '/finance_transactions'),
           if (RoleModules.hasModule(role, 'expenses'))
             _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
           // if (RoleModules.hasModule(role, 'reports'))
           //   _Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),
         ]),
+
+
         _Section('Manage', [
           // ── Student: Create then Manage ──────────────────────────────
           _Item('Student Profile Creation', Icons.person_add_alt_1_outlined,
@@ -657,6 +649,24 @@ class _MenuBody extends StatelessWidget {
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
         ]),
 
+
+        _Section('Transport Management',[
+          _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
+          _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
+          _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
+          _Item('Fuel Log', Icons.gas_meter_outlined, AppRoutes.FUEL_LOG_MODULE),
+          _Item('Bus Routes', Icons.roundabout_right, AppRoutes.BUS_ROUTE_MODULE),
+        ]),
+
+
+        _Section('EB Management',[
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.EB_DASHBOARD),
+          _Item('Premises', Icons.apartment, AppRoutes.PREMISES_MODULE),
+          _Item('EB Log', Icons.electric_bolt, AppRoutes.EB_LOG_MODULE),
+          _Item('Tariff', Icons.featured_play_list_outlined, AppRoutes.TARIFF_MODULE),
+        ]),
+
+
         _Section('Other', [
           _Item('Create Employee Profile', Icons.group_add_outlined, AppRoutes.CREATE_EMPLOYEE_PROFILE),
           _Item('Employee List', Icons.grading, AppRoutes.EMPLOYEE_LIST),
@@ -666,6 +676,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Profile', Icons.person_rounded, '/profile'),
           _Item('System', Icons.settings_rounded, '/system-management'),
         ]),
+
+
       ];
     }
 
@@ -705,24 +717,31 @@ class _MenuBody extends StatelessWidget {
     // ── ADMINISTRATOR ──────────────────────────────────────────────────────
     if (role == 'administrator') {
       return [
-        _Section('Menu', [
+        _Section('School', [
           _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.ATTENDANCE_DASHBOARD),
           _Item('School', Icons.business_rounded, AppRoutes.SCHOOL_MANAGEMENT),
-          _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
           _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
+          _Item('Attendance', Icons.how_to_reg_rounded, AppRoutes.TEACHER_ATTENDANCE),
+          _Item('Homework', Icons.assignment_rounded, AppRoutes.HOMEWORK_MANAGEMENT),
+          _Item('Communications', Icons.campaign_rounded, AppRoutes.COMMUNICATIONS),
+        ]),
+        _Section('EB Management',[
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.EB_DASHBOARD),
+          _Item('Premises', Icons.apartment, AppRoutes.PREMISES_MODULE),
+          _Item('EB Log', Icons.electric_bolt, AppRoutes.EB_LOG_MODULE),
+          _Item('Tariff', Icons.featured_play_list_outlined, AppRoutes.TARIFF_MODULE),
+
 
         ]),
-
-        _Section('Transport Management',[
-          _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
-          _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
-          _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
-          _Item('Fuel Log', Icons.gas_meter_outlined, AppRoutes.FUEL_LOG_MODULE),
-          _Item('Bus Routes', Icons.roundabout_right, AppRoutes.BUS_ROUTE_MODULE),
-
+        _Section('Examination',[
+          _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
         ]),
+
         _Section('Finance', [
+          _Item('Fee Configuration', Icons.request_quote, AppRoutes.FEE_SETUP),
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
+         // _Item('Fee Collection', Icons.payments_rounded, AppRoutes.FEE_COLLECTION),
+         // _Item('Expenses', Icons.receipt_long_rounded, AppRoutes.EXPENSES),
         ]),
         _Section('Manage', [
           _Item('Admission Book', Icons.recent_actors_outlined, AppRoutes.ADMISSION_BOOK),
@@ -736,15 +755,25 @@ class _MenuBody extends StatelessWidget {
               AppRoutes.STUDENT_PROFILE_MANAGEMENT),          // ← NEW
           // ────────────────────────────────────────────────────────────
          // _Item('Academics', Icons.book_rounded, AppRoutes.ACADEMICS),
-          _Item('Clubs & Activities', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
-          _Item('Campus Management', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
-          if (canUploadMarks)
           //  _Item('Students Performance', Icons.mark_chat_read_outlined, AppRoutes.STUDENT_MARKS_LIST),
-          _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
           _Item('Profile Verification', Icons.perm_contact_calendar_outlined,
               AppRoutes.STUDENT_PROFILE_VERIFICATION),
+          _Item('Clubs & Activities', Icons.groups, AppRoutes.CAMPUS_MANAGEMENT_PAGE),
+          if (canUploadMarks)
+          _Item('Campus Management', Icons.account_balance_rounded, AppRoutes.CLUBS_ACTIVITIES),
+
         ]),
-        _Section('Other', [
+        _Section('Transport Management',[
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.TRANSPORTATION_ANALYTICS_DASHBOARD),
+          _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
+          _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
+          _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
+          _Item('Fuel Log', Icons.gas_meter_outlined, AppRoutes.FUEL_LOG_MODULE),
+          _Item('Bus Routes', Icons.roundabout_right, AppRoutes.BUS_ROUTE_MODULE),
+
+        ]),
+
+        _Section('Users', [
           _Item('Employee List', Icons.person_pin_rounded, AppRoutes.EMPLOYEE_LIST),
           _Item('Parent List', Icons.accessibility_new_sharp, AppRoutes.PARENT_LIST),
 
@@ -765,6 +794,7 @@ class _MenuBody extends StatelessWidget {
           _Item('Student Details', Icons.account_circle, AppRoutes.STUDENT_DETAILS),
 
         ]),
+
         _Section('Finance', [
           _Item('Fee Structure', Icons.account_balance_wallet_rounded, AppRoutes.FEE_STRUCTURE),
           //_Item('Reports', Icons.bar_chart_rounded, AppRoutes.REPORTS),

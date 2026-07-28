@@ -587,7 +587,7 @@ class BillAdmissionController extends GetxController {
         queryParameters: queryParams,
       );
       print("ACTUAL BACKEND DATA: ${response.data['data']}");
-       print('getAllAdmissionForms schoolId :$schoolId');
+      print('getAllAdmissionForms schoolId :$schoolId');
       if (response.data['ok'] == true) {
         final backendData = response.data['data'] ?? {};
         final list = List<Map<String, dynamic>>.from(backendData['forms'] ?? []);
@@ -605,7 +605,7 @@ class BillAdmissionController extends GetxController {
     } catch (e) {
 
       print("DEBUG ERROR: $e");
-      _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission forms'), AppTheme.errorRed);
+      //  _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission forms'), AppTheme.errorRed);
       return {'data': <Map<String, dynamic>>[]};
     } finally {
       isLoading.value = false;
@@ -718,7 +718,73 @@ class BillAdmissionController extends GetxController {
       isLoading.value = false;
     }
   }
+// Helper method to increment form number strings while keeping prefixes and zero-padding
+  String _incrementFormNumberString(String current) {
+    final regExp = RegExp(r'^(.*?)(\d+)$');
+    final match = regExp.firstMatch(current);
 
+    if (match != null) {
+      final prefix = match.group(1) ?? '';
+      final digitsStr = match.group(2) ?? '';
+      final nextVal = (int.tryParse(digitsStr) ?? 0) + 1;
+      final paddedVal = nextVal.toString().padLeft(digitsStr.length, '0');
+      return '$prefix$paddedVal';
+    }
+
+    return current;
+  }
+
+  Future<String?> getNextFormNumberPreview({required String schoolId}) async {
+    try {
+      // 1. Source of truth: the most recently generated admission form for
+      // this school. The list endpoint returns newest-first by default, so
+      // the first item on page 1 is the highest form number issued so far.
+      // (The admission book's own cached formNumber/startingFormNumber field
+      // is not reliably kept in sync with actual generation, so it can't be
+      // trusted as "the next number" — it can lag behind by many forms.)
+      final formsResponse = await _apiService.get(
+        '${ApiConstants.getAllAdmissionForms}/$schoolId',
+        queryParameters: {'page': '1', 'limit': '1'},
+      );
+
+      if (formsResponse.data['ok'] == true) {
+        final backendData = formsResponse.data['data'] ?? {};
+        final forms = List<Map<String, dynamic>>.from(backendData['forms'] ?? []);
+        if (forms.isNotEmpty) {
+          final latestFormNumber = forms.first['formNumber']?.toString();
+          if (latestFormNumber != null && latestFormNumber.isNotEmpty) {
+            return _incrementFormNumberString(latestFormNumber);
+          }
+        }
+      }
+
+      // 2. No forms generated yet for this school — the next number is
+      // simply the active admission book's starting form number.
+      final booksResponse = await _apiService.get('${ApiConstants.getAllAdmissionBooks}/$schoolId');
+
+      if (booksResponse.data['ok'] == true) {
+        final list = List<Map<String, dynamic>>.from(booksResponse.data['data'] ?? []);
+        if (list.isEmpty) return null;
+
+        final activeBook = list.firstWhere(
+              (book) => book['isActive'] == true,
+          orElse: () => list.first,
+        );
+
+        final startingNumber = activeBook['startingFormNumber'] ??
+            activeBook['formNumber'] ??
+            activeBook['currentFormNumber'] ??
+            activeBook['nextFormNumber'];
+
+        if (startingNumber != null && startingNumber.toString().isNotEmpty) {
+          return startingNumber.toString();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching active admission book preview: $e');
+    }
+    return null;
+  }
   // api no: 181 - PATCH /api/school/admission-form/:id/linkstudent
   Future<bool> linkAdmissionFormToStudent({
     required String admissionFormId,

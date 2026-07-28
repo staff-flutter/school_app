@@ -31,9 +31,6 @@ class BillBook {
   factory BillBook.fromJson(Map<String, dynamic> j) => BillBook(
     id: j['_id'] ?? '',
     bookName: j['bookName'] ?? '',
-    // NOTE: doc doesn't give the exact response field name for the running
-    // sequence — trying a few likely candidates. Confirm against a real
-    // GET response and adjust if the actual key differs.
     billNumber: _parseInt(j['billNumber'] ?? j['currentBillNumber'] ?? j['sequence']),
     academicYear: j['academicYear'] ?? '',
     isActive: j['isActive'] ?? false,
@@ -53,7 +50,6 @@ class BillBook {
 // ═════════════════════════════════════════════════════════════════════════════
 
 class BillBookManagementScreen extends StatefulWidget {
-  //final String schoolId;
   const BillBookManagementScreen({super.key});
 
   @override
@@ -98,21 +94,27 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
       });
     }
   }
+
   @override
   void dispose() {
     _schoolWorker?.dispose();
     super.dispose();
   }
+
   // ── API: fetch all bill books for this school ──────────────────────────
-  // GET /api/school-config/bill-book/:schoolId
-  Future<void> _fetchBooks() async {
+  Future<void> _fetchBooks({bool isPullToRefresh = false}) async {
     final sid = _schoolId;
     if (sid == null || sid.isEmpty) {
       debugPrint('⚠️ [BILLBOOK API] GET skipped — schoolId is null');
       setState(() { _loading = false; _books = []; });
       return;
     }
-    setState(() => _loading = true);
+
+    // Only set full-screen loading if not pulling to refresh
+    if (!isPullToRefresh) {
+      setState(() => _loading = true);
+    }
+
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllBillBooks}/$sid');
     try {
       final res = await http.get(uri, headers: _headers);
@@ -133,8 +135,6 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
   }
 
   // ── API: create a new bill book ─────────────────────────────────────────
-  // POST /api/school-config/bill-book/
-  // Body: { schoolId, bookName, billNumber }
   Future<void> _createBook(String bookName, int startingNumber) async {
     final sid = _schoolId;
     if (sid == null || sid.isEmpty) { _snack('No school selected'); return; }
@@ -149,7 +149,7 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
       _log('POST', uri, res);
       if (res.statusCode == 200 || res.statusCode == 201) {
         _snack('Bill book created', success: true);
-        _fetchBooks(); // backend deactivates old active book automatically
+        _fetchBooks();
       } else {
         _snack('Failed: ${_msg(res)}');
       }
@@ -159,9 +159,7 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
     }
   }
 
-  // ── API: update bill book (name and/or active status) ──────────────────
-  // PATCH /api/school-config/bill-book/:id
-  // Body: { bookName?, isActive? }
+  // ── API: update bill book ───────────────────────────────────────────────
   Future<void> _updateBook(BillBook book, {String? bookName, bool? isActive}) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.updateBillBook}/${book.id}');
     final payload = <String, dynamic>{
@@ -173,10 +171,8 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
       _log('PATCH', uri, res);
       if (res.statusCode == 200) {
         _snack('Updated', success: true);
-        _fetchBooks(); // activating one deactivates the others — refresh full list
+        _fetchBooks();
       } else {
-        // Doc explicitly notes: "Cannot deactivate the only active bill book."
-        // — surface that backend message directly rather than a generic one.
         _snack(_msg(res));
       }
     } catch (e) {
@@ -185,28 +181,7 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
     }
   }
 
-  // ── API: manually override the running sequence number ─────────────────
-  // PATCH /api/school-config/bill-book/:id/sequence
-  // Body: { newBillNumber }
-  Future<void> _updateSequence(BillBook book, int newNumber) async {
-    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.manuallyUpdateBillNumber.replaceFirst(':id', book.id)}');
-    try {
-      final res = await http.patch(uri, headers: _headers, body: jsonEncode({'newBillNumber': newNumber}));
-      _log('PATCH', uri, res);
-      if (res.statusCode == 200) {
-        _snack('Sequence updated', success: true);
-        _fetchBooks();
-      } else {
-        _snack('Failed: ${_msg(res)}');
-      }
-    } catch (e) {
-      _log('PATCH', uri, null, err: e);
-      _snack('Error: $e');
-    }
-  }
-
   // ── API: delete an inactive bill book ───────────────────────────────────
-  // DELETE /api/school-config/bill-book/:id
   Future<void> _deleteBook(BillBook book) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deleteInactiveBillBook}/${book.id}');
     try {
@@ -216,7 +191,6 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
         _snack('Deleted', success: true);
         setState(() => _books.removeWhere((b) => b.id == book.id));
       } else {
-        // Doc: "Active bill books cannot be deleted" — backend message covers this.
         _snack(_msg(res));
       }
     } catch (e) {
@@ -232,13 +206,16 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
   }
 
   void _snack(String msg, {bool success = false}) {
-    Get.snackbar(success ? 'Success' : 'Error', msg,
+    Get.snackbar(
+        success ? 'Success' : 'Error',
+        msg,
         backgroundColor: success ? const Color(0xFF22C55E) : Colors.redAccent,
-        colorText: Colors.white, snackPosition: SnackPosition.BOTTOM);
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM
+    );
   }
 
   // ── Dialogs ───────────────────────────────────────────────────────────────
-
   void _showCreateDialog() {
     final nameCtrl = TextEditingController();
     final numCtrl = TextEditingController(text: '1');
@@ -276,28 +253,6 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
     ));
   }
 
-  void _showSequenceDialog(BillBook book) {
-    final ctrl = TextEditingController(text: '${book.billNumber}');
-    Get.dialog(AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Update sequence', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      content: TextField(controller: ctrl, keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'New next bill number')),
-      actions: [
-        TextButton(onPressed: Get.back, child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: () {
-            final num = int.tryParse(ctrl.text.trim());
-            if (num == null) { _snack('Enter a valid number'); return; }
-            Get.back();
-            _updateSequence(book, num);
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    ));
-  }
-
   void _confirmDelete(BillBook book) {
     Get.dialog(AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -315,7 +270,6 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -328,59 +282,80 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
           IconButton(icon: const Icon(Icons.add, color: Colors.black), onPressed: _showCreateDialog),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _books.isEmpty
-          ? Center(child: Text('No bill books yet — tap + to create one.', style: TextStyle(color: Colors.grey[600])))
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _books.length,
-        itemBuilder: (ctx, i) {
-          final book = _books[i];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: book.isActive ? Colors.blue.shade300 : Colors.grey.shade200,
-                  width: book.isActive ? 1.5 : 1),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text(book.bookName,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
-                if (book.isActive)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
-                    child: Text('Active', style: TextStyle(fontSize: 10, color: Colors.green[700], fontWeight: FontWeight.w700)),
-                  ),
-              ]),
-              const SizedBox(height: 4),
-              Text('Next number: ${book.billNumber} · ${book.academicYear}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                if (!book.isActive)
-                  OutlinedButton(
-                    onPressed: () => _updateBook(book, isActive: true),
-                    child: const Text('Activate', style: TextStyle(fontSize: 12)),
-                  ),
-                OutlinedButton(
-                  onPressed: () => _showSequenceDialog(book),
-                  child: const Text('Edit sequence', style: TextStyle(fontSize: 12)),
+      body: RefreshIndicator(
+        onRefresh: () => _fetchBooks(isPullToRefresh: true),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _books.isEmpty
+            ? ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Center(
+                child: Text(
+                  'No bill books yet — tap + to create one.',
+                  style: TextStyle(color: Colors.grey[600]),
                 ),
-                if (!book.isActive)
-                  OutlinedButton(
-                    onPressed: () => _confirmDelete(book),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    child: const Text('Delete', style: TextStyle(fontSize: 12)),
+              ),
+            ),
+          ],
+        )
+            : ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          itemCount: _books.length,
+          itemBuilder: (ctx, i) {
+            final book = _books[i];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: book.isActive ? Colors.blue.shade300 : Colors.grey.shade200,
+                  width: book.isActive ? 1.5 : 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                        book.bookName,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (book.isActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Active',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Next number: ${book.billNumber} · ${book.academicYear}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
-              ]),
-            ]),
-          );
-        },
+                  const SizedBox(height: 10),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
