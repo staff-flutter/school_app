@@ -5,6 +5,7 @@ import 'package:school_app/controllers/eb_controller.dart';
 import 'package:school_app/screens/premises_form_page.dart';
 
 import '../controllers/school_controller.dart';
+import '../core/permissions/eb_permissions.dart';
 
 /// Mobile "Premises Directory" screen — mirrors the Fleet Directory (bus list)
 /// styling: black "Register" pill button, rounded search bar, white rounded
@@ -23,7 +24,9 @@ class _PremisesListScreenState extends State<PremisesListScreen> {
       Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
   final AuthController _authController = Get.find<AuthController>();
   String _statusFilter = 'All'; // All | Active | Inactive
-
+  Worker? _authWorker;
+  Worker? _schoolWorker;
+  String _lastLoadedSchoolId = '';
   static const _cardRadius = 16.0;
   static const _lightBlue = Color(0xFFDCEBFC);
   static const _iconBlue = Color(0xFF3B82F6);
@@ -47,9 +50,24 @@ class _PremisesListScreenState extends State<PremisesListScreen> {
   @override
   void initState() {
     super.initState();
-    ebController.getAllPremises(schoolId);
+    _tryLoad(); // attempt immediately in case it's already ready
+
+    // Re-attempt whenever the auth user changes (e.g. finishes repopulating post-login)
+    _authWorker = ever(_authController.user, (_) => _tryLoad());
+
+    // Re-attempt whenever the correspondent's selected school changes
+    if (_school != null) {
+      _schoolWorker = ever(_school!.selectedSchool, (_) => _tryLoad());
+    }
   }
 
+  @override
+  void dispose() {
+    _authWorker?.dispose();
+    _schoolWorker?.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
   List<Map<String, dynamic>> get _filteredPremises {
     final query = _searchController.text.trim().toLowerCase();
     return ebController.premisesList.where((p) {
@@ -202,6 +220,8 @@ class _PremisesListScreenState extends State<PremisesListScreen> {
                         activeText: _activeGreenText,
                         inactiveBg: _inactiveGreyBg,
                         inactiveText: _inactiveGreyText,
+                        canEdit: EBPermissions.canEditPremises(role),
+                        canDelete: EBPermissions.canDeletePremises(role),
                         onView: () => _openForm(premises: items[index]),
                         onDelete: () => _confirmDelete(items[index]),
                       ),
@@ -215,6 +235,15 @@ class _PremisesListScreenState extends State<PremisesListScreen> {
       ),
     );
   }
+
+  void _tryLoad() {
+    final id = schoolId;
+    if (id.isEmpty || id == _lastLoadedSchoolId) return;
+    _lastLoadedSchoolId = id;
+    ebController.premisesList.clear(); // drop any stale data from a previous session/school
+    ebController.getAllPremises(id);
+  }
+
 }
 
 class _StatusFilterPill extends StatelessWidget {
@@ -248,7 +277,6 @@ class _StatusFilterPill extends StatelessWidget {
     );
   }
 }
-
 class _PremisesCard extends StatelessWidget {
   final Map<String, dynamic> premises;
   final double cardRadius;
@@ -258,6 +286,8 @@ class _PremisesCard extends StatelessWidget {
   final Color activeText;
   final Color inactiveBg;
   final Color inactiveText;
+  final bool canEdit;
+  final bool canDelete;
   final VoidCallback onView;
   final VoidCallback onDelete;
 
@@ -270,10 +300,11 @@ class _PremisesCard extends StatelessWidget {
     required this.activeText,
     required this.inactiveBg,
     required this.inactiveText,
+    required this.canEdit,
+    required this.canDelete,
     required this.onView,
     required this.onDelete,
   });
-
   @override
   Widget build(BuildContext context) {
     final name = (premises['premisesName'] ?? '').toString();
@@ -315,21 +346,25 @@ class _PremisesCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                       ),
                     ),
-                    IconButton(
-                      onPressed: onView,
-                      icon: const Icon(Icons.edit, size: 18, color: Colors.black54),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      onPressed: onDelete,
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    if (canEdit)
+                      IconButton(
+                        onPressed: onView,
+                        icon: const Icon(Icons.edit, size: 18, color: Colors.black54),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    if (canEdit && canDelete) const SizedBox(width: 10),
+                    if (canDelete)
+                      IconButton(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    if (!canEdit && !canDelete)
+                      Icon(Icons.visibility_outlined, size: 16, color: Colors.grey.shade400),
                   ],
                 ),
                 if (address.isNotEmpty)

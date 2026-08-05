@@ -37,6 +37,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   final _api        = Get.find<ApiService>();
 
   late final TabController _tabCtrl;
+  Worker? _schoolWorker;
 
   // ── Filter state ──────────────────────────────────────────────────────────
   SchoolClass? _class;
@@ -75,7 +76,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   // ── Role helpers ──────────────────────────────────────────────────────────
   bool get _canConfigure {
     final role = _auth.user.value?.role?.toLowerCase() ?? '';
-    return ['administrator','principal','viceprincipal'].contains(role);
+    return ['correspondent','administrator','principal','viceprincipal'].contains(role);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -86,6 +87,11 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
     final school = _schoolCtrl.selectedSchool.value;
     if (school?.currentAcademicYear != null) _academicYear = school!.currentAcademicYear!;
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSchoolLoaded());
+
+    _schoolWorker = ever<School?>(_schoolCtrl.selectedSchool, (school) {
+      if (!mounted || school == null) return;
+      _onSchoolChanged(school);
+    });
   }
 
   Future<void> _ensureSchoolLoaded() async {
@@ -110,6 +116,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _tabCtrl.dispose();
     _subNameCtrl.dispose(); _subCodeCtrl.dispose();
     _examNameCtrl.dispose(); _examMaxCtrl.dispose(); _examPassCtrl.dispose();
@@ -139,7 +146,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
       final val = cfg[key]?.toString();
       if (_isValidObjectId(val)) return val;
     }
-    // Log what we actually got so we can debug
     debugPrint('[CONFIG ID SEARCH] Could not find valid ObjectId in cfg keys: ${cfg.keys.toList()}');
     debugPrint('[CONFIG ID SEARCH] cfg values: ${cfg.entries.map((e) => "${e.key}=${e.value}").join(", ")}');
     return null;
@@ -163,12 +169,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
     if (_class == null || _schoolId == null) return;
     setState(() => _configLoading = true);
     try {
-      // Map<String,dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
-      // if (cfg == null) {
-      //   debugPrint('[CONFIG] First attempt (with academicYear) returned no data, trying without...');
-      //   cfg = await _fetchConfig(withAcademicYear: false);
-      // }
-
       Map<String,dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
 
       if (cfg != null) {
@@ -395,7 +395,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
 
       final existing = _reports[sid];
       if (existing != null) {
-        // ── UPDATE ──────────────────────────────────────────────────────────
         final rid = existing['_id']?.toString() ?? '';
         debugPrint('[MARKS UPDATE] PUT ${ApiConstants.updateMarkReportV1}/$rid');
         final payload = {
@@ -420,7 +419,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
           _snack('Error', resp.data['message']?.toString() ?? 'Failed to update', error: true);
         }
       } else {
-        // ── CREATE ──────────────────────────────────────────────────────────
         debugPrint('[MARKS CREATE] POST ${ApiConstants.createMarkReportV1}');
         final payload = {
           'schoolId'          : _schoolId!,
@@ -515,22 +513,31 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   //  TAB 1 — ENTER MARKS
   // ══════════════════════════════════════════════════════════════════
   Widget _uploadTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      child: Column(children: [
-        if (_showFilters || _students.isEmpty) _filterCard(),
-        if (!_showFilters && _students.isNotEmpty) ...[_filterSummary(), const SizedBox(height: 12)],
-        if (_studentsLoading)
-          const Padding(padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: CircularProgressIndicator(color: _kPrimary)))
-        else if (!_showFilters && _students.isEmpty)
-          _emptyState()
-        else if (_students.isNotEmpty) ...[
-            if (!_isValidObjectId(_configId) && !_configLoading) _configBanner(),
-            const SizedBox(height: 4),
-            ..._students.map(_studentCard),
-          ],
-      ]),
+    return RefreshIndicator(
+      color: _kPrimary,
+      onRefresh: () async {
+        if (_class != null) {
+          await _loadStudents();
+        }
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        child: Column(children: [
+          if (_showFilters || _students.isEmpty) _filterCard(),
+          if (!_showFilters && _students.isNotEmpty) ...[_filterSummary(), const SizedBox(height: 12)],
+          if (_studentsLoading)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(child: CircularProgressIndicator(color: _kPrimary)))
+          else if (!_showFilters && _students.isEmpty)
+            _emptyState()
+          else if (_students.isNotEmpty) ...[
+              if (!_isValidObjectId(_configId) && !_configLoading) _configBanner(),
+              const SizedBox(height: 4),
+              ..._students.map(_studentCard),
+            ],
+        ]),
+      ),
     );
   }
 
@@ -879,63 +886,72 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   //  TAB 2 — CONFIGURE
   // ══════════════════════════════════════════════════════════════════
   Widget _configTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      child: Column(children: [
-        if (_class == null) _selectClassFirst(),
-        if (_class != null) ...[
-          _configInfoCard(),
-          const SizedBox(height: 12),
-          _configLoading
-              ? const Center(child: Padding(padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: _kPrimary)))
-              : Column(children: [
-            _panel(
-              title: 'SUBJECTS (ROWS)',
-              icon: Icons.table_rows_outlined,
-              onAdd: _addSubjectSheet,
-              children: [
-                ..._cfgSubjects.asMap().entries.map((e) => _subjectRow(e.key, e.value)),
-                if (_cfgSubjects.isEmpty) _emptyHint('No subjects yet. Tap + Add to create one.'),
-              ],
-            ),
+    return RefreshIndicator(
+      color: _kPrimary,
+      onRefresh: () async {
+        if (_class != null) {
+          await _loadConfig();
+        }
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        child: Column(children: [
+          if (_class == null) _selectClassFirst(),
+          if (_class != null) ...[
+            _configInfoCard(),
             const SizedBox(height: 12),
-            _panel(
-              title: 'EXAMS (COLUMNS)',
-              icon: Icons.view_column_outlined,
-              onAdd: _addExamSheet,
-              children: [
-                ..._cfgExams.asMap().entries.map((e) => _examRow(e.key, e.value)),
-                if (_cfgExams.isEmpty) _emptyHint('No exams yet. Tap + Add to create one.'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _matrixPreview(),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: (_configSaving || _class == null) ? null : _saveConfig,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _kDark,
-                  disabledBackgroundColor: _kMuted,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                icon: _configSaving
-                    ? const SizedBox(width: 16, height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.save_rounded, color: Colors.white, size: 18),
-                label: Text(
-                  _configId == null ? 'Create Configuration' : 'Update Configuration',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+            _configLoading
+                ? const Center(child: Padding(padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(color: _kPrimary)))
+                : Column(children: [
+              _panel(
+                title: 'SUBJECTS (ROWS)',
+                icon: Icons.table_rows_outlined,
+                onAdd: _addSubjectSheet,
+                children: [
+                  ..._cfgSubjects.asMap().entries.map((e) => _subjectRow(e.key, e.value)),
+                  if (_cfgSubjects.isEmpty) _emptyHint('No subjects yet. Tap + Add to create one.'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _panel(
+                title: 'EXAMS (COLUMNS)',
+                icon: Icons.view_column_outlined,
+                onAdd: _addExamSheet,
+                children: [
+                  ..._cfgExams.asMap().entries.map((e) => _examRow(e.key, e.value)),
+                  if (_cfgExams.isEmpty) _emptyHint('No exams yet. Tap + Add to create one.'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _matrixPreview(),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (_configSaving || _class == null) ? null : _saveConfig,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kDark,
+                    disabledBackgroundColor: _kMuted,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  icon: _configSaving
+                      ? const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.save_rounded, color: Colors.white, size: 18),
+                  label: Text(
+                    _configId == null ? 'Create Configuration' : 'Update Configuration',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
                 ),
               ),
-            ),
-          ]),
-        ],
-      ]),
+            ]),
+          ],
+        ]),
+      ),
     );
   }
 
@@ -1351,6 +1367,37 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
         const SizedBox(height: 16),
       ]),
     ));
+  }
+
+  /// Called whenever selectedSchool changes while this page is open.
+  /// Filters, config (subjects/exams), loaded students, marks, and reports
+  /// are all scoped to the previous school — none of it applies here.
+  void _onSchoolChanged(School school) {
+    setState(() {
+      _class = null;
+      _section = null;
+      _academicYear = school.currentAcademicYear ?? AcademicYearUtils.getCurrentAcademicYear();
+      _showFilters = true;
+
+      _configId = null;
+      _cfgSubjects = [];
+      _cfgExams = [];
+
+      _students = [];
+      _reports = {};
+
+      _disposeCells();
+      _absent = {};
+      _saving = {};
+      _expanded = {};
+      for (final c in _remarks.values) c.dispose();
+      _remarks.clear();
+    });
+
+    _schoolCtrl.classes.clear();
+    _schoolCtrl.sections.clear();
+    _schoolCtrl.getAllClasses(school.id);
+    _schoolCtrl.getAllSections(schoolId: school.id);
   }
 }
 

@@ -25,7 +25,7 @@ import 'announcement_controller.dart';
 class AuthController extends GetxController {
   final ApiService _apiService = Get.find();
   final GetStorage storage = GetStorage();
-  
+
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final user = Rxn<User>();
@@ -140,7 +140,7 @@ class AuthController extends GetxController {
           storage.write('userSchool', userData['schoolId']);
           userData['schoolId'] = userData['schoolId']['_id'] ?? userData['schoolId']['id'];
         }
-        
+
         if (userData['schoolId'] == null && token != null) {
           try {
             final parts = token.split('.');
@@ -149,7 +149,7 @@ class AuthController extends GetxController {
               final normalizedPayload = payload + '=' * (4 - payload.length % 4).toInt();
               final decoded = utf8.decode(base64Url.decode(normalizedPayload));
               final tokenData = json.decode(decoded);
-              
+
               if (tokenData['schoolId'] != null) {
                 userData['schoolId'] = tokenData['schoolId'];
               }
@@ -158,7 +158,7 @@ class AuthController extends GetxController {
             // Silent fail
           }
         }
-        
+
         storage.write('user', userData);
         user.value = User.fromJson(userData);
 
@@ -177,7 +177,7 @@ class AuthController extends GetxController {
         if (userSchool.value == null) {
           await fetchUserSchoolInfo();
         }
-        
+
         try {
           final subscriptionService = Get.find<SubscriptionService>();
           if (user.value!.schoolId != null) {
@@ -223,19 +223,19 @@ class AuthController extends GetxController {
   Future<Map<String, dynamic>> isAuthenticated() async {
     try {
       final response = await _apiService.get(ApiConstants.isAuthenticated);
-      
+
       if (response.data['ok'] == true) {
         final userData = response.data['data'];
-        
+
         if (userData['schoolId'] is Map) {
-           userSchool.value = userData['schoolId'];
-           storage.write('userSchool', userData['schoolId']);
-           userData['schoolId'] = userData['schoolId']['_id'] ?? userData['schoolId']['id'];
+          userSchool.value = userData['schoolId'];
+          storage.write('userSchool', userData['schoolId']);
+          userData['schoolId'] = userData['schoolId']['_id'] ?? userData['schoolId']['id'];
         }
 
         user.value = User.fromJson(userData);
         storage.write('user', userData);
-        
+
         try {
           final subscriptionService = Get.find<SubscriptionService>();
           await subscriptionService.reloadSubscriptionAfterAuth();
@@ -245,7 +245,7 @@ class AuthController extends GetxController {
         } catch (e) {
           // Silent fail
         }
-        
+
         return {
           'ok': true,
           'message': response.data['message'] ?? 'User is authenticated',
@@ -279,9 +279,9 @@ class AuthController extends GetxController {
   void navigateBasedOnRole() {
     if (_isNavigating || user.value == null) return;
     _isNavigating = true;
-    
+
     final userRole = user.value!.role.toLowerCase();
-    
+
     Future.delayed(Duration.zero, () {
       switch (userRole) {
         case 'correspondent':
@@ -308,7 +308,7 @@ class AuthController extends GetxController {
   Future<void> createSchool(String schoolName, String email, String phoneNo, String address, String currentAcademicYear, [File? logoFile]) async {
     try {
       isLoading.value = true;
-      
+
       final formData = FormData.fromMap({
         'name': schoolName,
         'email': email.isNotEmpty ? email : null,
@@ -316,7 +316,7 @@ class AuthController extends GetxController {
         'address': address.isNotEmpty ? address : null,
         'currentAcademicYear': currentAcademicYear.isNotEmpty ? currentAcademicYear : null,
       });
-      
+
       if (logoFile != null) {
         await _compressImage(logoFile);
         formData.files.add(MapEntry(
@@ -327,12 +327,12 @@ class AuthController extends GetxController {
           ),
         ));
       }
-      
+
       final response = await _apiService.dio.post(
         ApiConstants.createSchool,
         data: formData,
       );
-      
+
       _handleCreateSchoolResponse(response);
     } catch (e) {
       ErrorHandler.showError(e, 'Failed to create school');
@@ -340,7 +340,7 @@ class AuthController extends GetxController {
       isLoading.value = false;
     }
   }
-  
+
   void _handleCreateSchoolResponse(Response response) {
     if (response.data['ok'] == true) {
       if (Get.context != null) {
@@ -355,7 +355,7 @@ class AuthController extends GetxController {
         // Silent fail
       }
       Future.delayed(const Duration(milliseconds: 100), () {
-        Get.snackbar('Success', 'School created successfully', 
+        Get.snackbar('Success', 'School created successfully',
             colorText: Colors.white, backgroundColor: Colors.green);
       });
     } else {
@@ -395,7 +395,7 @@ class AuthController extends GetxController {
     Get.offAllNamed(AppRoutes.LOGIN);
     if (_isNavigating) return;
     _isNavigating = true;
-    
+
     try {
       await _apiService.post(ApiConstants.logout);
     } catch (e) {
@@ -433,11 +433,11 @@ class AuthController extends GetxController {
       if (userName != null && userName.isNotEmpty) updateData['userName'] = userName;
       if (email != null && email.isNotEmpty) updateData['email'] = email;
       if (phoneNo != null && phoneNo.isNotEmpty) updateData['phoneNo'] = phoneNo;
-      
+
       if (updateData.isEmpty) {
         throw Exception('No data to update');
       }
-      
+
       final response = await _apiService.put(
         ApiConstants.updateUser,
         data: updateData,
@@ -461,7 +461,69 @@ class AuthController extends GetxController {
       isLoading.value = false;
     }
   }
-  
+
+  /// Uploads/replaces the current user's profile photo via
+  /// `PUT /api/user/update-profile-img/:userId`, then updates `user.value`
+  /// and persisted storage with the fresh user document the server returns
+  /// (it comes back with the full user, including the new `profileImage`).
+  /// Uploads/replaces the current user's profile photo via
+  /// `PUT /api/user/update-profile-img/:userId`, then updates `user.value`
+  /// and persisted storage with the fresh user document the server returns
+  /// (it comes back with the full user, including the new `profileImage`).
+  Future<void> updateProfileImage(File imageFile) async {
+    try {
+      isLoading.value = true;
+
+      final userId = user.value?.id;
+      if (userId == null || userId.isEmpty) {
+        throw Exception('No user id available to update photo against');
+      }
+
+      await _compressImage(imageFile);
+
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split('/').last,
+        ),
+      });
+
+      final response = await _apiService.dio.put(
+        '${ApiConstants.updateProfileImg}/$userId',
+        data: formData,
+      );
+
+      if (response.data is Map && response.data['ok'] == true) {
+        final updatedUserData = response.data['data'];
+        if (updatedUserData is Map) {
+          final userMap = Map<String, dynamic>.from(updatedUserData);
+          user.value = User.fromJson(userMap);
+          storage.write('user', userMap);
+        }
+        Get.snackbar(
+          'Success',
+          response.data['message']?.toString() ?? 'Profile photo updated',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else {
+        final msg = response.data is Map ? response.data['message'] : response.data.toString();
+        throw Exception(msg ?? 'Failed to update photo');
+      }
+    } catch (e) {
+      if (e is DioException && e.response != null) {
+        final errorMsg = e.response?.data is Map ? (e.response?.data['message'] ?? 'Failed to update photo') : 'Failed to update photo';
+        Get.snackbar('Error', errorMsg, backgroundColor: Colors.red, colorText: Colors.white);
+      } else {
+        Get.snackbar('Error', 'Failed to update photo: ${e.toString()}',
+            backgroundColor: Colors.red, colorText: Colors.white);
+      }
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<File> _compressImage(File file) async {
     try {
       final bytes = await file.readAsBytes();
@@ -479,7 +541,7 @@ class AuthController extends GetxController {
         final response = await _apiService.get(
           '${ApiConstants.getSingleSchool}/${user.value!.schoolId}',
         );
-        
+
         if (response.data['ok'] == true) {
           final schoolData = response.data['data'];
           userSchool.value = schoolData;

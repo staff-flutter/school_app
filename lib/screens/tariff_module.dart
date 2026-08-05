@@ -5,6 +5,7 @@ import 'package:school_app/screens/tariff_form_page.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/school_controller.dart';
+import '../core/permissions/eb_permissions.dart';
 
 class TariffListScreen extends StatefulWidget {
 
@@ -244,14 +245,16 @@ class _TariffListScreenState extends State<TariffListScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
-                            onPressed: () => _openTariffForm(tariff),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                            onPressed: () => _confirmDelete(id, name),
-                          ),
+                          if (EBPermissions.canEditTariffs(role))
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
+                              onPressed: () => _openTariffForm(tariff),
+                            ),
+                          if (EBPermissions.canDeleteTariffs(role))
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                              onPressed: () => _confirmDelete(id, name),
+                            ),
                         ],
                       ),
                     );

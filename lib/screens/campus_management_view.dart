@@ -15,7 +15,8 @@ import '../controllers/school_controller.dart';
 import '../core/utils/academic_year_utils.dart';
 import '../services/user_session.dart';
 import 'dart:io';
-
+import 'package:collection/collection.dart';
+import 'quiz_leaderboard_page.dart';
 // ─── Role helper ─────────────────────────────────────────────────────────────
 
 bool _canEdit(String role) =>
@@ -155,6 +156,7 @@ class Quiz {
   final String id;
   final String title;
   final String clubId;
+  final String clubVideoId;
   final bool isGeneratedByAi; // 'manual' | 'ai'
   final List<QuizQuestion> questions;
   final String createdAt;
@@ -163,6 +165,7 @@ class Quiz {
     required this.id,
     required this.title,
     required this.clubId,
+    required this.clubVideoId,
     required this.isGeneratedByAi,
     required this.questions,
     required this.createdAt,
@@ -172,6 +175,9 @@ class Quiz {
     id: j['_id'] ?? '',
     title: j['title'] ?? 'Untitled quiz',
     clubId: j['clubId'] is Map ? (j['clubId']['_id'] ?? '') : (j['clubId'] ?? ''),
+    clubVideoId: j['clubVideoId'] is Map                              // 👈 NEW
+        ? (j['clubVideoId']['_id'] ?? '')
+        : (j['clubVideoId']?.toString() ?? ''),
     isGeneratedByAi: j['isGeneratedByAi'] ?? false,
     questions: (j['questions'] as List? ?? [])
         .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
@@ -235,6 +241,7 @@ class _CampusManagementViewState extends State<CampusManagementView>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _fetchClubs();
+
 
     // If a correspondent picks/changes their school *after* this screen has
     // already loaded, re-fetch clubs so this view doesn't stay stuck on
@@ -1625,23 +1632,65 @@ class _QuizTabState extends State<_QuizTab> {
     'Authorization': 'Bearer ${widget.token}',
     'Accept': 'application/json',
   };
+  String _msg(http.Response r) {
+    try { return jsonDecode(r.body)['message'] ?? '${r.statusCode}'; } catch (_) { return '${r.statusCode}'; }
+  }
+  @override
+  void initState() {
+    // TODO: implement initState
 
+    super.initState();
+    _fetchQuizAttempts();
+  }
   @override
   void didUpdateWidget(covariant _QuizTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-select the first club once clubs finish loading.
+
+    // School changed (correspondent switched schools) — clubs/quizzes from
+    // the old school are no longer valid, so reset and refetch everything.
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _selectedClub = null;
+        _quizzes = [];
+      });
+    }
+
+    // Auto-select the first club once clubs finish loading (also covers
+    // the case right after a school switch, once _selectedClub was reset above).
     if (_selectedClub == null && widget.clubs.isNotEmpty) {
       _selectedClub = widget.clubs.first;
+
       _fetchQuizzes();
     }
   }
+  Future<void> _fetchQuizAttempts() async{
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllQuizAttempts}');
 
+    try {
+      final res = await http.get(uri, headers: _headers);
+      _logResponse('GET', uri, res);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        print('getAllQuizAttempts:$body}');
+        final list = (body['data'] as List? ?? []).map((e) => Quiz.fromJson(e)).toList();
+        final Map<String, Quiz> uniqueMap = {
+          for (final q in list) if (q.id.isNotEmpty) q.id: q,
+        };
+        setState(() { _quizzes = uniqueMap.values.toList(); _loading = false; });
+      } else {
+        setState(() { _quizzes = []; _loading = false; });
+      }
+    } catch (e) {
+      _logError('GET', uri, e);
+      setState(() { _quizzes = []; _loading = false; });
+    }
+  }
   Future<void> _fetchQuizzes() async {
     if (_selectedClub == null) return;
     setState(() => _loading = true);
     // NOTE: add `getQuizzesByClub` to ApiConstants pointing at your quiz-list endpoint.
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getQuizzesByClub}')
-        .replace(queryParameters: {'clubId': _selectedClub!.id.toString()});
+        .replace(queryParameters: {'clubId': _selectedClub!.id.toString(),'schoolId': widget.schoolId,});
     _logRequest('GET', uri);
     try {
       final res = await http.get(uri, headers: _headers);
@@ -1663,8 +1712,10 @@ class _QuizTabState extends State<_QuizTab> {
   }
 
   Future<void> _deleteQuiz(Quiz q) async {
+    print('🗑️ Deleting quiz ${q.id} — quiz.clubId=${q.clubId}, current widget.schoolId=${widget.schoolId}');
+
     // NOTE: add `deleteQuiz` to ApiConstants pointing at your delete endpoint.
-    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deleteQuiz}/${q.id}');
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deleteQuiz}/${q.id}').replace(queryParameters: {'schoolId': widget.schoolId});
     _logRequest('DELETE', uri);
     try {
       final res = await http.delete(uri, headers: _headers);
@@ -1673,8 +1724,8 @@ class _QuizTabState extends State<_QuizTab> {
         setState(() => _quizzes.removeWhere((x) => x.id == q.id));
         Get.snackbar('Success', 'Quiz deleted', backgroundColor: const Color(0xFF22C55E), colorText: Colors.white);
       } else {
-        Get.snackbar('Error', 'Failed to delete quiz', backgroundColor: Colors.redAccent, colorText: Colors.white);
-      }
+        Get.snackbar('Error', 'Failed to delete quiz: ${_msg(res)}',
+            backgroundColor: Colors.redAccent, colorText: Colors.white);      }
     } catch (e) {
       _logError('DELETE', uri, e);
       Get.snackbar('Error', 'Failed to delete quiz', backgroundColor: Colors.redAccent, colorText: Colors.white);
@@ -1854,13 +1905,17 @@ class _QuizListTile extends StatelessWidget {
   final VoidCallback onTap, onEdit, onDelete;
 
   const _QuizListTile({
-    required this.quiz, required this.canEdit,
-    required this.onTap, required this.onEdit, required this.onDelete,
+    required this.quiz,
+    required this.canEdit,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     final isAi = quiz.isGeneratedByAi;
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -1868,50 +1923,107 @@ class _QuizListTile extends StatelessWidget {
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1)),
         ),
-        child: Row(children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: (isAi ? Colors.purple : Colors.blue).shade50,
-              borderRadius: BorderRadius.circular(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Section: Icon + Quiz Title & Info
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: (isAi ? Colors.purple : Colors.blue).shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isAi ? Icons.auto_awesome : Icons.edit_note,
+                    color: (isAi ? Colors.purple : Colors.blue)[700],
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        quiz.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A2E),
+                        ),
+                        // Removed maxLines limit so full text shows
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${quiz.questions.length} questions · ${isAi ? "AI generated" : "Manual"}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            child: Icon(isAi ? Icons.auto_awesome : Icons.edit_note,
-                color: (isAi ? Colors.purple : Colors.blue)[700], size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(quiz.title,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 3),
-              Text('${quiz.questions.length} questions · ${isAi ? "AI generated" : "Manual"}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            ],
-          )),
-          Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
-          if (canEdit) ...[
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 18, color: Colors.blue[700]),
-              onPressed: onEdit,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-              onPressed: onDelete,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+
+            const SizedBox(height: 8),
+
+            // Bottom Section: Action Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Leaderboard Button
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuizLeaderboardPage(
+                        quizId: quiz.id,
+                        quizTitle: quiz.title,
+                        canDelete: canEdit,
+                      ),
+                    ),
+                  ),
+                  icon: Icon(Icons.leaderboard_outlined, size: 16, color: Colors.blue[700]),
+                  label: Text(
+                    'Leaderboard',
+                    style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+
+                if (canEdit) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(Icons.edit_outlined, size: 18, color: Colors.blue[700]),
+                    onPressed: onEdit,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Edit',
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                    onPressed: onDelete,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Delete',
+                  ),
+                ],
+              ],
             ),
           ],
-        ]),
+        ),
       ),
     );
   }
 }
-
-
 // ─── Manual quiz builder (also used to review/edit AI-generated questions) ───
 
 class _QuizBuilderScreen extends StatefulWidget {
@@ -1922,11 +2034,12 @@ class _QuizBuilderScreen extends StatefulWidget {
   final Quiz? editingQuiz;
   final String? initialTitle;
   final List<QuizQuestion>? initialQuestions;
+  final String? initialVideoId;
 
   const _QuizBuilderScreen({
 
     required this.clubId, required this.token,required this.schoolId, required this.source,
-    this.editingQuiz, this.initialTitle, this.initialQuestions,
+    this.editingQuiz, this.initialTitle, this.initialQuestions,this.initialVideoId,
   });
 
   @override
@@ -1937,6 +2050,10 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
   late TextEditingController _titleCtrl;
   late List<QuizQuestion> _questions;
   bool _saving = false;
+
+  List<ClubVideo> _videos = [];
+  bool _videosLoading = true;
+  String? _selectedVideoId;
 
   Map<String, String> get _headers => {
     'Authorization': 'Bearer ${widget.token}',
@@ -1952,6 +2069,34 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
     _questions = widget.editingQuiz?.questions.map((q) => q.copy()).toList()
         ?? widget.initialQuestions?.map((q) => q.copy()).toList()
         ?? [_blankQuestion()];
+
+
+    _selectedVideoId = (widget.editingQuiz?.clubVideoId.isNotEmpty ?? false)
+        ? widget.editingQuiz!.clubVideoId
+        : widget.initialVideoId;
+
+    _fetchVideosForPicker();
+
+  }
+  Future<void> _fetchVideosForPicker() async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllClubVideos}')
+        .replace(queryParameters: {'clubId': widget.clubId, 'page': '1', 'limit': '50'});
+    try {
+      final res = await http.get(uri, headers: _headers);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List).map((e) => ClubVideo.fromJson(e)).toList();
+        setState(() {
+          _videos = list;
+          _videosLoading = false;
+        });
+      } else {
+        setState(() => _videosLoading = false);
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to load videos for quiz picker: $e');
+      setState(() => _videosLoading = false);
+    }
   }
 
   QuizQuestion _blankQuestion() => QuizQuestion(
@@ -1973,6 +2118,7 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
 
   bool get _isValid {
     if (_titleCtrl.text.trim().isEmpty) return false;
+    if (_selectedVideoId == null || _selectedVideoId!.isEmpty) return false;
     if (_questions.isEmpty) return false;
     for (final q in _questions) {
       if (q.text.trim().isEmpty) return false;
@@ -1993,6 +2139,7 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
     final payload = {
       'schoolId': widget.schoolId,
       'clubId': widget.clubId,
+      'clubVideoId': _selectedVideoId,
       'title': _titleCtrl.text.trim(),
       'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
       //'source': widget.source,
@@ -2061,6 +2208,30 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
               ]),
             ),
           _StyledInput(ctrl: _titleCtrl, label: 'Quiz title', hint: 'e.g. Chapter 3 recap'),
+          const SizedBox(height: 16),
+          _videosLoading
+              ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator()),
+          )
+              : _videos.isEmpty
+              ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
+            child: const Text(
+              'No videos found for this club — upload a video first, quizzes must be linked to one.',
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+          )
+              : _StyledDropdown(
+            label: 'Video',
+            value: _videos.firstWhereOrNull((v) => v.id == _selectedVideoId)?.title ?? '',
+            items: _videos.map((v) => v.title).toList(),
+            onChanged: (title) {
+              final video = _videos.firstWhere((v) => v.title == title);
+              setState(() => _selectedVideoId = video.id);
+            },
+          ),
           const SizedBox(height: 16),
           ...List.generate(_questions.length, (qi) => _QuestionEditorCard(
             index: qi,
@@ -2322,11 +2493,13 @@ class _AiQuizUploadScreenState extends State<_AiQuizUploadScreen> {
             token: widget.token,
             schoolId: widget.schoolId,
             source: 'ai',
+            initialVideoId: _selectedVideo!.id,
             editingQuiz: alreadySaved
                 ? Quiz(
               id: generatedQuizId!,
               title: title,
               clubId: widget.clubId,
+              clubVideoId: _selectedVideo!.id,
               isGeneratedByAi: true,
               questions: questions,
               createdAt: '',
@@ -2349,9 +2522,7 @@ class _AiQuizUploadScreenState extends State<_AiQuizUploadScreen> {
     }
   }
 
-  String _msg(http.Response r) {
-    try { return jsonDecode(r.body)['message'] ?? '${r.statusCode}'; } catch (_) { return '${r.statusCode}'; }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -2461,7 +2632,10 @@ class _AiQuizUploadScreenState extends State<_AiQuizUploadScreen> {
       ),
     );
   }
-}
+
+  String _msg(http.Response r) {
+    try { return jsonDecode(r.body)['message'] ?? '${r.statusCode}'; } catch (_) { return '${r.statusCode}'; }
+  }}
 
 
 // ─── Read-only quiz preview / take screen ─────────────────────────────────────

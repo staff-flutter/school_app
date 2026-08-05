@@ -1,3 +1,43 @@
+class ProfileImage {
+  final String? type;
+  final String? key;
+  final String? url;
+  final String? originalName;
+  final String? uploadedAt;
+  final String? id;
+
+  ProfileImage({
+    this.type,
+    this.key,
+    this.url,
+    this.originalName,
+    this.uploadedAt,
+    this.id,
+  });
+
+  factory ProfileImage.fromJson(dynamic json) {
+    if (json is! Map) return ProfileImage();
+    final m = Map<String, dynamic>.from(json);
+    return ProfileImage(
+      type: m['type']?.toString(),
+      key: m['key']?.toString(),
+      url: m['url']?.toString(),
+      originalName: m['originalName']?.toString(),
+      uploadedAt: m['uploadedAt']?.toString(),
+      id: m['_id']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'key': key,
+    'url': url,
+    'originalName': originalName,
+    'uploadedAt': uploadedAt,
+    '_id': id,
+  };
+}
+
 class User {
   final String id;
   final String email;
@@ -10,6 +50,7 @@ class User {
   final bool isPlatformAdmin;
   final List<String> studentId;
   final List<Map<String, dynamic>> assignments;
+  final ProfileImage? profileImage;
 
   User({
     required this.id,
@@ -23,6 +64,7 @@ class User {
     this.isPlatformAdmin = false,
     List<String>? studentId,
     List<Map<String, dynamic>>? assignments,
+    this.profileImage,
   })  : studentId = studentId ?? [],
         assignments = assignments ?? [];
 
@@ -40,6 +82,9 @@ class User {
       studentId: List<String>.from(json['studentId'] ?? []),
       assignments:
       List<Map<String, dynamic>>.from(json['assignments'] ?? []),
+      profileImage: json['profileImage'] != null
+          ? ProfileImage.fromJson(json['profileImage'])
+          : null,
     );
   }
 
@@ -56,6 +101,7 @@ class User {
       'isPlatformAdmin': isPlatformAdmin,
       'studentId': studentId,
       'assignments': assignments,
+      'profileImage': profileImage?.toJson(),
     };
   }
 }

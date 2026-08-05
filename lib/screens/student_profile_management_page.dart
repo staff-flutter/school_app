@@ -80,9 +80,11 @@ class _StudentProfileManagementPageState
   // ── Per-row "opening edit" loading state ────────────────────────────────────
   String? _openingId;
 
+  Worker? _schoolWorker;
+
   // ── Role helpers ──────────────────────────────────────────────────────────
   String get _role => _auth.user.value?.role?.toLowerCase() ?? '';
-  bool get _canDelete => _role == 'correspondent';
+  bool get _canDelete => _role == 'correspondent' || _role == 'administrator';
   bool get _canEdit =>
       ['correspondent', 'administrator', 'accountant'].contains(_role);
 
@@ -103,6 +105,12 @@ class _StudentProfileManagementPageState
       await _ensureSchoolLoaded();
       _loadStudents(reset: true);
     });
+    if (_role == 'correspondent') {
+      _schoolWorker = ever<School?>(_school.selectedSchool, (school) {
+        if (!mounted || school == null) return;
+        _onSchoolChanged(school.id);
+      });
+    }
   }
 
   void _onSearchChanged() {
@@ -143,6 +151,7 @@ class _StudentProfileManagementPageState
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _searchCtrl.removeListener(_onSearchChanged);
     _searchCtrl.dispose();
     super.dispose();
@@ -680,7 +689,25 @@ class _StudentProfileManagementPageState
       ),
     );
   }
-}
+
+  Future<void> _onSchoolChanged(String newSchoolId) async {
+    setState(() {
+      _selClass = null;
+      _selSection = null;
+      _students = [];
+      _page = 1;
+      _hasMore = true;
+      _deletingId = null;
+      _openingId = null;
+    });
+    _searchCtrl.clear();
+    _search = '';
+
+    _school.classes.clear();
+    _school.sections.clear();
+    await _school.getAllClasses(newSchoolId);
+    await _loadStudents(reset: true);
+  }}
 
 // =============================================================================
 // STUDENT CARD

@@ -78,6 +78,8 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
 
   late TabController _tabController;
 
+  Worker? _schoolWorker;
+
   SchoolClass? selectedClass;
   Section?     selectedSection;
   DateTime     selectedDate       = DateTime.now();
@@ -99,6 +101,15 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     super.initState();
     _tabController = TabController(length: _tabCount, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initSchool());
+    // React whenever the correspondent switches schools from the sidebar.
+    // Only meaningful for roles whose school isn't fixed to their own account.
+    final role = authController.user.value?.role?.toLowerCase() ?? '';
+    if (role == 'correspondent') {
+      _schoolWorker = ever<School?>(schoolController.selectedSchool, (school) {
+        if (!mounted || school == null) return;
+        _onSchoolChanged(school.id);
+      });
+    }
   }
 
   void _initSchool() {
@@ -122,6 +133,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _tabController.dispose();
     subjectCtrl.dispose();
     descriptionCtrl.dispose();
@@ -1053,5 +1065,22 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
       return 999;
     }
     return priority(a).compareTo(priority(b));
+  }
+
+  /// Called whenever selectedSchool changes while this page is open.
+  /// Every filter and every loaded timetable/teacher list here is scoped
+  /// to a single school — none of it applies to the newly selected one.
+  void _onSchoolChanged(String newSchoolId) {
+    setState(() {
+      selectedClass = null;
+      selectedSection = null;
+    });
+
+    schoolController.classes.clear();
+    schoolController.sections.clear();
+    homeworkController.homeworkList.clear();
+
+    schoolController.getAllClasses(newSchoolId);
+
   }
 }

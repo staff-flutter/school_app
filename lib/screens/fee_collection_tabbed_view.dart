@@ -2096,7 +2096,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   }
 
   Widget _buildCashDenominationFields(BuildContext context, bool isTablet) {
-    final denominations = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    final denominations = [ 500, 200, 100, 50, 20, 10, 5, 2, 1];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

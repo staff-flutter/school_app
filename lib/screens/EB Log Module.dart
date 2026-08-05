@@ -5,6 +5,7 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/eb_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 
+import '../core/permissions/eb_permissions.dart';
 import 'eb_log_form_page.dart';
 
 /// Mobile "EB Logs" screen — mirrors the web "Electricity (EB) Logs" page:
@@ -24,7 +25,9 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
 
   SchoolController? get _school =>
       Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
-
+  Worker? _authWorker;
+  Worker? _schoolWorker;
+  String _lastLoadedSchoolId = '';
   String get role => _authController.user.value?.role?.toLowerCase() ?? '';
 
   String get schoolId {
@@ -48,9 +51,29 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLogs();
-  }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoadLogs());
 
+    _authWorker = ever(_authController.user, (_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tryLoadLogs();
+      });
+    });
+
+    if (_school != null) {
+      _schoolWorker = ever(_school!.selectedSchool, (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _tryLoadLogs();
+        });
+      });
+    }
+  }
+  @override
+  void dispose() {
+    _authWorker?.dispose();
+    _schoolWorker?.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
   Future<void> _loadLogs() async {
     if (schoolId.isEmpty) return;
     await ebController.getAllEBLogs(
@@ -107,6 +130,11 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
   }
 
   Future<void> _openPremisesFilterSheet() async {
+    if (schoolId.isEmpty) {
+      Get.snackbar('Please wait', 'Still loading your school info...',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     if (!_premisesRequested) {
       _premisesRequested = true;
       await ebController.getAllPremises(schoolId);
@@ -497,6 +525,8 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) => _EBLogCard(
                         log: logs[index],
+                        canEdit: EBPermissions.canEditEBLogs(role),
+                        canDelete: EBPermissions.canDeleteEBLogs(role),
                         onEdit: () => _openForm(log: logs[index]),
                         onDelete: () => _confirmDelete(logs[index]),
                       ),
@@ -510,7 +540,16 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
       ),
     );
   }
-}
+
+  void _tryLoadLogs() {
+    final id = schoolId;
+    if (id.isEmpty || id == _lastLoadedSchoolId) return;
+    _lastLoadedSchoolId = id;
+    ebController.ebLogs.clear();       // drop stale previous-user data
+    ebController.premisesList.clear(); // clear so the filter sheet doesn't show old premises either
+    _premisesRequested = false;        // force premises to be refetched for the new school
+    _loadLogs();
+  }}
 
 class _MiniDateField extends StatelessWidget {
   final String label;
@@ -577,10 +616,17 @@ class _FilterChip extends StatelessWidget {
 
 class _EBLogCard extends StatelessWidget {
   final Map<String, dynamic> log;
+  final bool canEdit;
+  final bool canDelete;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  const _EBLogCard({required this.log, required this.onEdit, required this.onDelete});
-
+  const _EBLogCard({
+    required this.log,
+    required this.canEdit,
+    required this.canDelete,
+    required this.onEdit,
+    required this.onDelete,
+  });
   String _formatDate(dynamic raw) {
     if (raw == null) return 'N/A';
     final parsed = DateTime.tryParse(raw.toString());
@@ -623,21 +669,23 @@ class _EBLogCard extends StatelessWidget {
                     Expanded(
                       child: Text(ebLogNo, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                     ),
-                    IconButton(
-                      onPressed: onEdit,
-                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.black54),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      onPressed: onDelete,
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    if (canEdit)
+                      IconButton(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.black54),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    if (canEdit && canDelete) const SizedBox(width: 10),
+                    if (canDelete)
+                      IconButton(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
                   ],
                 ),
                 Padding(

@@ -357,4 +357,8 @@ class ApiConstants {
   // DELETE /api/eb/tariff/delete/:schoolId/:tariffId
   static const String deleteTariff     = '/api/eb/tariff/delete';                //api no: 243
 
+  static const String updateProfileImg = '/api/user/update-profile-img'; // PUT; append '/:userId'
+  static const String forgotPassword = '/api/user/forgot-password';
+
+
 }

@@ -69,7 +69,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
     // If a studentId was passed in from navigation, prefill it
     if (widget.prefillStudentId != null && widget.prefillStudentId!.isNotEmpty) {
       _studentIdController.text = widget.prefillStudentId!;
-      print('prefillStudentId:${widget.prefillStudentId}');
+
     }
     _loadForm();
   }
@@ -100,9 +100,50 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
     super.dispose();
   }
 
+  // ── Date helpers (DD/MM/YYYY UI <-> ISO server) ────────────────────────────
+  // Same rule as the create form: the server casts `dob` to a real Date, and
+  // day-first strings aren't reliably parseable, so always display DD/MM/YYYY
+  // here but convert to ISO (YYYY-MM-DD) right before sending an edit.
+  String _fromIsoDate(String? v) {
+    if (v == null || v.trim().isEmpty) return '';
+    if (v.contains('/')) return v; // already display format
+    final datePart = v.split('T').first;
+    final parts = datePart.split('-');
+    if (parts.length == 3 && parts[0].length == 4) {
+      return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}/${parts[0]}';
+    }
+    return v;
+  }
+
+  String? _isoDate(String? ddmmyyyy) {
+    if (ddmmyyyy == null || ddmmyyyy.trim().isEmpty) return null;
+    final parts = ddmmyyyy.trim().split(RegExp(r'[/\-]'));
+    if (parts.length != 3) return null;
+    final day = parts[0].padLeft(2, '0');
+    final month = parts[1].padLeft(2, '0');
+    final year = parts[2];
+    if (year.length != 4) return null;
+    return '$year-$month-$day';
+  }
+
+  Future<void> _pickDob() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(DateTime.now().year - 10),
+      firstDate: DateTime(1970),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _dobController.text =
+        '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+      });
+    }
+  }
+
   void _populateControllers(Map<String, dynamic> data) {
     _studentNameController.text = data['studentName']?.toString() ?? '';
-    _dobController.text = data['dob']?.toString() ?? '';
+    _dobController.text = _fromIsoDate(data['dob']?.toString());
     _ageController.text = data['age']?.toString() ?? '';
     _genderController.text = data['gender']?.toString() ?? '';
     _motherTongueController.text = data['motherTongue']?.toString() ?? '';
@@ -121,7 +162,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
     _motherNameController.text = data['motherName']?.toString() ?? '';
     _motherEducationController.text = data['motherEducation']?.toString() ?? '';
     _motherOccupationController.text = data['motherOccupation']?.toString() ?? '';
-   // _studentIdController.text = (data['studentId'] ?? '').toString();
+    // _studentIdController.text = (data['studentId'] ?? '').toString();
     final fetchedStudentId = data['studentId']?.toString() ?? '';
     if (fetchedStudentId.isNotEmpty) {
       _studentIdController.text = fetchedStudentId;
@@ -153,7 +194,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
 
   Map<String, dynamic> get _editedPayload => {
     'studentName': _studentNameController.text.trim(),
-    'dob': _dobController.text.trim(),
+    'dob': _isoDate(_dobController.text.trim()),
     'age': int.tryParse(_ageController.text.trim()) ?? 0,
     'gender': _genderController.text.trim(),
     'motherTongue': _motherTongueController.text.trim(),
@@ -175,6 +216,13 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
   };
 
   Future<void> _saveEdits() async {
+    if (_dobController.text.trim().isNotEmpty && _isoDate(_dobController.text.trim()) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Date of Birth format is invalid — please use the date picker.')),
+      );
+      return;
+    }
+
     final success = await _controller.updateAdmissionFormAfterSubmission(
       admissionFormId: widget.admissionFormId,
       updatedData: _editedPayload,
@@ -235,8 +283,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
       studentId: studentId,
     );
     String? admissionformid='${widget.admissionFormId}';
-    print('admissionformid:$admissionformid');
-    print('studentid:$studentId');
+
     if (success) {
       _changed = true;
       _loadForm();
@@ -258,7 +305,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    print('admissionformId:$widget.admissionFormId');
+
     return WillPopScope(
       onWillPop: () async {
         Get.back(result: _changed);
@@ -308,7 +355,7 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
                 _buildSectionBanner('I. STUDENT DETAILS'),
                 const SizedBox(height: 12),
                 _buildField(_studentNameController, 'Student Name'),
-                _buildField(_dobController, 'Date of Birth'),
+                _buildDobField(),
                 _buildField(_ageController, 'Age'),
                 _buildField(_genderController, 'Gender'),
                 _buildField(_motherTongueController, 'Mother Tongue'),
@@ -413,6 +460,41 @@ class _AdmissionFormDetailViewState extends State<AdmissionFormDetailView> {
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       color: const Color(0xFF0F2042),
       child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _buildDobField() {
+    if (!_editMode) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(width: 160, child: Text('Date of Birth', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500))),
+            Expanded(
+              child: Text(
+                _dobController.text.isEmpty ? '—' : _dobController.text,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: TextField(
+        controller: _dobController,
+        readOnly: true,
+        onTap: _pickDob,
+        decoration: InputDecoration(
+          labelText: 'Date of Birth',
+          isDense: true,
+          suffixIcon: const Icon(Icons.calendar_today_rounded, size: 16),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+        ),
+      ),
     );
   }
 

@@ -1045,7 +1045,8 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
   final RxInt totalPeriods = 8.obs;
 
   final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
+  Worker? _schoolWorker;
+  
   @override
   void initState() {
     super.initState();
@@ -1064,6 +1065,14 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
         }
       }
     });
+    // React whenever the correspondent switches schools from the sidebar.
+    // Only meaningful for roles whose school isn't fixed to their own account.
+    if (!ApiPermissions.isSchoolReadOnly(currentUserRole)) {
+      _schoolWorker = ever<School?>(schoolController.selectedSchool, (school) {
+        if (!mounted || school == null) return;
+        _onSchoolChanged(school.id);
+      });
+    }
   }
 
   int _getAvailableTabsCount() {
@@ -1176,6 +1185,7 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -2666,5 +2676,28 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
       //subjectController.dispose();
       //searchCtrl.dispose();
     });
+  }
+
+  /// Called whenever selectedSchool changes while this page is open.
+  /// Every filter and every loaded timetable/teacher list here is scoped
+  /// to a single school — none of it applies to the newly selected one.
+  void _onSchoolChanged(String newSchoolId) {
+    setState(() {
+      selectedClass = null;
+      selectedSection = null;
+      selectedTeacherId = null;
+    });
+
+    schoolController.classes.clear();
+    schoolController.sections.clear();
+    schoolController.resetTeachers();     // clears teachers + _teachersLoaded flag
+    timetableController.timetables.clear();
+    timetableController.teacherSchedule.clear();
+
+    schoolController.getAllClasses(newSchoolId);
+    // Teachers are lazily loaded by _buildTeacherTab's postFrameCallback and
+    // by loadTeachers() calls scattered through the dialogs — clearing above
+    // is enough for those to refetch on next use since resetTeachers()
+    // flips _teachersLoaded back to false.
   }
 }

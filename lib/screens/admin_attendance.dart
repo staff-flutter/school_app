@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:school_app/controllers/auth_controller.dart';
 import '../constants/api_constants.dart';
 import '../core/utils/academic_year_utils.dart';
+import '../models/school_models.dart';
 import '../services/user_session.dart';
 import '../controllers/school_controller.dart';
 
@@ -102,6 +103,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   late TabController _tabController;
   final _AuthCtrl = Get.find<AuthController>();
   Worker? _classesWorker;
+  Worker? _schoolWorker;
 
   // ── Attendance state ────────────────────────────────────────────────────────
   String? _selectedClassId;
@@ -127,8 +129,9 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   String _eventType = 'holiday';
   String _eventYear = AcademicYearUtils.getCurrentAcademicYear();
   String? _editingEventId;
-
+  static const int _pastEditWindowDays = 7;
   static final _years = AcademicYearUtils.getRecentAcademicYears(3);
+  bool _isEditingExisting = false;
 
   @override
   void initState() {
@@ -138,17 +141,68 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       _loadClassesFromController();
       _loadCalendarEvents();
     });
+    final sc = Get.find<SchoolController>();
+    _schoolWorker = ever<School?>(sc.selectedSchool, (school) {
+      if (!mounted || school == null) return;
+      _onSchoolChanged();
+    });
   }
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _classesWorker?.dispose();
     _tabController.dispose();
     _eventNameCtrl.dispose();
     _eventDescCtrl.dispose();
     super.dispose();
   }
+  Future<void> _fetchExistingAttendance() async {
+    try {
+      final sc = Get.find<SchoolController>();
+      final schoolId = sc.selectedSchool.value?.id ?? _AuthCtrl.user.value?.schoolId ?? '';
+      final token = _AuthCtrl.storage.read('token') ?? '';
+      final dateStr = _selectedDate.toIso8601String().split('T').first;
 
+      final uri = Uri.parse('${ApiConstants.baseUrl}/api/attendance/sheet').replace(
+        queryParameters: {
+          'schoolId': schoolId,
+          'classId': _selectedClassId,
+          if (_classHasSections && _selectedSectionId != null) 'sectionId': _selectedSectionId,
+          'date': dateStr,
+          'academicYear': _selectedYear,
+        },
+      );
+
+      final response = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final String mode = decoded['mode'] ?? 'CREATE';
+        final List<dynamic> records = decoded['data'] ?? [];
+
+        final byStudentId = {
+          for (final r in records) (r['studentId']?.toString() ?? ''): r,
+        };
+
+        setState(() {
+          for (final s in _students) {
+            final rec = byStudentId[s.id];
+            if (rec != null) {
+              s.status = rec['status'] ?? s.status;
+              s.remark = rec['remark'] ?? s.remark;
+            }
+          }
+          _isEditingExisting = mode == 'EDIT';
+        });
+      }
+    } catch (_) {
+      // treat fetch failure as "no existing sheet" rather than blocking the UI
+    }
+  }
   Future<void> _loadClassesFromController() async {
     try {
       final sc = Get.find<SchoolController>();
@@ -169,23 +223,23 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
       if (schoolId != null && schoolId.isNotEmpty) {
         await sc.getAllClasses(schoolId);
       }
-      ever(sc.classes, (list) {
-        if (!mounted) return;
-        setState(() {
-          _classes = list
-              .map((c) => {'id': c.id, 'name': c.name})
-              .toList();
-        });
-      });
+      // ever(sc.classes, (list) {
+      //   if (!mounted) return;
+      //   setState(() {
+      //     _classes = list
+      //         .map((c) => {'id': c.id, 'name': c.name})
+      //         .toList();
+      //   });
+      // });
 
-      if (sc.classes.isNotEmpty && mounted) {
-        setState(() {
-          _classes = sc.classes
-              .map((c) => {'id': c.id ?? '', 'name': c.name ?? ''})
-              .where((c) => c['id']!.isNotEmpty)
-              .toList();
-        });
-      }
+      // if (sc.classes.isNotEmpty && mounted) {
+      //   setState(() {
+      //     _classes = sc.classes
+      //         .map((c) => {'id': c.id ?? '', 'name': c.name ?? ''})
+      //         .where((c) => c['id']!.isNotEmpty)
+      //         .toList();
+      //   });
+      // }
     } catch (e) {}
   }
 
@@ -251,6 +305,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
         ))
             .toList();
       });
+      await _fetchExistingAttendance();
     } catch (e) {
       Get.snackbar('Error', 'Failed to load students',
           backgroundColor: Colors.red, colorText: Colors.white);
@@ -597,7 +652,12 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                 child: _datePicker(
                   label: 'Date',
                   date: _selectedDate,
-                  onChanged: (d) => setState(() => _selectedDate = d),
+                  firstDate: DateTime.now().subtract(const Duration(days: _pastEditWindowDays)),
+                  lastDate: DateTime.now(), // never allow future
+                  onChanged: (d) {
+                    setState(() => _selectedDate = d);
+                    if (_selectedClassId != null) _loadStudents(fromRefresh: true);
+                  },
                 ),
               ),
             ],
@@ -681,8 +741,12 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   width: 16, height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.cloud_upload_rounded, size: 16),
-              label: Text(_submitting ? 'Submitting…' : 'Submit attendance', style: const TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
+              label: Text(
+                _submitting
+                    ? 'Submitting…'
+                    : (_isEditingExisting ? 'Update attendance' : 'Submit attendance'),
+                style: const TextStyle(fontSize: 13),
+              ),              style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
                 elevation: 0,
@@ -1091,6 +1155,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     required String label,
     required DateTime date,
     required void Function(DateTime) onChanged,
+    DateTime? firstDate,
+    DateTime? lastDate,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,8 +1168,8 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             final picked = await showDatePicker(
               context: context,
               initialDate: date,
-              firstDate: DateTime(2020),
-              lastDate: DateTime(2030),
+              firstDate: firstDate ?? DateTime(2020),
+              lastDate: lastDate ?? DateTime(2030),
             );
             if (picked != null) onChanged(picked);
           },
@@ -1153,4 +1219,27 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   }
 
   String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  void _onSchoolChanged() {
+    setState(() {
+      _selectedClassId = null;
+      _selectedSectionId = null;
+      _classHasSections = false;
+      _classes = [];
+      _sections = [];
+      _students = [];
+
+      _events = [];
+      _editingEventId = null;
+      _eventNameCtrl.clear();
+      _eventDescCtrl.clear();
+      _eventFrom = DateTime.now();
+      _eventTo = DateTime.now();
+      _eventType = 'holiday';
+      _eventYear = AcademicYearUtils.getCurrentAcademicYear();
+    });
+
+    _loadClassesFromController();
+    _loadCalendarEvents();
+  }
 }

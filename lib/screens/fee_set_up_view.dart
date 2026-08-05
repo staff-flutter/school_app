@@ -41,7 +41,7 @@ class _FeeSetupViewState extends State<FeeSetupView> {
   final _selectedStudentType = 'old'.obs;
   SchoolClass? get selectedClass       => _selectedClass.value;
   String       get selectedStudentType => _selectedStudentType.value;
-
+  Worker? _schoolWorker;
   /// Global fee-config heads for this school.
   /// Each: { _id, feeHead, associatedTerm, isTerm }
   final RxList<Map<String, dynamic>> _configHeads = <Map<String, dynamic>>[].obs;
@@ -65,6 +65,10 @@ class _FeeSetupViewState extends State<FeeSetupView> {
       await _loadConfigHeads();
     });
     everAll([_selectedClass, _selectedStudentType], (_) => _loadClassAmounts());
+    _schoolWorker = ever<School?>(schoolController.selectedSchool, (school) {
+      if (!mounted || school == null) return;
+      _onSchoolChanged(school.id);
+    });
   }
 
   @override
@@ -641,5 +645,21 @@ class _FeeSetupViewState extends State<FeeSetupView> {
         ),
       ),
     );
+  }
+
+  Future<void> _onSchoolChanged(String newSchoolId) async {
+    // Dispose old amount-entry controllers before clearing, to avoid leaks.
+    for (final c in _amountControllers.values) c.dispose();
+    _amountControllers.clear();
+
+    _selectedClass.value = null;   // also resets student-type sheet context
+    _classHeads.clear();
+    _configHeads.clear();
+    schoolController.classes.clear();
+
+    await schoolController.getAllClasses(newSchoolId);
+    await _loadConfigHeads();
+    // _classHeads/_amountControllers stay empty until a class is picked
+    // again — everAll() will re-trigger _loadClassAmounts() once it is.
   }
 }

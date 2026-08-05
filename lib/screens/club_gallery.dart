@@ -10,7 +10,8 @@ import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
 import '../services/user_session.dart';
 import 'club_video_player_page.dart';
-
+import 'club_quiz_attempt_page.dart';
+import 'quiz_leaderboard_page.dart';
 // ── Model ─────────────────────────────────────────────────────────
 class ClubVideo {
   final String id;

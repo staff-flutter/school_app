@@ -315,6 +315,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.EMPLOYEE_LIST,
       page: () => RoleAwareWrapper(child: StaffManagementPage()),
+      binding: SchoolBinding(),
     ),
     GetPage(
       name: AppRoutes.PARENT_LIST,
@@ -348,7 +349,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.ADMISSION_FORMS_VIEW,
       page: () => RoleAwareWrapper(child: AdmissionFormListView()),
-      binding: BillAdmissionBinding(),
+      binding: BindingsBuilder(() {
+      BillAdmissionBinding().dependencies();
+      SchoolBinding().dependencies();
+     })
     ),
     GetPage(
       name: AppRoutes.ADMISSION_FORM_DETAIL_VIEW,

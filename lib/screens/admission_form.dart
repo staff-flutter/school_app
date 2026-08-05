@@ -85,13 +85,49 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     final startYear = now.month >= 6 ? now.year : now.year - 1;
     return '$startYear-${startYear + 1}';
   }
+
+  // ── Date helpers (DD/MM/YYYY UI <-> ISO server) ────────────────────────────
+  // The server casts `dob` to a real Date, and day-first strings like
+  // "21-11-2017" or "21/11/2017" are NOT reliably parseable as dates by
+  // Mongoose/JS — that mismatch is what was causing "validation failed:
+  // dob: Cast to date failed" and silently leaving the admission-form
+  // record empty. Always convert to ISO (YYYY-MM-DD) before sending,
+  // regardless of what separator the field displays.
+  String? _isoDate(String? ddmmyyyy) {
+    if (ddmmyyyy == null || ddmmyyyy.trim().isEmpty) return null;
+    final parts = ddmmyyyy.trim().split(RegExp(r'[/\-]'));
+    if (parts.length != 3) return null;
+    final day = parts[0].padLeft(2, '0');
+    final month = parts[1].padLeft(2, '0');
+    final year = parts[2];
+    if (year.length != 4) return null;
+    return '$year-$month-$day';
+  }
+
+  Future<void> _pickDob() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(DateTime.now().year - 10),
+      firstDate: DateTime(1970),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _dobController.text =
+        '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+        _ageController.text = _computeAgeFromDob(_dobController.text);
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _ensureSchoolLoaded();
     ever(_schoolController.selectedSchool, (_) {
       if (mounted) {
-        _previewFormNumber();
+        _onSchoolChanged();
+       // _previewFormNumber();
       }
     });
   }
@@ -108,18 +144,33 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
 
   Future<void> _previewFormNumber() async {
     final String? resolvedSchoolId = schoolId; // getter checking role / selected school
+
+    if (mounted) {
+      setState(() => _formNumberLabel = '—');
+    }
+
     if (resolvedSchoolId == null || resolvedSchoolId.isEmpty) {
-      debugPrint('⚠️ School ID not resolved yet');
+
       return;
     }
 
     final nextNum = await _controller.getNextFormNumberPreview(schoolId: resolvedSchoolId);
 
-    if (mounted && nextNum != null && nextNum.isNotEmpty) {
-      setState(() {
-        _formNumberLabel = nextNum;
-      });
-    }
+    // if (mounted && nextNum != null && nextNum.isNotEmpty) {
+    //   setState(() {
+    //     _formNumberLabel = nextNum;
+    //   });
+    // }
+    // If this school has no admission book yet, nextNum will be null/empty —
+    // show a clear "first form" default instead of leaving the reset '—',
+    // and definitely instead of a previous school's number.
+    if (!mounted) return;
+    setState(() {
+      // If this school has no admission book yet, nextNum will be null/empty —
+      // show a clear "first form" default instead of leaving the reset '—',
+      // and definitely instead of a previous school's number.
+      _formNumberLabel = (nextNum != null && nextNum.isNotEmpty) ? nextNum : '1';
+    });
   }
   @override
   void dispose() {
@@ -150,7 +201,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
     'academicYear': _academicYearController.text.trim(),
     'studentName': _studentNameController.text.trim(),
     'mobileNumber': _mobileNumberController.text.trim(),
-    'dob': _dobController.text.trim(),
+    'dob': _isoDate(_dobController.text.trim()),
     'age': int.tryParse(_ageController.text.trim()) ?? 0,
     'gender': _gender,
     'motherTongue': _motherTongueController.text.trim(),
@@ -174,7 +225,11 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   bool _validateRequiredFields() {
     final missing = <String>[];
     if (_studentNameController.text.trim().isEmpty) missing.add('Student Name');
-    if (_dobController.text.trim().isEmpty) missing.add('Date of Birth');
+    if (_dobController.text.trim().isEmpty) {
+      missing.add('Date of Birth');
+    } else if (_isoDate(_dobController.text.trim()) == null) {
+      missing.add('Date of Birth (invalid format — please use the date picker)');
+    }
     if (_ageController.text.trim().isEmpty) missing.add('Age');
     if (_mobileNumberController.text.trim().isEmpty) missing.add('Mobile Number');
     if (_academicYearController.text.trim().isEmpty) missing.add('Academic Year');
@@ -580,8 +635,8 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
   String _computeAgeFromDob(String raw) {
     if (raw.isEmpty) return '';
     DateTime? dob = DateTime.tryParse(raw);
-    if (dob == null && raw.contains('/')) {
-      final parts = raw.split('/');
+    if (dob == null && raw.contains(RegExp(r'[/\-]'))) {
+      final parts = raw.split(RegExp(r'[/\-]'));
       if (parts.length == 3) {
         final day = int.tryParse(parts[0]);
         final month = int.tryParse(parts[1]);
@@ -675,7 +730,6 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
             'Father/Mother education & occupation and exam details still need manual entry.')),
       );
     } catch (e) {
-      debugPrint('Autofill fetch error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Something went wrong while loading the student profile.')),
@@ -760,33 +814,33 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
           ),
           const SizedBox(height: 10),
           SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+              scrollDirection: Axis.horizontal,
               child: Row(
-            children: [
-              _selectorChip(
-                icon: Icons.class_rounded,
-                label: selectedClass.value?.name ?? 'Select Class',
-                isSet: selectedClass.value != null,
-                onTap: _showClassSelectorSheet,
-              ),
-              SizedBox(width: 10),
-              _selectorChip(
-                icon: Icons.group_rounded,
-                label: selectedSection.value?.name ??
-                    (classHasSections.value ? 'Select Section' : 'No Sections'),
-                isSet: selectedSection.value != null,
-                enabled: selectedClass.value != null && classHasSections.value,
-                onTap: _showSectionSelectorSheet,
-              ),
-              SizedBox(width: 10),
-              _selectorChip(
-                icon: Icons.person_rounded,
-                label: selectedStudent.value?.name ?? 'Select Student',
-                isSet: selectedStudent.value != null,
-                enabled: selectedClass.value != null,
-                onTap: _showStudentSelectorSheet,
-              ),
-            ],
+                children: [
+                  _selectorChip(
+                    icon: Icons.class_rounded,
+                    label: selectedClass.value?.name ?? 'Select Class',
+                    isSet: selectedClass.value != null,
+                    onTap: _showClassSelectorSheet,
+                  ),
+                  SizedBox(width: 10),
+                  _selectorChip(
+                    icon: Icons.group_rounded,
+                    label: selectedSection.value?.name ??
+                        (classHasSections.value ? 'Select Section' : 'No Sections'),
+                    isSet: selectedSection.value != null,
+                    enabled: selectedClass.value != null && classHasSections.value,
+                    onTap: _showSectionSelectorSheet,
+                  ),
+                  SizedBox(width: 10),
+                  _selectorChip(
+                    icon: Icons.person_rounded,
+                    label: selectedStudent.value?.name ?? 'Select Student',
+                    isSet: selectedStudent.value != null,
+                    enabled: selectedClass.value != null,
+                    onTap: _showStudentSelectorSheet,
+                  ),
+                ],
               )
           ),
           if (_isFetchingStudentDetails) ...[
@@ -856,7 +910,7 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                    //  _buildStudentIDLinkingSection(),
+                      //  _buildStudentIDLinkingSection(),
                     ],
                   ),
                 ),
@@ -981,45 +1035,92 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       ),
     );
   }
+  Widget _buildResponsiveRow(
+      BuildContext context, {
+        required List<Widget> children,
+        List<int>? flexes,
+      }) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children.map((widget) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: widget,
+          );
+        }).toList(),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(children.length, (index) {
+        final flex = flexes != null && index < flexes.length ? flexes[index] : 1;
+        return Expanded(
+          flex: flex,
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: index == children.length - 1 ? 0 : 16.0,
+            ),
+            child: children[index],
+          ),
+        );
+      }),
+    );
+  }
   Widget _buildStudentDetailsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionBanner('I. STUDENT DETAILS'),
         const SizedBox(height: 12),
-        Row(
+        _buildResponsiveRow(
+          context,
+          flexes: [3, 2],
           children: [
-            Expanded(flex: 3, child: _buildUnderlinedField(_studentNameController, 'Student Name')),
-            const SizedBox(width: 16),
-            Expanded(flex: 2, child: _buildUnderlinedField(_dobController, 'Date of Birth (DD/MM/YYYY)')),
+            _buildUnderlinedField(_studentNameController, 'Student Name'),
+            _buildDobField(),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
+        const SizedBox(height: 8),
+        _buildResponsiveRow(
+          context,
           children: [
-            Expanded(child: _buildUnderlinedField(_ageController, 'Age', keyboardType: TextInputType.number)),
-            const SizedBox(width: 8),
-            Expanded(child: _buildGenderDropdown()),
+            _buildUnderlinedField(_ageController, 'Age', keyboardType: TextInputType.number),
+            _buildGenderDropdown(),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
+        const SizedBox(height: 8),
+        _buildResponsiveRow(
+          context,
           children: [
-            Expanded(child: _buildUnderlinedField(_motherTongueController, 'Mother Tongue')),
-            const SizedBox(width: 8),
-            Expanded(child: _buildUnderlinedField(_religionController, 'Religion')),
-            const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_communityController, 'Community')),
+            _buildUnderlinedField(_motherTongueController, 'Mother Tongue'),
+            _buildUnderlinedField(_religionController, 'Religion'),
+            _buildUnderlinedField(_communityController, 'Community'),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildUnderlinedField(_emisNumberController, 'EMIS Number (optional)')),
-          ],
-        )
+        const SizedBox(height: 8),
+        _buildUnderlinedField(_emisNumberController, 'EMIS Number (optional)'),
       ],
+    );
+  }
+  Widget _buildDobField() {
+    return TextField(
+      controller: _dobController,
+      readOnly: true,
+      onTap: _pickDob,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: 'Date of Birth',
+        labelStyle: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.normal),
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        suffixIcon: const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFF1E3A8A)),
+        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38, width: 1)),
+        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E3A8A), width: 1.8)),
+        contentPadding: const EdgeInsets.only(top: 10, bottom: 4),
+      ),
     );
   }
 
@@ -1051,16 +1152,15 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
       children: [
         _buildSectionBanner('II. ACADEMIC & CONTACT'),
         const SizedBox(height: 12),
-        Row(
+        _buildResponsiveRow(
+          context,
           children: [
-            Expanded(child: _buildUnderlinedField(_academicYearController, 'Academic Year (e.g. 2025-2026)')),
-            const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_admissionSoughtForController, 'Admission Sought For (Class/Grade)')),
-            const SizedBox(width: 16),
-            Expanded(child: _buildUnderlinedField(_examinationPassedController, 'Previous Exam / Last Class Passed')),
+            _buildUnderlinedField(_academicYearController, 'Academic Year (e.g. 2025-2026)'),
+            _buildUnderlinedField(_admissionSoughtForController, 'Admission Sought For'),
+            _buildUnderlinedField(_examinationPassedController, 'Previous Exam / Last Class Passed'),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _buildUnderlinedField(_mobileNumberController, 'Mobile Number'),
         const SizedBox(height: 12),
         _buildUnderlinedField(_currentAddressController, 'Current Address'),
@@ -1071,43 +1171,47 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
               value: _permanentSameAsCurrent,
               onChanged: (value) => setState(() => _permanentSameAsCurrent = value ?? false),
             ),
-            const Text('Permanent address ', style: TextStyle(fontSize: 12)),
+            const Expanded(
+              child: Text(
+                'Permanent address same as current',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
           ],
         ),
-        if (!_permanentSameAsCurrent) _buildUnderlinedField(_permanentAddressController, 'Permanent Address'),
+        if (!_permanentSameAsCurrent)
+          _buildUnderlinedField(_permanentAddressController, 'Permanent Address'),
       ],
     );
   }
-
   Widget _buildParentInformationSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionBanner('III. PARENT INFORMATION'),
         const SizedBox(height: 12),
-        Row(
+        _buildResponsiveRow(
+          context,
+          flexes: [2, 1, 1],
           children: [
-            Expanded(flex: 2, child: _buildUnderlinedField(_fatherNameController, "Father's Name")),
-            const SizedBox(width: 16),
-            Expanded(flex: 1, child: _buildUnderlinedField(_fatherEducationController, 'Education')),
-            const SizedBox(width: 16),
-            Expanded(flex: 1, child: _buildUnderlinedField(_fatherOccupationController, 'Occupation')),
+            _buildUnderlinedField(_fatherNameController, "Father's Name"),
+            _buildUnderlinedField(_fatherEducationController, 'Education'),
+            _buildUnderlinedField(_fatherOccupationController, 'Occupation'),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
+        const SizedBox(height: 8),
+        _buildResponsiveRow(
+          context,
+          flexes: [2, 1, 1],
           children: [
-            Expanded(flex: 2, child: _buildUnderlinedField(_motherNameController, "Mother's Name")),
-            const SizedBox(width: 16),
-            Expanded(flex: 1, child: _buildUnderlinedField(_motherEducationController, 'Education')),
-            const SizedBox(width: 16),
-            Expanded(flex: 1, child: _buildUnderlinedField(_motherOccupationController, 'Occupation')),
+            _buildUnderlinedField(_motherNameController, "Mother's Name"),
+            _buildUnderlinedField(_motherEducationController, 'Education'),
+            _buildUnderlinedField(_motherOccupationController, 'Occupation'),
           ],
         ),
       ],
     );
   }
-
   Widget _buildStudentIDLinkingSection() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1384,4 +1488,20 @@ class _AdmissionBillBookViewState extends State<AdmissionBillBookView> {
         ),
       );
     });
-  }}
+  }
+
+  void _onSchoolChanged() {
+    setState(() {
+      // Class/section/student picker belonged to the old school.
+      selectedClass.value = null;
+      selectedSection.value = null;
+      selectedStudent.value = null;
+      classHasSections.value = true;
+
+      // An in-progress (unsaved) admission form belonged to the old school —
+      // don't let a later Save silently attach it to the new school's form number.
+      _admissionFormId = null;
+    });
+    _previewFormNumber();
+  }
+}

@@ -16,7 +16,7 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
   final BillAdmissionController _controller = Get.find<BillAdmissionController>();
   final AuthController _authController = Get.find<AuthController>();
   final SchoolController _schoolController = Get.find<SchoolController>();
-
+  Worker? _schoolWorker;
  // String? get _schoolId => _authController.user.value?.schoolId;
   String? get schoolId {
     // 1. Get the current user's role
@@ -33,8 +33,18 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
   void initState() {
     super.initState();
     _fetchBooks();
+    final role = _authController.user.value?.role?.toLowerCase() ?? '';
+    if (role == 'correspondent') {
+      _schoolWorker = ever(_schoolController.selectedSchool, (_) {
+        if (mounted) _fetchBooks();
+      });
+    }
   }
-
+  @override
+  void dispose() {
+    _schoolWorker?.dispose();
+    super.dispose();
+  }
   Future<void> _fetchBooks() async {
     //final schoolId = schoolId;
     final String? resolvedSchoolId  = schoolId;

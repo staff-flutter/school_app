@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:school_app/core/utils/academic_year_utils.dart';
+import 'package:school_app/screens/quiz_leaderboard_page.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/my_children_controller.dart';
@@ -13,6 +14,7 @@ import '../controllers/school_controller.dart';
 import '../core/theme/app_theme.dart';
 import '../services/user_session.dart';
 import 'club_gallery.dart';
+import 'club_quiz_attempt_page.dart';
 
 
 class ClubAndActivitiesPage extends StatefulWidget {
@@ -38,7 +40,13 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
   // ── Quiz state ──
   List<ClubQuiz> _quizzes = [];
   bool _quizzesLoading = true;
-
+  String? get _schoolId {
+    final role = _authController.user.value?.role?.toLowerCase() ?? '';
+    if (role == 'correspondent') {
+      return _school?.selectedSchool.value?.id;
+    }
+    return _authController.user.value?.schoolId;
+  }
   // 🌟 NEW: State tracking for selected club dropdown filter
   ClubsAndActivitiesStrings? _selectedClubFilter;
 
@@ -160,7 +168,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
     for (final club in apiClubs) {
       final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getQuizzesByClub}')
-          .replace(queryParameters: {'clubId': club.id,'academicYear': AcademicYearUtils.getCurrentAcademicYear()});
+          .replace(queryParameters: {'clubId': club.id,'schoolId': _schoolId,'academicYear': AcademicYearUtils.getCurrentAcademicYear()});
       try {
         final res = await http.get(uri, headers: {
           'Authorization': 'Bearer $token',
@@ -199,7 +207,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       });
     }
   }
-
   @override
   void initState() {
     super.initState();
@@ -208,14 +215,17 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     final role = _authController.user.value?.role?.toLowerCase() ?? '';
 
     if (role == 'correspondent') {
-      ever(_school!.selectedSchool, (_) {
-        if (mounted) {
-          fetchClubsAndActivities();
-        }
-      });
+      final school = _school; // read once, safely
+      if (school != null) {
+        ever(school.selectedSchool, (_) {
+          if (mounted) {
+            fetchClubsAndActivities();
+          }
+        });
+      } else {
+        debugPrint('⚠️ SchoolController not registered yet — skipping ever() listener');
+      }
     } else {
-      // 🌟 FIXED: Removed the restrictive 'apiClubs.isEmpty' condition
-      // and attached dynamic listening checks for non-correspondent changes.
       ever(_authController.user, (user) {
         if (mounted && user?.schoolId != null && user!.schoolId!.isNotEmpty) {
           fetchClubsAndActivities();
@@ -223,7 +233,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       });
     }
   }
-
   // --------------------------------------------- BUILD METHOD ----------------------------------------
 
   @override
@@ -385,7 +394,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
   }
 
   // ------------------------------------------- QUIZZES SECTION -----------------------------------------
-
+  
   Widget _quizzesSection() {
     if (_quizzesLoading) {
       return const Padding(
@@ -409,7 +418,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 12),
-            Flexible(
+            Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
@@ -420,19 +429,27 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<ClubsAndActivitiesStrings?>(
                     value: _selectedClubFilter,
-                    hint: const Text("All Clubs", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                    hint: const Text(
+                      "All Clubs",
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     isDense: true,
+                    isExpanded: true, // 👈 FIX: Allow content to wrap/truncate safely inside bounds
                     style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
                     icon: Icon(Icons.keyboard_arrow_down, color: Colors.blue[700], size: 18),
                     items: [
                       const DropdownMenuItem<ClubsAndActivitiesStrings?>(
                         value: null,
-                        child: Text("All Clubs"),
+                        child: Text("All Clubs", overflow: TextOverflow.ellipsis),
                       ),
                       ...apiClubs.map((club) {
                         return DropdownMenuItem<ClubsAndActivitiesStrings?>(
                           value: club,
-                          child: Text(club.name),
+                          child: Text(
+                            club.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         );
                       }),
                     ],
@@ -475,15 +492,9 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       ],
     );
   }
-
   Widget _quizCard(ClubQuiz quiz) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => QuizAttemptPage(quiz: quiz)),
-        );
-      },
+      onTap: () => _onQuizTap(quiz),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
@@ -522,6 +533,126 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
             Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _onQuizTap(ClubQuiz quiz) async {
+    final role = _authController.user.value?.role?.toLowerCase() ?? '';
+    final isParent = role == 'parent';
+
+    if (!isParent) {
+      // Every other role: view the leaderboard only, never attempt.
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => QuizLeaderboardPage(
+          quizId: quiz.id,
+          quizTitle: quiz.title,
+          canDelete: role == 'correspondent' || role == 'administrator',
+        ),
+      ));
+      return;
+    }
+
+    final child = _childrenController?.selectedChild;
+    final studentId = (child?['_id'] ?? '').toString();
+    if (studentId.isEmpty) {
+      Get.snackbar('Select a child', 'Please select a child before attempting a quiz',
+          backgroundColor: Colors.orange, colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    final classId = (child?['classId'] ?? '').toString();
+    final sectionId = (child?['sectionId'] ?? '').toString();
+
+    // ⚠️ FALLBACK: this can't actually detect a prior attempt yet, since the
+    // backend returns studentId: null on every stored attempt. It's wired up
+    // so it starts working the moment that's fixed — no client change needed.
+    final token = _authController.storage.read('token') ?? '';
+    final existing = await QuizAttemptApi.fetchAttempts(
+      token: token, quizId: quiz.id, studentId: studentId,
+    );
+    final mine = existing.where((a) => a.studentId == studentId).toList();
+
+    if (mine.isNotEmpty) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => QuizAttemptSummaryPage(attempt: mine.first, quiz: quiz),
+      ));
+    } else {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => QuizAttemptPage(
+          quiz: quiz,
+          studentId: studentId,
+          classId: classId.isEmpty ? null : classId,
+          sectionId: sectionId.isEmpty ? null : sectionId,
+        ),
+      ));
+    }
+  }
+}
+
+class QuizAttemptSummaryPage extends StatelessWidget {
+  final ClubQuizAttempt attempt;
+  final ClubQuiz quiz;
+  const QuizAttemptSummaryPage({super.key, required this.attempt, required this.quiz});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text(quiz.title,
+            style: const TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w600)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.blue[700], borderRadius: BorderRadius.circular(16)),
+            child: Column(children: [
+              Text('${attempt.score} / ${attempt.answers.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('${attempt.percentage}%', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              const SizedBox(height: 4),
+              Text('Already attempted on ${attempt.completedAt.split('T').first}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          for (int i = 0; i < attempt.answers.length; i++)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${i + 1}. ${attempt.answers[i]['questionText'] ?? ''}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  for (int oi = 0; oi < (attempt.answers[i]['options'] as List? ?? []).length; oi++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Icon(
+                          oi == attempt.answers[i]['correctOptionIndex'] ? Icons.check_circle : Icons.circle_outlined,
+                          size: 16,
+                          color: oi == attempt.answers[i]['correctOptionIndex'] ? Colors.green : Colors.grey[400],
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('${attempt.answers[i]['options'][oi]}', style: const TextStyle(fontSize: 12))),
+                      ]),
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -626,12 +757,21 @@ class ClubQuiz {
 
 class QuizAttemptPage extends StatefulWidget {
   final ClubQuiz quiz;
-  const QuizAttemptPage({super.key, required this.quiz});
+  final String studentId;
+  final String? classId;
+  final String? sectionId;
+
+  const QuizAttemptPage({
+    super.key,
+    required this.quiz,
+    required this.studentId,
+    this.classId,
+    this.sectionId,
+  });
 
   @override
   State<QuizAttemptPage> createState() => _QuizAttemptPageState();
 }
-
 class _QuizAttemptPageState extends State<QuizAttemptPage> {
   final auth_ctrl = Get.find<AuthController>();
 
@@ -665,6 +805,8 @@ class _QuizAttemptPageState extends State<QuizAttemptPage> {
         'index': i,
         'selectedOptionIndex': _selected[i],
       }),
+      if (widget.classId != null) 'classId': widget.classId,
+      if (widget.sectionId != null) 'sectionId': widget.sectionId,
       'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
     };
 

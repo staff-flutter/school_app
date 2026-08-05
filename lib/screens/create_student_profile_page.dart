@@ -287,6 +287,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   final workPhotoFiles = <PlatformFile>[].obs;
   String? _selectedStudentType;
   final List<String> _studentTypeOptions = ['New', 'Old'];
+  Worker? _schoolWorker;
 
   String? get _resolvedSchoolId {
     final argSchoolId = Get.arguments?['schoolId'] as String?;
@@ -447,7 +448,15 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         if (doc != null) _documents.add(doc);
       }
     }
-
+    // Only react to school switches on the CREATE flow (not while editing
+    // a specific, already-loaded student — that student belongs to a fixed
+    // school regardless of what the correspondent later browses to).
+    if (!_resolvedIsEdit) {
+      _schoolWorker = ever<School?>(_school.selectedSchool, (school) {
+        if (!mounted || school == null) return;
+        _onSchoolChanged(school.id);
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sid = _resolvedSchoolId;
       if (sid != null) {
@@ -585,6 +594,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _fadeCtrl.dispose();
     _pageCtrl.dispose();
     for (final c in [
@@ -2344,7 +2354,20 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       _showError('Failed to delete document: $e');
     }
   }
-}
+
+  Future<void> _onSchoolChanged(String newSchoolId) async {
+    setState(() {
+      _pickedClassId = null;
+      _pickedClassName = null;
+      _pickedSectionId = null;
+      _pickedSectionName = null;
+      _selectionDone = false;
+    });
+    _school.classes.clear();
+    _school.sections.clear();
+    await _school.getAllClasses(newSchoolId);
+    if (mounted) _showClassSectionPicker();
+  }}
 
 // =============================================================================
 // SHARED WIDGETS

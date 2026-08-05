@@ -90,6 +90,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   final AuthController _authController = Get.find<AuthController>();
   final SchoolController _schoolController = Get.find<SchoolController>();
   final BillAdmissionController _admissionController = Get.find<BillAdmissionController>();
+  Worker? _schoolWorker;
 
   Map<String, dynamic>? _admissionFormData;
   bool _isLoadingAdmission = false;
@@ -143,10 +144,16 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _resolveAndFetchSchoolClasses();
     });
+    _schoolWorker = ever<School?>(_schoolController.selectedSchool, (school) {
+      if (!mounted || school == null) return;
+      if (school.id == _resolvedSchoolId) return; // no-op if unchanged
+      _onSchoolChanged(school.id);
+    });
   }
 
   @override
   void dispose() {
+    _schoolWorker?.dispose();
     _tabController.dispose();
     _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
@@ -1675,7 +1682,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
           ),
         ),
       ),
-      isScrollControlled: true, // 👈 CRITICAL: This fixes the empty sheet issue
+      isScrollControlled: true, //  CRITICAL: This fixes the empty sheet issue
       backgroundColor: Colors.transparent,
     );
   }
@@ -1746,9 +1753,47 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
           ),
         ),
       ),
-      isScrollControlled: true, // 👈 CRITICAL: This fixes the empty sheet issue
+      isScrollControlled: true, //  CRITICAL: This fixes the empty sheet issue
       backgroundColor: Colors.transparent,
     );
   }
 
+  void _onSchoolChanged(String newSchoolId) {
+    setState(() {
+      _resolvedSchoolId = newSchoolId;
+
+      // Class/section filters no longer apply to the new school.
+      selectedClass.value = null;
+      selectedSection.value = null;
+      selectedStudent.value = null;
+      classHasSections.value = true;
+      classes.clear();
+
+      // Live student list belonged to the old school.
+      _studentList = [];
+      _studentListPage = 1;
+      _hasMoreStudents = true;
+
+      // Any student detail currently on screen belonged to the old school.
+      _hasSearched1 = false;
+      _fieldValues.clear();
+      _studentDocuments = [];
+      _profileImageUrl = null;
+      _documentsFetched = false;
+      _examPerformance = [];
+      _academicsFetched = false;
+      _admissionFormData = null;
+      _admissionFetched = false;
+      _feeStructure = {};
+      _feePaid = {};
+      _feeDues = {};
+      _feeFetched = false;
+
+      _searchController.clear();
+      _studentId = '';
+    });
+
+    getAllClasses(newSchoolId);
+    _loadStudentList(reset: true);
+  }
 }

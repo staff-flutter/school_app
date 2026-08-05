@@ -59,9 +59,50 @@ class EBController extends GetxController {
   final tariffs = <Map<String, dynamic>>[].obs;
   final currentTariff = Rxn<Map<String, dynamic>>();
 
+  /// Per-premises cost analytics — monthly and yearly only (no weekly view).
+  /// [view] is 'monthly' | 'yearly'.
+  /// [year] used for monthly view; [fromYear]/[toYear] used for yearly range view.
+  Future<Map<String, dynamic>?> getPremisesChargeAnalytics({
+    required String schoolId,
+    required String premisesId,
+    String? view,
+    int? year,
+    int? fromYear,
+    int? toYear,
+  }) async {
+    try {
+      isLoading.value = true;
+      final response = await _apiService.get(
+        '${ApiConstants.ebLogsAnalyticsBase}/$schoolId/$premisesId/charge',
+        queryParameters: {
+          if (view != null) 'view': view,
+          if (year != null) 'year': year,
+          if (fromYear != null) 'fromYear': fromYear,
+          if (toYear != null) 'toYear': toYear,
+        },
+      );
+
+      if (response.data['ok'] == true) {
+        premisesCharge.value = response.data['data'];
+        return response.data['data'];
+      }
+      _showSnackbar('Error', response.data['message'] ?? 'Failed to load premises charge analytics', AppTheme.errorRed);
+      return null;
+    } catch (e) {
+      _showSnackbar('Error', _errorMessage(e, 'An error occurred while loading premises charge analytics'), AppTheme.errorRed);
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+  // ---------------- EB Analytics: Premises Charge ----------------
+  final premisesCharge = Rxn<Map<String, dynamic>>();
+
   void _showSnackbar(String title, String message, Color color) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.isSnackbarOpen != true) {
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar(); // force-clear before showing the next one
+      }
         Get.snackbar(
           title,
           message,
@@ -70,9 +111,9 @@ class EBController extends GetxController {
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 3),
         );
-      }
-    });
-  }
+      });
+    }
+
 
   String _errorMessage(Object e, String fallback) {
     if (e is DioException) {
@@ -90,13 +131,14 @@ class EBController extends GetxController {
   // =======================================================================
 
   Future<void> getAllPremises(String schoolId) async {
+    if (schoolId.isEmpty) {
+      // Not ready yet (auth/school still resolving) — don't fetch, don't error.
+      return;
+    }
     try {
       isLoading.value = true;
-      print('schoolId:$schoolId');
       final response = await _apiService.get('${ApiConstants.getAllPremises}/$schoolId');
-      print('schoolId:$schoolId');
       if (response.data['ok'] == true) {
-        print('response of get all premisses:${response.data}');
         premisesList.value = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       } else {
         _showSnackbar('Error', response.data['message'] ?? 'Failed to load premises', AppTheme.errorRed);
@@ -107,13 +149,14 @@ class EBController extends GetxController {
       isLoading.value = false;
     }
   }
-
   Future<Map<String, dynamic>?> getPremisesById(String schoolId, String premisesId) async {
     try {
       isLoading.value = true;
       final response = await _apiService.get('${ApiConstants.getPremises}/$schoolId/$premisesId');
 
       if (response.data['ok'] == true) {
+        print('response of get premisses by ID :${response.data}');
+
         currentPremises.value = response.data['data'];
         return response.data['data'];
       } else {
@@ -203,6 +246,7 @@ class EBController extends GetxController {
     num? maxReading,
     String? search,
   }) async {
+    if (schoolId.isEmpty) return;
     try {
       isLoading.value = true;
       final response = await _apiService.get(
@@ -337,8 +381,9 @@ class EBController extends GetxController {
   Future<Map<String, dynamic>?> getDashboardAnalytics(String schoolId) async {
     try {
       isLoading.value = true;
-      final response = await _apiService.get('${ApiConstants.ebLogsAnalyticsBase}/$schoolId/dashboard');
 
+      final response = await _apiService.get('${ApiConstants.ebLogsAnalyticsBase}/$schoolId/dashboard');
+      print('school ID :$schoolId');
       if (response.data['ok'] == true) {
         dashboardAnalytics.value = response.data['data'];
         return response.data['data'];

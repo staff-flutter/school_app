@@ -3,9 +3,11 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/bill_admission_controller.dart';
 
+import '../constants/api_constants.dart';
 import '../controllers/school_controller.dart';
 import 'admission_form_detail_view.dart';
 import 'admission_form.dart';
+import 'package:flutter/services.dart';
 
 class AdmissionFormListView extends StatefulWidget {
   const AdmissionFormListView({super.key});
@@ -128,9 +130,23 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Admission Forms'),
+        titleSpacing: 0, // Reduces space between navigation icon/drawer and title
+        title: const Text('Admission Forms', style: TextStyle(fontSize: 22)),
         backgroundColor: const Color(0xFF0F2042),
         foregroundColor: Colors.white,
+        actions: [
+          TextButton.icon(
+            onPressed: _generateBlankLink,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            icon: const Icon(Icons.link_rounded, color: Colors.white, size: 16),
+            label: const Text(
+              'Generate Link',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF1E3A8A),
@@ -298,6 +314,106 @@ class _AdmissionFormListViewState extends State<AdmissionFormListView> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status))),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generateBlankLink() async {
+    final resolveSchoolId = schoolId;
+    if (resolveSchoolId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('School ID not found. Please login again.')),
+      );
+      return;
+    }
+
+    final result = await _controller.generateNewAdmissionFormLink(schoolId: resolveSchoolId);
+    if (result == null || !mounted) return;
+
+    final formNumber = result['formNumber']?.toString() ?? '';
+    final path = result['path']?.toString() ?? '';
+    final fullLink = '${ApiConstants.baseUrl}$path';
+
+    _showGeneratedLinkDialog(formNumber: formNumber, link: fullLink);
+
+    // refresh the list so the newly created blank form shows up
+    _fetchForms(resetPage: false);
+  }
+
+  void _showGeneratedLinkDialog({required String formNumber, required String link}) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF15803D).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_rounded, color: Color(0xFF15803D), size: 36),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Form #$formNumber Created!',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'A blank admission form has been registered. Share the link below with the parent to complete the application.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(link, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: link));
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(content: Text('Link copied to clipboard')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  label: const Text('Copy Link'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
               ),
             ],
           ),

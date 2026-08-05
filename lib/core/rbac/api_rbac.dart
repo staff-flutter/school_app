@@ -328,7 +328,7 @@ class RoleBasedAccess {
             'canViewFinancials': false,
           }
         };
-        
+
       case 'accountant':
         return {
           'visibleModules': [

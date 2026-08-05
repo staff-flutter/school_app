@@ -7,6 +7,8 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/eb_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 
+import '../controllers/eb_controller.dart';
+
 /// Mobile "Electricity Dashboard" screen — mirrors the web EB dashboard:
 /// KPI cards, a consumption trend chart with period tabs, a consumption
 /// share donut, an estimated billing cost trend, recent log entries, and
@@ -27,7 +29,7 @@ class EBDashboardScreen extends StatefulWidget {
 class _EBDashboardScreenState extends State<EBDashboardScreen> {
   final EBController ebController = Get.find();
   final AuthController _authController = Get.find<AuthController>();
-
+  bool _loadingInFlight = false;
   SchoolController? get _school =>
       Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
 
@@ -40,6 +42,12 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     return _authController.user.value?.schoolId ?? '';
   }
 
+  // ---------------- Premises Charge Analytics ----------------
+  String _chargeView = 'monthly'; // monthly | yearly
+  int _chargeYear = DateTime.now().year;
+  int _chargeFromYear = DateTime.now().year - 2;
+  int _chargeToYear = DateTime.now().year;
+  String? _selectedChargePremisesId;
   static const List<Color> _palette = [
     Color(0xFF3B82F6), // blue
     Color(0xFF16A34A), // green
@@ -56,18 +64,28 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
   void initState() {
     super.initState();
 
-    _loadAll();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAll());
   }
 
   Future<void> _loadAll() async {
-    if (schoolId.isEmpty) return;
+    if (schoolId.isEmpty || _loadingInFlight) return;
+    _loadingInFlight = true;
     setState(() => _loading = true);
-    await Future.wait([
+    final results = await Future.wait([
       ebController.getDashboardAnalytics(schoolId),
       ebController.getBillKpi(schoolId),
       ebController.getPremisesAnalytics(schoolId),
       ebController.getConsumptionLineChart(schoolId: schoolId, period: _period),
-    ]);
+    ], eagerError: false);
+    // default the charge-analytics premises selector to the first premises
+    final premises = ebController.premisesAnalytics;
+    if (_selectedChargePremisesId == null && premises.isNotEmpty) {
+      _selectedChargePremisesId = (premises.first['premisesId'] ?? premises.first['_id'])?.toString();
+    }
+    if (_selectedChargePremisesId != null) {
+      await _loadChargeAnalytics();
+    }
+
     if (mounted) setState(() => _loading = false);
   }
 
@@ -104,7 +122,21 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     }
     return result;
   }
+  /// Defensive parse of the charge-analytics payload into (period, amount)
+  /// bars — exact backend field names aren't confirmed, so this tries
+  /// common keys for both monthly and yearly views.
+  List<_ChartPoint> _parseChargeSeries(Map<String, dynamic>? raw) {
+    if (raw == null) return [];
+    final points = raw['data'] ?? raw['breakdown'] ?? raw['charges'] ?? raw['points'] ?? [];
+    if (points is! List) return [];
 
+    return points.map((pt) {
+      if (pt is! Map) return _ChartPoint('', 0);
+      final label = (pt['month'] ?? pt['year'] ?? pt['label'] ?? pt['period'] ?? '').toString();
+      final value = pt['charge'] ?? pt['amount'] ?? pt['cost'] ?? pt['value'] ?? 0;
+      return _ChartPoint(label, (value is num) ? value.toDouble() : 0);
+    }).toList();
+  }
   List<_DonutSlice> _donutSlices() {
     final analytics = ebController.premisesAnalytics;
     final slices = <_DonutSlice>[];
@@ -271,6 +303,32 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
                       child: _PremisesAnalyticsCard(data: a, color: _palette[i % _palette.length]),
                     );
                   }),
+                const SizedBox(height: 14),
+
+                // ---------------- Premises Charge Analytics ----------------
+                _SectionCard(
+                  icon: Icons.currency_rupee,
+                  title: 'Premises Charge Analytics',
+                  subtitle: 'Monthly or yearly cost breakdown per premises',
+                  trailing: _ChargeViewTabs(selected: _chargeView, onChanged: _changeChargeView),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (premisesAnalytics.isNotEmpty)
+                        _PremisesDropdown(
+                          premises: premisesAnalytics,
+                          selectedId: _selectedChargePremisesId,
+                          onChanged: _changeChargePremises,
+                        ),
+                      const SizedBox(height: 12),
+                      Builder(builder: (context) {
+                        final chargeData = _parseChargeSeries(ebController.premisesCharge.value);
+                        if (chargeData.isEmpty) return _EmptyChartPlaceholder();
+                        return _ChargeBarChart(points: chargeData);
+                      }),
+                    ],
+                  ),
+                ),
               ],
             ),
           );
@@ -298,8 +356,145 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
       points.map((p) => _ChartPoint(p.label, p.value * ratio)).toList(),
     ));
   }
+
+  Future<void> _loadChargeAnalytics() async {
+    if (schoolId.isEmpty || _selectedChargePremisesId == null) return;
+    await ebController.getPremisesChargeAnalytics(
+      schoolId: schoolId,
+      premisesId: _selectedChargePremisesId!,
+      view: _chargeView,
+      year: _chargeView == 'monthly' ? _chargeYear : null,
+      fromYear: _chargeView == 'yearly' ? _chargeFromYear : null,
+      toYear: _chargeView == 'yearly' ? _chargeToYear : null,
+    );
+  }
+  Future<void> _changeChargeView(String view) async {
+    setState(() => _chargeView = view);
+    await _loadChargeAnalytics();
+  }
+
+  Future<void> _changeChargePremises(String? premisesId) async {
+    if (premisesId == null) return;
+    setState(() => _selectedChargePremisesId = premisesId);
+    await _loadChargeAnalytics();
+  }
 }
 
+class _ChargeViewTabs extends StatelessWidget {
+  final String selected;
+  final ValueChanged<String> onChanged;
+  const _ChargeViewTabs({required this.selected, required this.onChanged});
+
+  static const _options = ['monthly', 'yearly'];
+  static const _labels = {'monthly': 'Monthly', 'yearly': 'Yearly'};
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: _options.map((opt) {
+        final active = opt == selected;
+        return Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: InkWell(
+            onTap: () => onChanged(opt),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: active ? Colors.black87 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                _labels[opt] ?? opt,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? Colors.white : Colors.black54),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _PremisesDropdown extends StatelessWidget {
+  final List<Map<String, dynamic>> premises;
+  final String? selectedId;
+  final ValueChanged<String?> onChanged;
+  const _PremisesDropdown({required this.premises, required this.selectedId, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: selectedId,
+          hint: const Text('Select premises', style: TextStyle(fontSize: 12)),
+          items: premises.map((p) {
+            final id = (p['premisesId'] ?? p['_id'] ?? '').toString();
+            final name = (p['premisesName'] ?? 'Premises').toString();
+            return DropdownMenuItem(value: id, child: Text(name, style: const TextStyle(fontSize: 12)));
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _ChargeBarChart extends StatelessWidget {
+  final List<_ChartPoint> points;
+  const _ChargeBarChart({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      width: double.infinity,
+      child: CustomPaint(painter: _BarChartPainter(points: points)),
+    );
+  }
+}
+
+class _BarChartPainter extends CustomPainter {
+  final List<_ChartPoint> points;
+  _BarChartPainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    const bottomPad = 18.0;
+    final chartHeight = size.height - bottomPad;
+    final maxV = points.map((p) => p.value).fold<double>(0, max);
+    final barWidth = size.width / (points.length * 1.6);
+    final gap = barWidth * 0.6;
+
+    final barPaint = Paint()..color = const Color(0xFF3B82F6);
+
+    for (var i = 0; i < points.length; i++) {
+      final x = i * (barWidth + gap);
+      final h = maxV <= 0 ? 0.0 : (points[i].value / maxV) * chartHeight;
+      final rect = Rect.fromLTWH(x, chartHeight - h, barWidth, h);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(3)), barPaint);
+
+      final labelText = points[i].label.length > 6 ? points[i].label.substring(0, 6) : points[i].label;
+      final painter = TextPainter(
+        text: TextSpan(text: labelText, style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
+        textDirection: ui.TextDirection.ltr,
+      )..layout(maxWidth: barWidth + gap);
+      painter.paint(canvas, Offset(x, chartHeight + 4));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BarChartPainter oldDelegate) => true;
+}
 // ============================================================================
 // Reusable pieces
 // ============================================================================

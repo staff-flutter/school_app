@@ -18,7 +18,7 @@ class TariffFormScreen extends StatefulWidget {
 
 class _TariffFormScreenState extends State<TariffFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final EBController ebController = Get.find();
+  late final EBController ebController;
 
   final TextEditingController _tariffNameController = TextEditingController();
   final TextEditingController _fixedChargeController = TextEditingController();
@@ -31,6 +31,9 @@ class _TariffFormScreenState extends State<TariffFormScreen> {
   @override
   void initState() {
     super.initState();
+    ebController = Get.isRegistered<EBController>()
+        ? Get.find<EBController>()
+        : Get.put(EBController(), permanent: true);
     _populateFields();
   }
 

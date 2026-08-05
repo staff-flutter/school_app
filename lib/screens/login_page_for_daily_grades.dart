@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart'; // Ensure this import path matches your project structure
+import 'forgot_password_page.dart';
 
 class DailyGradesLoginScreen extends StatefulWidget {
   const DailyGradesLoginScreen({super.key});
@@ -296,25 +297,30 @@ class _DailyGradesLoginScreenState extends State<DailyGradesLoginScreen> {
   // --- 5. FOOTER LINK BUTTONS ---
   Widget _buildFooterLinks() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+            );
+          },
           style: TextButton.styleFrom(foregroundColor: const Color(0xFF50667F)),
           child: const Text(
             'Forgot Password?',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
-        Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
-        TextButton(
-          onPressed: () {},
-          style: TextButton.styleFrom(foregroundColor: const Color(0xFF50667F)),
-          child: const Text(
-            'Create Account?',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-        ),
+       // Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
+        // TextButton(
+        //   onPressed: () {},
+        //   style: TextButton.styleFrom(foregroundColor: const Color(0xFF50667F)),
+        //   child: const Text(
+        //     'Create Account?',
+        //     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        //   ),
+        // ),
       ],
     );
   }

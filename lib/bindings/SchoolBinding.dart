@@ -6,6 +6,8 @@ import '../controllers/school_controller.dart';
 class SchoolBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<SchoolController>(() => SchoolController());
+    if (!Get.isRegistered<SchoolController>()) {
+      Get.put(SchoolController(), permanent: true);
+    }
   }
 }

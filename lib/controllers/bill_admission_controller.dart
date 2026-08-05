@@ -444,25 +444,38 @@ class BillAdmissionController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      print('admissionFormId:$admissionFormId');
+      debugPrint('[submitAdmissionForm] admissionFormId=$admissionFormId');
+      debugPrint('[submitAdmissionForm] formData=$formData');
+      debugPrint('[submitAdmissionForm] fatherName="${formData['fatherName']}" motherName="${formData['motherName']}"');
+
       final response = await _apiService.put(
         '${ApiConstants.submitAdmissionForm}/$admissionFormId',
         data: formData,
       );
 
+      debugPrint('[submitAdmissionForm] status=${response.statusCode}');
+      debugPrint('[submitAdmissionForm] response.data=${response.data}');
+
       if (response.data['ok'] == true) {
-        print('responseOfSubmitAdmissionForm:${response.data}');
+        debugPrint('[submitAdmissionForm] SUCCESS, saved data=${response.data['data']}');
         _showSnackbar('Success', response.data['message'] ?? 'Admission form submitted successfully', AppTheme.successGreen);
         return true;
       } else {
+        debugPrint('[submitAdmissionForm] ok != true, message=${response.data['message']}');
         _showSnackbar('Error', response.data['message'] ?? 'Failed to submit admission form', AppTheme.errorRed);
         return false;
       }
     } catch (e) {
+      debugPrint('[submitAdmissionForm] CAUGHT ERROR: $e');
+      if (e is DioException) {
+        debugPrint('[submitAdmissionForm] DioException status=${e.response?.statusCode}');
+        debugPrint('[submitAdmissionForm] DioException response=${e.response?.data}');
+      }
       _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while submitting admission form'), AppTheme.errorRed);
       return false;
     } finally {
       isLoading.value = false;
+      debugPrint('[submitAdmissionForm] end');
     }
   }
 
