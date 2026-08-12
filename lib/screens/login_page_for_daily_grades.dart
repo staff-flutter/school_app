@@ -189,6 +189,7 @@ class _DailyGradesLoginScreenState extends State<DailyGradesLoginScreen> {
       children: [
         // Username/Email Field
         TextFormField(
+          key: const Key('email_field'),
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           validator: (v) => (v == null || v.isEmpty) ? 'Enter email or phone' : null,
@@ -217,6 +218,7 @@ class _DailyGradesLoginScreenState extends State<DailyGradesLoginScreen> {
 
         // Password Field
         Obx(() => TextFormField(
+          key: const Key('password_field'),
           controller: _passwordController,
           obscureText: !_isPasswordVisible.value,
           validator: (v) => (v == null || v.isEmpty) ? 'Enter password' : null,
@@ -258,6 +260,7 @@ class _DailyGradesLoginScreenState extends State<DailyGradesLoginScreen> {
       width: double.infinity,
       height: 56,
       child: Obx(() => ElevatedButton(
+        key: const Key('login_button'),
         onPressed: controller.isLoading.value ? null : _handleLogin, // Disable if loading
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFD32F2F),

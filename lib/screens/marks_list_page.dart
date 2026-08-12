@@ -21,7 +21,7 @@ class SubjectRecord {
   final String subject;
   final int marksObtained;
   final int maxMarks;
-  final int minPassingMarks; // schema field name
+  final int minPassingMarks;
   final String grade;
 
   const SubjectRecord({
@@ -38,7 +38,6 @@ class SubjectRecord {
       subject:         j['subject']?.toString() ?? 'Unknown',
       marksObtained:   (j['marksObtained'] as num?)?.toInt() ?? 0,
       maxMarks:        max,
-      // schema default is 35; fall back to 35 % of maxMarks if missing
       minPassingMarks: (j['minPassingMarks'] as num?)?.toInt() ??
           (max * 0.35).ceil(),
       grade:           j['grade']?.toString() ?? '-',
@@ -71,7 +70,6 @@ class ExamRecord {
     isAbsent: j['isAbsent'] as bool? ?? false,
   );
 
-  /// Overall percentage across all subjects in this exam
   double get percentage {
     if (subjects.isEmpty) return 0;
     final scored = subjects.fold(0, (s, r) => s + r.marksObtained);
@@ -82,8 +80,8 @@ class ExamRecord {
 
 /// Mirrors markReportSchema (one document per student)
 class MarkReport {
-  final List<SubjectRecord> subjects;      // top-level subjects (legacy)
-  final List<ExamRecord>    examRecords;   // per-exam breakdown
+  final List<SubjectRecord> subjects;
+  final List<ExamRecord>    examRecords;
   final String remarks;
   final bool isAbsent;
 
@@ -120,17 +118,15 @@ class MarksList extends StatefulWidget {
 class _MarksListState extends State<MarksList> {
   // ── State ─────────────────────────────────────────────────────────────────
   MarkReport? _report;
-  String      _selectedExam = ''; // '' = show top-level subjects
+  String      _selectedExam = '';
   bool        _loading = true;
 
   String _studentName = '';
 
-  //final _session = Get.find<UserSession>();
- final auth_ctrl = Get.find<AuthController>();
+  final auth_ctrl = Get.find<AuthController>();
+
   // ── Derived from selected exam ─────────────────────────────────────────────
 
-  /// The subjects to show in the table — either from a specific examRecord
-  /// or from the top-level subjects array.
   List<SubjectRecord> get _activeSubjects {
     if (_selectedExam.isNotEmpty && _report != null) {
       final exam = _report!.examRecords
@@ -141,7 +137,6 @@ class _MarksListState extends State<MarksList> {
     return _report?.subjects ?? [];
   }
 
-  /// Remarks for the currently selected view
   String get _activeRemarks {
     if (_selectedExam.isNotEmpty && _report != null) {
       final exam = _report!.examRecords
@@ -176,12 +171,10 @@ class _MarksListState extends State<MarksList> {
     super.initState();
     _fetchReport();
   }
+
   Future<String> _resolveAcademicYear() async {
     final schoolController = Get.find<SchoolController>();
 
-    // If we don't have a school loaded yet, try to load it.
-    // For non-correspondent roles this internally calls _loadUserSchool(),
-    // which fetches the user's own school by their schoolId.
     if (schoolController.selectedSchool.value == null) {
       await schoolController.getAllSchools();
     }
@@ -191,11 +184,11 @@ class _MarksListState extends State<MarksList> {
       return year;
     }
 
-    // Fallback only — shouldn't normally be hit.
     final now = DateTime.now();
     final startYear = now.month >= 6 ? now.year : now.year - 1;
     return '$startYear-${startYear + 1}';
   }
+
   Future<void> _fetchReport() async {
     if (mounted) setState(() => _loading = true);
     try {
@@ -205,7 +198,6 @@ class _MarksListState extends State<MarksList> {
       final schoolId   = auth_ctrl.user.value?.schoolId;
       final studentId  = controller.selectedChild['_id']?.toString() ?? '';
       if (studentId.isEmpty) {
-        debugPrint('❌ studentId is empty — cannot fetch marks');
         if (mounted) setState(() => _loading = false);
         return;
       }
@@ -228,19 +220,8 @@ class _MarksListState extends State<MarksList> {
         'Accept': 'application/json',
       });
 
-      debugPrint('👍 MarksReport ${response.statusCode}: ${response.body}');
-
       if (response.statusCode == 200) {
-        debugPrint('👍 MarksReport ${response.statusCode}: ${response.body}');
         final decoded  = jsonDecode(response.body);
-        debugPrint('DECODED TYPE: ${decoded.runtimeType}');
-        debugPrint('DECODED: $decoded');
-
-        debugPrint('studentId: $studentId');
-        debugPrint('URL: $uri');
-        debugPrint('Status: ${response.statusCode}');
-        debugPrint('Body: ${response.body}');
-        // API returns { ok, data: <markReportDoc or list> }
         final rawData  = decoded is Map ? decoded['data'] : decoded;
 
         Map<String, dynamic>? doc;
@@ -252,7 +233,6 @@ class _MarksListState extends State<MarksList> {
 
         if (doc != null && mounted) {
           final report = MarkReport.fromJson(doc);
-          // Auto-select first examRecord if top-level subjects are empty
           String defaultExam = '';
           if (report.examRecords.isNotEmpty) {
             defaultExam = report.examRecords.first.examName;
@@ -264,7 +244,7 @@ class _MarksListState extends State<MarksList> {
         }
       }
     } catch (e) {
-      debugPrint('MarksList Error: $e');
+      // Handle error
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -277,7 +257,6 @@ class _MarksListState extends State<MarksList> {
     final double screenHeight  = MediaQuery.sizeOf(context).height;
     final double screenWidth   = MediaQuery.sizeOf(context).width;
     final bool   isTablet      = ResponsiveHelper.isTablet(context);
-    final bool   isSmall       = ResponsiveHelper.isSmallHeight(context);
     final double bottomInset   = MediaQuery.of(context).viewPadding.bottom;
 
     final double headerHeight     = isTablet ? screenHeight * 0.16 : screenHeight * 0.22;
@@ -290,7 +269,6 @@ class _MarksListState extends State<MarksList> {
     final pct   = _overallPct;
     final grade = _gradeLabel(pct);
 
-    // Exam names for the selector — from examRecords
     final examNames = _report?.examRecords.map((e) => e.examName).toList() ?? [];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -392,37 +370,50 @@ class _MarksListState extends State<MarksList> {
                                   ),
                                   Container(height: 1, color: Colors.grey.shade300),
 
-                                  // Data rows
+                                  // Data rows with RefreshIndicator
                                   Expanded(
-                                    child: _loading
-                                        ? const Center(child: CircularProgressIndicator())
-                                        : _activeSubjects.isEmpty
-                                        ? Center(
-                                      child: Text('No marks available',
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: ResponsiveHelper.sp(context, 13),
-                                          )),
-                                    )
-                                        : Stack(children: [
-                                      // Column background tints
-                                      Positioned.fill(
-                                        child: Row(children: [
-                                          Expanded(flex: 3, child: Container(color: Colors.white)),
-                                          Expanded(flex: 1, child: Container(color: const Color(0xFFC7D4EE))),
-                                          Expanded(flex: 1, child: Container(color: const Color(0xFFFFECCC))),
-                                          Expanded(flex: 1, child: Container(color: const Color(0xFFCFE9DB))),
-                                        ]),
-                                      ),
-                                      ListView.separated(
-                                        padding: EdgeInsets.zero,
-                                        itemCount: _activeSubjects.length,
-                                        separatorBuilder: (_, __) =>
-                                            Divider(height: 1, color: Colors.grey.shade200),
-                                        itemBuilder: (ctx, i) =>
-                                            _SubjectRow(subject: _activeSubjects[i]),
-                                      ),
-                                    ]),
+                                    child: RefreshIndicator(
+                                      onRefresh: _fetchReport,
+                                      color: const Color(0xff4A90E2),
+                                      child: _loading
+                                          ? const Center(child: CircularProgressIndicator())
+                                          : _activeSubjects.isEmpty
+                                          ? SingleChildScrollView(
+                                        physics: const AlwaysScrollableScrollPhysics(),
+                                        child: SizedBox(
+                                          height: tableHeight - 40,
+                                          child: Center(
+                                            child: Text(
+                                              'No marks available',
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: ResponsiveHelper.sp(context, 13),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                          : Stack(children: [
+                                        // Column background tints
+                                        Positioned.fill(
+                                          child: Row(children: [
+                                            Expanded(flex: 3, child: Container(color: Colors.white)),
+                                            Expanded(flex: 1, child: Container(color: const Color(0xFFC7D4EE))),
+                                            Expanded(flex: 1, child: Container(color: const Color(0xFFFFECCC))),
+                                            Expanded(flex: 1, child: Container(color: const Color(0xFFCFE9DB))),
+                                          ]),
+                                        ),
+                                        ListView.separated(
+                                          physics: const AlwaysScrollableScrollPhysics(),
+                                          padding: EdgeInsets.zero,
+                                          itemCount: _activeSubjects.length,
+                                          separatorBuilder: (_, __) =>
+                                              Divider(height: 1, color: Colors.grey.shade200),
+                                          itemBuilder: (ctx, i) =>
+                                              _SubjectRow(subject: _activeSubjects[i]),
+                                        ),
+                                      ]),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -592,7 +583,6 @@ class _SubjectRow extends StatelessWidget {
 
     return IntrinsicHeight(
       child: Row(children: [
-        // Subject name
         Expanded(
           flex: 3,
           child: Padding(
@@ -606,7 +596,6 @@ class _SubjectRow extends StatelessWidget {
             ),
           ),
         ),
-        // Out of (maxMarks)
         Expanded(
           flex: 1,
           child: Center(
@@ -622,7 +611,6 @@ class _SubjectRow extends StatelessWidget {
             ),
           ),
         ),
-        // Pass (minPassingMarks)
         Expanded(
           flex: 1,
           child: Center(
@@ -633,13 +621,12 @@ class _SubjectRow extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize:   ResponsiveHelper.sp(context, 11),
-                  color:      const Color(0xFFE65100), // deep amber
+                  color:      const Color(0xFFE65100),
                 ),
               ),
             ),
           ),
         ),
-        // Score (marksObtained) — green if passed, red if failed
         Expanded(
           flex: 1,
           child: Center(
@@ -651,8 +638,8 @@ class _SubjectRow extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontSize:   ResponsiveHelper.sp(context, 11),
                   color: passed
-                      ? const Color(0xFF2E7D32)  // green
-                      : const Color(0xFFC62828), // red
+                      ? const Color(0xFF2E7D32)
+                      : const Color(0xFFC62828),
                 ),
               ),
             ),

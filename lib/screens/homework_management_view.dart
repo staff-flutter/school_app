@@ -85,13 +85,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
   DateTime     selectedDate       = DateTime.now();
   final        subjectCtrl        = TextEditingController();
   final        descriptionCtrl    = TextEditingController();
- // final        academicYearCtrl   = TextEditingController(text: '2025-2026');
-  static String _currentAcademicYear() {
-    final now = DateTime.now();
-    // Academic year starts in June — adjust month threshold to match your school
-    final startYear = now.month >= 6 ? now.year : now.year - 1;
-    return '$startYear-${startYear + 1}';
-  }
 
   final academicYearCtrl = TextEditingController(text: AcademicYearUtils.getCurrentAcademicYear());
   List<PlatformFile> selectedFiles = [];
@@ -101,8 +94,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     super.initState();
     _tabController = TabController(length: _tabCount, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initSchool());
-    // React whenever the correspondent switches schools from the sidebar.
-    // Only meaningful for roles whose school isn't fixed to their own account.
     final role = authController.user.value?.role?.toLowerCase() ?? '';
     if (role == 'correspondent') {
       _schoolWorker = ever<School?>(schoolController.selectedSchool, (school) {
@@ -179,7 +170,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     );
   }
 
-  // ── AppBar (matching student records style) ───────────────────────────────
+  // ── AppBar ────────────────────────────────────────────────────────────────
   Widget _buildAppBar() {
     final tabs = _buildTabs();
     return Container(
@@ -226,7 +217,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
               ],
             ),
           ),
-          // Tab bar
           Container(
             margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
             padding: const EdgeInsets.all(4),
@@ -270,12 +260,11 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     return views.isNotEmpty ? views : [_noAccessView()];
   }
 
-  // ── Shared filter bar (chips, like student records) ───────────────────────
+  // ── Shared filter bar ─────────────────────────────────────────────────────
   Widget _buildFilterBar() {
     return Obx(() => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: class + section chips
         Row(children: [
           _filterChip(
             label: selectedClass?.name ?? 'All Classes',
@@ -283,7 +272,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
             active: selectedClass != null,
             onTap: () => _showClassSheet(),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           if (ApiPermissions.hasSectionAccess(currentRole))
             _filterChip(
               label: selectedSection?.name ?? 'All Sections',
@@ -293,9 +282,7 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
             ),
         ]),
         const SizedBox(height: 10),
-        // Row 2: date + academic year + search + clear
         Row(children: [
-          // Due date chip
           GestureDetector(
             onTap: () async {
               final d = await showDatePicker(
@@ -326,7 +313,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
             ),
           ),
           const SizedBox(width: 8),
-          // Academic year chip
           GestureDetector(
             onTap: () => _showAcademicYearSheet(),
             child: Container(
@@ -349,23 +335,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          // Search button
-          // GestureDetector(
-          //   onTap: _applyFilter,
-          //   child: Container(
-          //     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          //     decoration: BoxDecoration(
-          //       color: _kPrimary,
-          //       borderRadius: BorderRadius.circular(100),
-          //       boxShadow: [BoxShadow(color: _kPrimary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
-          //     ),
-          //     child: const Row(mainAxisSize: MainAxisSize.min, children: [
-          //       Icon(Icons.search_rounded, size: 14, color: Colors.white),
-          //       SizedBox(width: 5),
-          //       Text('Search', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
-          //     ]),
-          //   ),
-          // ),
           if (selectedClass != null || selectedSection != null) ...[
             const SizedBox(width: 8),
             GestureDetector(
@@ -442,7 +411,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
             ]),
           ),
           const Divider(height: 1, color: Color(0xFFEAF0FB)),
-          // All classes option
           ListTile(
             leading: Container(width: 36, height: 36,
                 decoration: BoxDecoration(color: selectedClass == null ? _kPrimary.withOpacity(0.1) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8)),
@@ -647,7 +615,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
           border: Border.all(color: _kBorder),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))]),
       child: Column(children: [
-        // Card header
         Container(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           decoration: BoxDecoration(color: _kPrimary.withOpacity(0.05), borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -752,9 +719,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
   }
 
   // ── Homework list ─────────────────────────────────────────────────────────
-  // FIX: each item in homeworkList is ONE homework entry (a day),
-  //      which contains multiple subjects. Show ONE card per homework entry,
-  //      not one card per subject.
   Widget _buildHomeworkList() {
     return Obx(() {
       final loading = homeworkController.isLoading.value;
@@ -779,7 +743,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: _kPrimary, borderRadius: BorderRadius.circular(20)),
                 child: Text(
-                  // FIX: count is number of homework entries, not subjects
                   '${items.length} item${items.length != 1 ? 's' : ''}',
                   style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
                 ),
@@ -814,7 +777,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                   final subjects = (item['subjects'] as List?) ?? [];
                   final dateStr  = _fmtDateStr(item['homeworkDate']);
 
-                  // ONE card per homework entry (day), showing all subjects inside
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     decoration: BoxDecoration(
@@ -824,41 +786,71 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
                     ),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      // Date header row
+                      // Date header row (Fixed overflow)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 3, 8),
-                        child: Row(children: [
-                          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                              child: const Icon(Icons.calendar_today_rounded, color: _kPrimary, size: 13)),
-                          const SizedBox(width: 8),
-                          Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _kText)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                            child: Text('${subjects.length} subject${subjects.length != 1 ? 's' : ''}',
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kPrimary)),
-                          ),
-                          const SizedBox(width: 6),
-                          // View all button
-                          GestureDetector(
-                            onTap: () => Get.to(() => HomeworkDetailView(homework: item)),
-                            child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                                child: const Icon(Icons.visibility_rounded, color: _kPrimary, size: 14)),
-                          ),
-                          if (ApiPermissions.hasApiAccess(currentRole, 'DELETE /api/homework/deleteentireday')) ...[
-                            const SizedBox(width: 4),
-                            PopupMenuButton<String>(
-                              iconSize: 18,
-                              icon: const Icon(Icons.more_vert_rounded, color: _kTextMuted, size: 18),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 16, color: _kDanger), SizedBox(width: 8), Text('Delete', style: TextStyle(color: _kDanger))])),
-                              ],
-                              onSelected: (v) { if (v == 'delete') _showDeleteConfirmation(item); },
+                        padding: const EdgeInsets.fromLTRB(10, 10, 6, 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                              child: const Icon(Icons.calendar_today_rounded, color: _kPrimary, size: 13),
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dateStr,
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _kText),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                              child: Text(
+                                '${subjects.length} subject${subjects.length != 1 ? 's' : ''}',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kPrimary),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => Get.to(() => HomeworkDetailView(homework: item)),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(color: _kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                child: const Icon(Icons.visibility_rounded, color: _kPrimary, size: 14),
+                              ),
+                            ),
+                            if (ApiPermissions.hasApiAccess(currentRole, 'DELETE /api/homework/deleteentireday')) ...[
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: PopupMenuButton<String>(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  iconSize: 18,
+                                  icon: const Icon(Icons.more_vert_rounded, color: _kTextMuted, size: 18),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.delete_rounded, size: 16, color: _kDanger),
+                                          SizedBox(width: 8),
+                                          Text('Delete', style: TextStyle(color: _kDanger)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  onSelected: (v) { if (v == 'delete') _showDeleteConfirmation(item); },
+                                ),
+                              ),
+                            ],
                           ],
-                        ]),
+                        ),
                       ),
                       // Subjects list inside this homework entry
                       ...subjects.asMap().entries.map((e) {
@@ -1010,13 +1002,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
                 if (Get.isDialogOpen == true) Get.back();
                 if (success && schoolController.selectedSchool.value != null && selectedClass != null) {
                   await homeworkController.getAllHomework(schoolId: schoolController.selectedSchool.value!.id, classId: selectedClass!.id, sectionId: selectedSection?.id);
-                  final String schoolId =schoolController.selectedSchool.value!.id;
-                  final String classId =selectedClass!.id;
-                  final String? sectionId =selectedSection?.id;
-
-                  print('schoolid:$schoolId');
-                  print('schoolid:$classId');
-                  print('schoolid:$sectionId');
                 }
               } catch (_) { if (Get.isDialogOpen == true) Get.back(); }
             },
@@ -1067,9 +1052,6 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     return priority(a).compareTo(priority(b));
   }
 
-  /// Called whenever selectedSchool changes while this page is open.
-  /// Every filter and every loaded timetable/teacher list here is scoped
-  /// to a single school — none of it applies to the newly selected one.
   void _onSchoolChanged(String newSchoolId) {
     setState(() {
       selectedClass = null;
@@ -1081,6 +1063,5 @@ class _HomeworkManagementViewState extends State<HomeworkManagementView>
     homeworkController.homeworkList.clear();
 
     schoolController.getAllClasses(newSchoolId);
-
   }
 }

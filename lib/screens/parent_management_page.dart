@@ -179,7 +179,6 @@ class _ParentManagementPageState extends State<ParentManagementPage> {
         }
       });
     } catch (e) {
-      debugPrint('Error fetching parents: $e');
       if (mounted) setState(() => _error = 'Failed to load parent list');
     }
   }
@@ -717,7 +716,6 @@ class _ManageParentStudentsPageState
         if (mounted) setState(() => _candidates = []);
       }
     } catch (e) {
-      debugPrint('Error loading students: $e');
       if (mounted) setState(() => _candidates = []);
     } finally {
       if (mounted) setState(() => _loadingCandidates = false);

@@ -27,17 +27,14 @@ bool _canEdit(String role) =>
 // Truncates long bodies (e.g. base64-ish / huge JSON) so logs stay readable.
 
 void _logRequest(String method, Uri uri, {Map<String, String>? fields}) {
-  debugPrint('▶️ [CLUB API] $method $uri'
-      '${fields != null ? '\n   fields: $fields' : ''}');
+
 }
 
 void _logResponse(String method, Uri uri, http.Response res) {
   final body = res.body.length > 1200 ? '${res.body.substring(0, 1200)}…(truncated)' : res.body;
-  debugPrint('◀️ [CLUB API] $method $uri -> ${res.statusCode}\n   body: $body');
 }
 
 void _logError(String method, Uri uri, Object e) {
-  debugPrint('❌ [CLUB API] $method $uri -> ERROR: $e');
 }
 
 
@@ -61,8 +58,6 @@ class ClubCategory {
   });
 
   factory ClubCategory.fromJson(Map<String, dynamic> j) {
-    debugPrint('🖼️ [LIST TILE] raw thumbnail json: ${j['thumbnail']}');
-    debugPrint('🖼️ [LIST TILE] resolved thumbnailUrl: ${j['thumbnail'] is Map ? j['thumbnail']['url'] : j['thumbnail']}');
 
     return ClubCategory(
       id:           j['_id']         ?? '',
@@ -265,17 +260,14 @@ class _CampusManagementViewState extends State<CampusManagementView>
 
   Future<void> _fetchClubs({int page = 1, bool forceRefresh = false}) async {
     if (_schoolId == null) {
-      debugPrint('⚠️ [CLUB API] GET getAllClubs skipped — schoolId is null');
       setState(() => _clubsLoading = false);
       return;
     }
     if (page == 1) {
       if (_isFetchingClubs) {
-        debugPrint('⏭️ Skipping duplicate _fetchClubs — one already in flight');
         return;
       }
       if (_schoolId == _lastFetchedSchoolId && _clubs.isNotEmpty) {
-        debugPrint('⏭️ Skipping _fetchClubs — already have data for schoolId $_schoolId');
         return;
       }
     }
@@ -803,6 +795,7 @@ class _ClubVideosScreen extends StatefulWidget {
   final String schoolId;
   final bool canEdit;
 
+
   const _ClubVideosScreen({
     required this.club, required this.token,
     required this.schoolId, required this.canEdit,
@@ -813,7 +806,7 @@ class _ClubVideosScreen extends StatefulWidget {
 }
 
 class _ClubVideosScreenState extends State<_ClubVideosScreen> {
-
+  final ValueNotifier<bool> _canPopUploadDialog = ValueNotifier(false);
   List<ClubVideo> _videos      = [];
   bool            _loading     = true;
   int             _page        = 1;
@@ -829,7 +822,11 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
     super.initState();
     _fetchVideos();
   }
-
+  @override
+  void dispose() {
+    _canPopUploadDialog.dispose();
+    super.dispose();
+  }
   Future<void> _fetchVideos({int page = 1}) async {
     setState(() => _loading = true);
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllClubVideos}')
@@ -903,7 +900,6 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
       'pdfs_attached': pdfFiles != null ? pdfFiles.length.toString() : '0',
     });
 
-    print('Sending ${req.files.length} total files via multipart.');
 
     try {
       final streamed = await req.send();
@@ -914,17 +910,18 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
         final jsonResponse = json.decode(res.body);
         if (jsonResponse['ok'] == true) {
           Get.snackbar('Success', 'Club video uploaded successfully!');
-          _fetchVideos(); // Refresh video listing view
+          _fetchVideos();
         } else {
           Get.snackbar('Failed', jsonResponse['message'] ?? 'Upload failed');
         }
       } else {
-        debugPrint("❌ Server Error Body: ${res.body}");
         Get.snackbar('Server Error (${res.statusCode})', 'The server rejected the file combination.');
       }
     } catch (e) {
-      debugPrint("❌ Exception during upload: $e");
       Get.snackbar('Error', 'An unexpected error occurred during submission.');
+    } finally {
+      _canPopUploadDialog.value = true; // unblock, THEN close
+      Get.back(); // now this actually closes the "Uploading…" dialog
     }
   }
 
@@ -958,7 +955,6 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
       }
     }
 
-    print('Sending update request with ${req.files.length} new PDF files.');
 
     try {
       final streamed = await req.send();
@@ -966,7 +962,6 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
       _logResponse('PUT', uri, res);
 
       if (res.statusCode == 200) {
-        print('res:${res.body}');
         _snack('Updated details successfully!', success: true);
         _fetchVideos(); // Refresh listing
       } else {
@@ -1043,7 +1038,33 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
       ],
     ));
   }
-
+  void _showUploadingDialog() {
+    _canPopUploadDialog.value = false; // reset — block pops while uploading
+    Get.dialog(
+      ValueListenableBuilder<bool>(
+        valueListenable: _canPopUploadDialog,
+        builder: (context, canPop, _) => PopScope(
+          canPop: canPop, // false while uploading, flips to true when we're ready to close it
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text('Uploading video…',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
   // ── Dialogs ───────────────────────────────────────────────────────────────
 
   void _showUploadDialog() {
@@ -1119,7 +1140,8 @@ class _ClubVideosScreenState extends State<_ClubVideosScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
               onPressed: () async {
                 if (titleCtrl.text.trim().isEmpty || videoFile == null) return;
-                Get.back();
+                Get.back();               // close the upload form
+                _showUploadingDialog();   // open the spinner dialog
                 await _uploadVideo(
                   title: titleCtrl.text.trim(),
                   topic: topicCtrl.text.trim(),
@@ -1482,19 +1504,19 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    debugPrint('▶️ [CLUB VIDEO PLAYER] loading ${widget.video.videoUrl}');
     _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.video.videoUrl));
     _initFuture = _ctrl.initialize().then((_) {
-      debugPrint('✅ [CLUB VIDEO PLAYER] initialized — duration: ${_ctrl.value.duration}');
       _ctrl.play();
     }).catchError((e) {
-      debugPrint('❌ [CLUB VIDEO PLAYER] failed to initialize: $e');
     });
     _ctrl.setLooping(false);
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+
+    _ctrl.dispose(); super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1671,7 +1693,6 @@ class _QuizTabState extends State<_QuizTab> {
       _logResponse('GET', uri, res);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
-        print('getAllQuizAttempts:$body}');
         final list = (body['data'] as List? ?? []).map((e) => Quiz.fromJson(e)).toList();
         final Map<String, Quiz> uniqueMap = {
           for (final q in list) if (q.id.isNotEmpty) q.id: q,
@@ -1712,7 +1733,6 @@ class _QuizTabState extends State<_QuizTab> {
   }
 
   Future<void> _deleteQuiz(Quiz q) async {
-    print('🗑️ Deleting quiz ${q.id} — quiz.clubId=${q.clubId}, current widget.schoolId=${widget.schoolId}');
 
     // NOTE: add `deleteQuiz` to ApiConstants pointing at your delete endpoint.
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deleteQuiz}/${q.id}').replace(queryParameters: {'schoolId': widget.schoolId});
@@ -2094,7 +2114,6 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
         setState(() => _videosLoading = false);
       }
     } catch (e) {
-      debugPrint('❌ Failed to load videos for quiz picker: $e');
       setState(() => _videosLoading = false);
     }
   }
@@ -2146,7 +2165,6 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
       'questions': _questions.map((q) => q.toJson()).toList(),
     };
     final year = AcademicYearUtils.getCurrentAcademicYear();
-    print('📅 [QUIZ SAVE] computed academicYear = $year');
     final isEditing = widget.editingQuiz != null;
     // NOTE: add `createQuiz` / `updateQuiz` to ApiConstants pointing at your backend.
     final uri = isEditing
@@ -2160,7 +2178,6 @@ class _QuizBuilderScreenState extends State<_QuizBuilderScreen> {
           : await http.post(uri, headers: {..._headers, 'Content-Type': 'application/json'}, body: jsonEncode(payload));
       _logResponse(isEditing ? 'PUT' : 'POST', uri, res);
       if (res.statusCode == 200 || res.statusCode == 201) {
-        print('responseOfManualQuiz:${res.body}');
         Get.snackbar('Success', isEditing ? 'Quiz updated' : 'Quiz created',
             backgroundColor: const Color(0xFF22C55E), colorText: Colors.white);
         if (mounted) Navigator.pop(context, true);

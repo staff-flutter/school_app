@@ -139,7 +139,6 @@ class _TeacherMyScheduleState extends State<TeacherMySchedule> {
         schoolId: schoolId,
         teacherId: teacherId,
       );
-      print('TEACHER SCHEDULE COUNT: ${timetableController.teacherSchedule.length}');
     } catch (e) {
       setState(() => _error = 'Failed to load your schedule.');
     } finally {

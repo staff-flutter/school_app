@@ -59,7 +59,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
   Future<void> fetchClubsAndActivities({bool isRefresh = false}) async {
     if (_isFetching) {
-      debugPrint('⏭️ Skipping duplicate fetchClubsAndActivities — one is already in flight');
       return;
     }
 
@@ -84,13 +83,10 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         isLoading = false;
         _quizzesLoading = false;
       });
-      debugPrint('⚠️ No schoolId available for clubs fetch');
       _isFetching = false;
       return;
     }
-    print('schoolId of Testing School:$schoolId');
     if (!isRefresh && schoolId == _lastFetchedSchoolId && apiClubs.isNotEmpty) {
-      debugPrint('⏭️ Skipping fetch — already have data for schoolId $schoolId');
       return;
     }
 
@@ -111,7 +107,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       });
 
       if (response.statusCode == 200) {
-        print('fetching Clubs:${response.body}');
         final decodedData = jsonDecode(response.body);
         final List<dynamic> list = decodedData['data'] ?? [];
         setState(() {
@@ -133,7 +128,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         isLoading = false;
         _quizzesLoading = false;
       });
-      print("Error fetching clubs: $e");
     } finally {
       _isFetching = false;
     }
@@ -154,7 +148,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     final String? token = _authController.storage.read('token');
 
     if (token == null || token.isEmpty) {
-      print('⚠️ No token available when fetching club quizzes');
       if (mounted) {
         setState(() {
           _quizzes = [];
@@ -177,18 +170,14 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
 
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body);
-          print('clubID:${club.id}');
-          print('response of fetching quizzes:${res.body}');
+
           final list = (body['data'] as List? ?? []);
-          print('✅ Quiz fetch for club ${club.id} (${club.name}): ${list.length} quizzes returned.');
-          print('body:$body');
+
           collected.addAll(list.map(
                   (e) => ClubQuiz.fromJson(e, clubNameFallback: club.name)));
         } else {
-          print('⚠️ Quiz fetch failed for club ${club.id} (${club.name}): status=${res.statusCode}');
         }
       } catch (e) {
-        print('⚠️ Error fetching quizzes for club ${club.id}: $e');
       }
     }
 
@@ -223,7 +212,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
           }
         });
       } else {
-        debugPrint('⚠️ SchoolController not registered yet — skipping ever() listener');
       }
     } else {
       ever(_authController.user, (user) {
@@ -361,6 +349,40 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
                     child: Container(color: Colors.black.withOpacity(0.45)),
                   ),
                 ),
+              // ── Member count badge (top-right) ──
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ClubMembersPage(clubId: club.id, clubName: club.name),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.people_alt_rounded, size: 12, color: Colors.black87),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${club.memberCount}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -590,7 +612,133 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     }
   }
 }
+class ClubMembersPage extends StatefulWidget {
+  final String clubId;
+  final String clubName;
+  const ClubMembersPage({super.key, required this.clubId, required this.clubName});
 
+  @override
+  State<ClubMembersPage> createState() => _ClubMembersPageState();
+}
+
+class _ClubMembersPageState extends State<ClubMembersPage> {
+  final AuthController _authController = Get.find<AuthController>();
+  List<ClubMember> _members = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final token = _authController.storage.read('token') ?? '';
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getClub}/${widget.clubId}');
+    try {
+      final res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final rawStudents = (body['data'] as Map?)?['studentId'];
+        final members = rawStudents is List
+            ? rawStudents
+            .whereType<Map>()
+            .map((m) => ClubMember.fromJson(Map<String, dynamic>.from(m)))
+            .toList()
+            : <ClubMember>[];
+        if (mounted) setState(() { _members = members; _loading = false; });
+      } else {
+        if (mounted) setState(() { _members = []; _loading = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _members = []; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Club Members',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black)),
+            Text(widget.clubName, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          ],
+        ),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _members.isEmpty
+          ? Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(children: [
+            Icon(Icons.people_outline, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            const Text('No members in this club yet.',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
+          ]),
+        ),
+      )
+          : RefreshIndicator(
+        onRefresh: _load,
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: _members.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (ctx, i) {
+            final m = _members[i];
+            final hasImage = m.imageUrl != null && m.imageUrl!.isNotEmpty;
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+              ),
+              child: Row(children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.blue.shade50,
+                  backgroundImage: hasImage ? NetworkImage(m.imageUrl!) : null,
+                  child: hasImage
+                      ? null
+                      : Text(
+                    m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
+                    style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(m.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black)),
+                      if (m.rollNumber != null && m.rollNumber!.isNotEmpty)
+                        Text('Roll: ${m.rollNumber}', style: TextStyle(fontSize: 11, color: Colors.grey[500]))
+                      else if (m.srId != null)
+                        Text(m.srId!, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    ],
+                  ),
+                ),
+              ]),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
 class QuizAttemptSummaryPage extends StatelessWidget {
   final ClubQuizAttempt attempt;
   final ClubQuiz quiz;
@@ -685,12 +833,14 @@ class ClubsAndActivitiesStrings {
   final String name;
   final String description;
   final String? thumbnail;
+  final int memberCount;
 
   ClubsAndActivitiesStrings({
     required this.id,
     required this.name,
     required this.description,
     this.thumbnail,
+    this.memberCount = 0,
   });
 
   factory ClubsAndActivitiesStrings.fromJson(Map<String, dynamic> json) {
@@ -700,13 +850,24 @@ class ClubsAndActivitiesStrings {
     } else if (json['thumbnail'] is String) {
       thumbnailUrl = json['thumbnail'];
     }
-    debugPrint('🖼️ [BIG CARD] raw thumbnail json: ${json['thumbnail']}');
-    debugPrint('🖼️ [BIG CARD] resolved thumbnailUrl: $thumbnailUrl');
+    int memberCount = 0;
+    // studentId is the membership array on the club document — count its length.
+    // Falls back to an explicit memberCount field if the backend ever sends one instead.
+    final rawStudents = json['studentId'];
+    if (rawStudents is List) {
+      memberCount = rawStudents.length;
+    } else {
+      final rawCount = json['memberCount'];
+      if (rawCount is num) {
+        memberCount = rawCount.toInt();
+      }
+    }
     return ClubsAndActivitiesStrings(
       id: json['_id'] ?? "",
       name: json['name'] ?? "Unknown Club",
       description: json['description'] ?? "",
       thumbnail: thumbnailUrl,
+      memberCount: memberCount,
     );
   }
 }
@@ -1006,7 +1167,32 @@ class _QuizAttemptPageState extends State<QuizAttemptPage> {
     );
   }
 }
+class ClubMember {
+  final String id;
+  final String name;
+  final String? imageUrl;
+  final String? rollNumber;
+  final String? srId;
 
+  ClubMember({
+    required this.id,
+    required this.name,
+    this.imageUrl,
+    this.rollNumber,
+    this.srId,
+  });
+
+  factory ClubMember.fromJson(Map<String, dynamic> j) {
+    final nonMandatory = j['nonMandatory'];
+    return ClubMember(
+      id: j['_id']?.toString() ?? '',
+      name: j['studentName']?.toString() ?? 'Unknown',
+      imageUrl: j['studentImage']?.toString(),
+      rollNumber: nonMandatory is Map ? nonMandatory['rollNumber']?.toString() : null,
+      srId: j['srId']?.toString(),
+    );
+  }
+}
 class _BounceCard extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;

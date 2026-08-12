@@ -77,7 +77,6 @@ class _SetFeeConfigurationPageState extends State<SetFeeConfigurationPage> {
       }
       _feeHeadNames.clear();
     } catch (e) {
-      debugPrint('⚠️ fetch fee-config error: $e');
     } finally {
       _isLoading.value = false;
     }

@@ -56,7 +56,6 @@ class _ClubVideoPlayerPageState extends State<ClubVideoPlayerPage>
       // Hide controls after 3 s
       Future.delayed(const Duration(seconds: 3), _hideControls);
     } catch (e) {
-      debugPrint('Video init error: $e');
       setState(() => _isError = true);
     }
   }

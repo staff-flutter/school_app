@@ -1303,6 +1303,10 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
                           color: Colors.black.withOpacity(0.15), borderRadius: BorderRadius.circular(100)),
                       child: TabBar(
                         controller: _tabController,
+                        isScrollable: true, // FIX: Allows tabs to fit properly without overflowing horizontally
+                        tabAlignment: TabAlignment.center, // FIX: Centers tabs within the container
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 12), // Compact padding for tabs
                         dividerColor: Colors.transparent,
                         indicatorSize: TabBarIndicatorSize.tab,
                         indicator: BoxDecoration(

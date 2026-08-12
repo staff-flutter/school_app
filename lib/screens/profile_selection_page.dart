@@ -38,7 +38,6 @@ class _ProfileSelectionState extends State<ProfileSelection> {
   //     );
   //
   //     if (response.statusCode == 200) {
-  //       print(response.body);
   //       final data = jsonDecode(response.body);
   //
   //       String token = data['token'];
@@ -46,12 +45,9 @@ class _ProfileSelectionState extends State<ProfileSelection> {
   //       final prefs = await SharedPreferences.getInstance();
   //       await prefs.setString('user_token', token);
   //
-  //       print("Login Successful! Token Saved.");
   //     } else {
-  //       print("Login Failed: ${response.body}");
   //     }
   //   } catch (e) {
-  //     print("Login Error: $e");
   //   }
   // }
 
@@ -71,7 +67,6 @@ class _ProfileSelectionState extends State<ProfileSelection> {
       "userId": "parent1@gmail.com",
 
     };
-    print('userId:$userid');
     const userId = "694ab187bab204b91c6b6849";
     final uri = Uri.https('${ApiConstants.baseUrl}', '/api/user/associated-students/get/$userid');
 
@@ -84,8 +79,7 @@ class _ProfileSelectionState extends State<ProfileSelection> {
     );
 
     if (response.statusCode == 200) {
-      print('responseOfProfileSelectionPage:${response.body}');
-      print(response.statusCode);
+
 
       final dynamic decodedData = jsonDecode(response.body);
 
@@ -102,7 +96,6 @@ class _ProfileSelectionState extends State<ProfileSelection> {
       //List jsonResponse = jsonDecode(response.body);
       // return jsonResponse.map((data) => TimetableEntry.fromJson(data)).toList();
     } else {
-      print("ProfileSelection Error: ${response.statusCode}-${response.body}");
       return [];
     }
   }
@@ -118,12 +111,9 @@ class _ProfileSelectionState extends State<ProfileSelection> {
     studentIds = prefs.getStringList('studentId');
 
     if (studentIds != null && studentIds!.isNotEmpty) {
-      print("--- Printing Individual Student IDs ---");
       for (var id in studentIds!) {
-        print("Student ID: $id");
       }
     } else {
-      print("No Student IDs found in session.");
     }
     return[];
   }

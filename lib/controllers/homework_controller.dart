@@ -232,7 +232,6 @@ class HomeworkController extends GetxController {
       final response = await _apiService.get('/api/homework/getall', queryParameters: queryParams);
 
       if (response.statusCode == 200 && response.data != null) {
-        print('homework:${response.data}');
         final data = response.data;
         if (data is Map) {
           // 1. Parse pagination info cleanly

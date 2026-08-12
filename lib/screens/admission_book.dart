@@ -373,23 +373,28 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                TextButton.icon(
+                _buildCompactButton(
+                  icon: Icons.format_list_numbered_rounded,
+                  label: 'Sequence',
+                  color: const Color(0xFF1E3A8A),
                   onPressed: () => _openSequenceDialog(book),
-                  icon: const Icon(Icons.format_list_numbered_rounded, size: 15),
-                  label: const Text('Sequence'),
                 ),
-                TextButton.icon(
+                const SizedBox(width: 12),
+                _buildCompactButton(
+                  icon: Icons.edit_rounded,
+                  label: 'Edit',
+                  color: const Color(0xFF1E3A8A),
                   onPressed: () => _openCreateOrEditSheet(existing: book),
-                  icon: const Icon(Icons.edit_rounded, size: 15),
-                  label: const Text('Edit'),
                 ),
-                TextButton.icon(
+                const SizedBox(width: 12),
+                _buildCompactButton(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Delete',
+                  color: Colors.red,
                   onPressed: () => _confirmDelete(book),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Colors.red),
-                  label: const Text('Delete', style: TextStyle(color: Colors.red)),
                 ),
               ],
             ),
@@ -398,4 +403,36 @@ class _AdmissionBookSetupViewState extends State<AdmissionBookSetupView> {
       ),
     );
   }
-}
+
+  Widget _buildCompactButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        alignment: Alignment.centerLeft,
+      ),
+      onPressed: onPressed,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }}

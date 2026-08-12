@@ -545,7 +545,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                           child: _dropdown(
                               'Payment mode',
                               controller.selectedPaymentMode,
-                              ['cash', 'online', 'cheque', 'card'])),
+                              ['cash', 'upi', 'cheque', 'bank'])),
                       const SizedBox(width: 10),
                       Expanded(
                           child: _dropdown(

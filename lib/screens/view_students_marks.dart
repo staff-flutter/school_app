@@ -142,8 +142,7 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
       final val = cfg[key]?.toString();
       if (_isValidObjectId(val)) return val;
     }
-    debugPrint('[VIEW CONFIG ID SEARCH] No valid ObjectId found. Keys: ${cfg.keys.toList()}');
-    debugPrint('[VIEW CONFIG ID SEARCH] Values: ${cfg.entries.map((e) => "${e.key}=${e.value}").join(", ")}');
+
     return null;
   }
 
@@ -189,14 +188,11 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         'classId': _schoolClass!.id,
         if (withAcademicYear) 'academicYear': _academicYear,
       };
-      debugPrint('[VIEW CONFIG FETCH] params=$params');
       final resp = await _api.get(ApiConstants.getMarkReportConfigByClass, queryParameters: params);
-      debugPrint('[VIEW CONFIG FETCH] ok=${resp.data['ok']} hasData=${resp.data['data'] != null}');
       if (resp.data['ok'] == true && resp.data['data'] != null) {
         return resp.data['data'] as Map<String,dynamic>;
       }
     } catch (e) {
-      debugPrint('[VIEW CONFIG FETCH error withAcademicYear=$withAcademicYear] $e');
     }
     return null;
   }
@@ -210,19 +206,15 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
       // 1. Load mark report config
       Map<String, dynamic>? cfg = await _fetchConfig(withAcademicYear: true);
       if (cfg == null) {
-        debugPrint('[VIEW CONFIG] First attempt failed, trying without academicYear...');
         cfg = await _fetchConfig(withAcademicYear: false);
       }
 
       if (cfg != null) {
-        debugPrint('[VIEW CONFIG] Raw cfg keys: ${cfg.keys.toList()}');
         final extractedId = _extractConfigId(cfg);
         _configId       = extractedId;
         _configExams    = List<Map<String,dynamic>>.from(cfg['exams']    ?? []);
         _configSubjects = List<Map<String,dynamic>>.from(cfg['subjects'] ?? []);
-        debugPrint('[VIEW CONFIG] id=$_configId exams=${_configExams.length} subjects=${_configSubjects.length}');
         if (!_isValidObjectId(_configId)) {
-          debugPrint('[VIEW CONFIG] WARNING: configId "$_configId" is not a valid ObjectId!');
         }
         if (_configSubjects.isNotEmpty) {
           setState(() {
@@ -242,7 +234,6 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           _maxMarksCtrl.text = _maxMarks.toString();
         }
       } else {
-        debugPrint('[VIEW CONFIG] No config found for class=${_schoolClass!.id}');
       }
 
       // 2. Fetch students
@@ -443,7 +434,6 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         if (_isValidObjectId(reportCfgIdStr)) effectiveConfigId = reportCfgIdStr;
       }
 
-      debugPrint('[VIEW UPDATE] rid=$rid configId=$effectiveConfigId exams=${allExamRecords.length}');
 
       if (effectiveConfigId == null) {
         return 'No valid configuration ID available. Please reload students or contact your administrator.';
@@ -461,9 +451,7 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           'subjects'          : topLevelSubjects,
           'isAbsent'          : entry.isAbsent,
         };
-        debugPrint('[VIEW UPDATE] payload configId=${payload['markReportConfigId']}');
         final resp = await _api.put('${ApiConstants.updateMarkReportV1}/$rid', data: payload);
-        debugPrint('[VIEW UPDATE] ok=${resp.data['ok']} msg=${resp.data['message']}');
         if (resp.data['ok'] == true) {
           if (resp.data['data'] != null) {
             setState(() => _studentReports[sid] = resp.data['data']);
@@ -472,7 +460,6 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         }
         return resp.data['message']?.toString() ?? 'Update failed';
       } catch (e) {
-        debugPrint('[VIEW UPDATE ERROR] $e');
         return dioError(e);
       }
     } else {
@@ -480,7 +467,6 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
       if (!_isValidObjectId(_configId)) {
         return 'No valid class configuration found. Please ask the administrator to set it up.';
       }
-      debugPrint('[VIEW CREATE] sid=$sid exam=$_examType configId=$_configId');
 
       try {
         final payload = {
@@ -494,9 +480,7 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
           'subjects'          : topLevelSubjects,
           'isAbsent'          : entry.isAbsent,
         };
-        debugPrint('[VIEW CREATE] payload configId=${payload['markReportConfigId']}');
         final resp = await _api.post(ApiConstants.createMarkReportV1, data: payload);
-        debugPrint('[VIEW CREATE] ok=${resp.data['ok']} msg=${resp.data['message']}');
         if (resp.data['ok'] == true) {
           if (resp.data['data'] != null) {
             setState(() => _studentReports[sid] = resp.data['data']);
@@ -505,7 +489,6 @@ class _StudentMarksViewPageState extends State<StudentMarksViewPage>
         }
         return resp.data['message']?.toString() ?? 'Create failed';
       } catch (e) {
-        debugPrint('[VIEW CREATE ERROR] $e');
         return dioError(e);
       }
     }

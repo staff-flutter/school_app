@@ -11,13 +11,6 @@ import '../services/user_session.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // PARSING HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-// The backend response shape for a concession can differ between "pending"
-// and "approved" states (e.g. numeric fields arriving as strings, or nested
-// objects being flattened/restructured). Unsafe `as Map<String, dynamic>?`
-// / `as num?` casts throw the moment the runtime type doesn't match, which
-// silently kills the whole record fetch (caught far away in
-// _fetchFeeRecord's try/catch) and renders as a blank page. These helpers
-// coerce leniently instead of throwing.
 
 int _toInt(dynamic v) {
   if (v == null) return 0;
@@ -45,9 +38,6 @@ String _toStr(dynamic v, {String fallback = ''}) {
   return v.toString();
 }
 
-// approvedBy can arrive as: null (not yet approved), a plain ObjectId
-// string, or a populated user object like {_id, name, email} once a
-// reviewer is attached. Handle all three instead of assuming a String.
 String _approvedByLabel(dynamic v) {
   if (v == null) return 'Pending';
   if (v is String) {
@@ -94,9 +84,6 @@ class FeeRecord {
     final student = _toMap(json['studentId']);
     final imgObj = _toMap(student['studentImage']);
 
-    // Prefer the v1 custom-fee-head maps (where dynamic fee heads like
-    // "Lab Fee"/"Sports Fee" actually live); fall back to the legacy
-    // static-field maps for any older records that predate this.
     final feeStructureRaw = json['feeStructurev1'] ?? json['feeStructure'];
     final feePaidRaw = json['feePaidv1'] ?? json['feePaid'];
     final duesRaw = json['duesv1'] ?? json['dues'];
@@ -135,9 +122,6 @@ class ConcessionModel {
   });
 
   factory ConcessionModel.fromJson(Map<String, dynamic> json) {
-    // proof can be a nested {url, originalName} object, just a bare URL
-    // string, or absent entirely depending on the record's state — handle
-    // all of them instead of assuming it's always a Map.
     String proofUrl = '';
     final proofRaw = json['proof'];
     if (proofRaw is Map) {
@@ -170,7 +154,6 @@ class FeeDetailsFirstPage extends StatefulWidget {
 
 class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     with SingleTickerProviderStateMixin {
-  // final session = Get.find<UserSession>();
   final auth_ctrl = Get.find<AuthController>();
   late TabController _tabController;
   late Future<FeeRecord?> _feeFuture;
@@ -210,7 +193,6 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
     final String studentId = controller.selectedChild['_id'] ?? '';
 
     final uri = Uri.parse(
-      //'${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/6a2bbf056bd3369bde740aec/6a2bd2376bd3369bde7411d3?academicYear=2026-2027');
         '${ApiConstants.baseUrl}/api/studentrecord/v1/getrecord/$schoolId/$studentId');
 
     try {
@@ -218,21 +200,22 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
-      debugPrint('Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
-        debugPrint('Response Data: ${response.body}');
         final body = jsonDecode(response.body);
         final data = body['data'];
         if (data != null) return FeeRecord.fromJson(data as Map<String, dynamic>);
       }
     } catch (e, st) {
-      // If parsing ever fails again in the future (e.g. another field
-      // changes shape), this prints exactly what broke and the raw payload
-      // that caused it, instead of just silently returning null.
-      debugPrint("API Error: $e");
-      debugPrint("$st");
+      // Handle error
     }
     return null;
+  }
+
+  Future<void> _refreshData() async {
+    setState(() {
+      _feeFuture = _fetchFeeRecord();
+    });
+    await _feeFuture;
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -306,22 +289,32 @@ class _FeeDetailsFirstPageState extends State<FeeDetailsFirstPage>
             }
             final record = snapshot.data;
             if (record == null) {
-              return const Center(child: Text("No fee data found"));
+              return RefreshIndicator(
+                onRefresh: _refreshData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Container(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    alignment: Alignment.center,
+                    child: const Text("No fee data found"),
+                  ),
+                ),
+              );
             }
 
             return Column(
               children: [
                 // ── Student summary strip ──────────────────────────────────
                 _StudentSummaryCard(record: record, gradient: appGradient),
-                // ── Tab views ─────────────────────────────────────────────
+                // ── Tab views wrapped with RefreshIndicator inside TabBarView ─────────
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _FeeStructureTab(record: record),
-                      _DuesTab(record: record),
-                      _PaidTab(record: record),
-                      _ConcessionTab(record: record),
+                      _FeeStructureTab(record: record, onRefresh: _refreshData),
+                      _DuesTab(record: record, onRefresh: _refreshData),
+                      _PaidTab(record: record, onRefresh: _refreshData),
+                      _ConcessionTab(record: record, onRefresh: _refreshData),
                     ],
                   ),
                 ),
@@ -376,7 +369,6 @@ class _StudentSummaryCard extends StatelessWidget {
               ],
             ),
           ),
-          // Total outstanding badge
           Container(
             padding:
             const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -408,11 +400,13 @@ class _StudentSummaryCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _FeeStructureTab extends StatelessWidget {
   final FeeRecord record;
-  const _FeeStructureTab({required this.record});
+  final Future<void> Function() onRefresh;
+  const _FeeStructureTab({required this.record, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
     return _TabScaffold(
+      onRefresh: onRefresh,
       headerColor: const Color(0xff4A90E2),
       headerIcon: Icons.receipt_long_outlined,
       headerTitle: 'Fee Structure',
@@ -428,7 +422,6 @@ class _FeeStructureTab extends StatelessWidget {
     );
   }
 
-  // Optional: keep friendly labels for legacy keys, fall back to raw name for custom heads
   String _prettify(String key) {
     const legacyLabels = {
       'admissionFee': 'Admission Fee',
@@ -437,20 +430,19 @@ class _FeeStructureTab extends StatelessWidget {
       'busFirstTermAmt': 'Bus Fee (Term 1)',
       'busSecondTermAmt': 'Bus Fee (Term 2)',
     };
-    return legacyLabels[key] ?? key; // custom fee head names show as-is
+    return legacyLabels[key] ?? key;
   }
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 2 – DUES
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 class _DuesTab extends StatelessWidget {
   final FeeRecord record;
-  const _DuesTab({required this.record});
+  final Future<void> Function() onRefresh;
+  const _DuesTab({required this.record, required this.onRefresh});
 
-  // Legacy keys still get a friendly label; custom fee heads show their
-  // own name as-is (no filtering against a fixed key set anymore).
   static const _legacyLabels = {
     'admissionDues': 'Admission Dues',
     'firstTermDues': 'Term 1 Dues',
@@ -464,6 +456,7 @@ class _DuesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _TabScaffold(
+      onRefresh: onRefresh,
       headerColor: const Color(0xffE25F4A),
       headerIcon: Icons.warning_amber_rounded,
       headerTitle: 'Outstanding Dues',
@@ -486,7 +479,8 @@ class _DuesTab extends StatelessWidget {
 
 class _PaidTab extends StatelessWidget {
   final FeeRecord record;
-  const _PaidTab({required this.record});
+  final Future<void> Function() onRefresh;
+  const _PaidTab({required this.record, required this.onRefresh});
 
   static const _legacyLabels = {
     'admissionFee': 'Admission Fee',
@@ -501,6 +495,7 @@ class _PaidTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _TabScaffold(
+      onRefresh: onRefresh,
       headerColor: const Color(0xff27AE60),
       headerIcon: Icons.check_circle_outline_rounded,
       headerTitle: 'Amount Paid',
@@ -523,7 +518,8 @@ class _PaidTab extends StatelessWidget {
 
 class _ConcessionTab extends StatelessWidget {
   final FeeRecord record;
-  const _ConcessionTab({required this.record});
+  final Future<void> Function() onRefresh;
+  const _ConcessionTab({required this.record, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -532,6 +528,7 @@ class _ConcessionTab extends StatelessWidget {
     c.type == 'percentage' ? '${c.value}%' : '₹ ${c.value}';
 
     return _TabScaffold(
+      onRefresh: onRefresh,
       headerColor: const Color(0xff8E44AD),
       headerIcon: Icons.card_giftcard_rounded,
       headerTitle: 'Concession',
@@ -541,7 +538,6 @@ class _ConcessionTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status chip
             _InfoChip(
               label: c.isApplied ? 'Concession Applied' : 'Not Applied',
               color: c.isApplied
@@ -724,13 +720,13 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
 // SHARED WIDGETS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Colored header card + scrollable body
 class _TabScaffold extends StatelessWidget {
   final Color headerColor;
   final IconData headerIcon;
   final String headerTitle;
   final String headerSubtitle;
   final Widget child;
+  final Future<void> Function() onRefresh;
 
   const _TabScaffold({
     required this.headerColor,
@@ -738,49 +734,58 @@ class _TabScaffold extends StatelessWidget {
     required this.headerTitle,
     required this.headerSubtitle,
     required this.child,
+    required this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Colored header
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: headerColor.withOpacity(0.08),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: headerColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(headerIcon, color: headerColor, size: 22),
+    return RefreshIndicator(
+      color: headerColor,
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: headerColor.withOpacity(0.08),
               ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(headerTitle,
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: headerColor,
-                          fontSize: 15)),
-                  Text(headerSubtitle,
-                      style: TextStyle(
-                          color: headerColor.withOpacity(0.7),
-                          fontSize: 12)),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: headerColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(headerIcon, color: headerColor, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(headerTitle,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: headerColor,
+                              fontSize: 15)),
+                      Text(headerSubtitle,
+                          style: TextStyle(
+                              color: headerColor.withOpacity(0.7),
+                              fontSize: 12)),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-        Expanded(child: SingleChildScrollView(child: child)),
-      ],
+          SliverToBoxAdapter(
+            child: child,
+          ),
+        ],
+      ),
     );
   }
 }

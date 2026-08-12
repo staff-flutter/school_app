@@ -31,7 +31,10 @@ class AccountingController extends GetxController {
   final students = <Map<String, dynamic>>[].obs;
   final cashDenominations = <String, int>{}.obs;
   final selectedFiles = <PlatformFile>[].obs;
-
+// Outstanding dues aggregation (client-side, computed from all student records)
+  final outstandingDuesBreakdown = <String, double>{}.obs;
+  final totalOutstandingDues = 0.0.obs;
+  final isLoadingDuesSummary = false.obs;
   // For ReportsView
   final selectedReportType = 'fee_pending'.obs;
   final selectedDateRange = 'this_month'.obs;
@@ -100,6 +103,82 @@ class AccountingController extends GetxController {
     }
   }
 
+  Future<void> loadOutstandingDuesSummary({required String schoolId, String? academicYear}) async {
+    try {
+      isLoadingDuesSummary.value = true;
+
+      final response = await _apiService.get(
+        '/api/studentrecord/v1/getall?schoolId=$schoolId',
+      );
+
+      if (response.data == null || response.data['ok'] != true) {
+        outstandingDuesBreakdown.clear();
+        totalOutstandingDues.value = 0;
+        return;
+      }
+
+      final records = (response.data['data'] as List?) ?? [];
+      final Map<String, double> breakdown = {};
+      double total = 0;
+
+      double parseAmount(dynamic v) {
+        if (v is num) return v.toDouble();
+        if (v is String) return double.tryParse(v) ?? 0;
+        return 0;
+      }
+
+      for (final record in records) {
+        if (record is! Map) continue;
+
+        // Optional: only count active students / matching academic year
+        if (record['isActive'] == false) continue;
+        if (academicYear != null &&
+            academicYear.isNotEmpty &&
+            record['academicYear'] != null &&
+            record['academicYear'] != academicYear) {
+          continue;
+        }
+
+        // Prefer duesv1 (dynamic fee-head map); fall back to legacy fixed `dues` map
+        final duesv1 = record['duesv1'] as Map<String, dynamic>?;
+        if (duesv1 != null && duesv1.isNotEmpty) {
+          duesv1.forEach((feeHead, amount) {
+            final amt = parseAmount(amount);
+            if (amt > 0) {
+              breakdown[feeHead] = (breakdown[feeHead] ?? 0) + amt;
+              total += amt;
+            }
+          });
+        } else {
+          final legacyDues = record['dues'] as Map<String, dynamic>?;
+          if (legacyDues != null) {
+            const legacyLabels = {
+              'admissionDues': 'Admission Fee',
+              'firstTermDues': 'First Term Fee',
+              'secondTermDues': 'Second Term Fee',
+              'busfirstTermDues': 'Bus Fee (First Term)',
+              'busSecondTermDues': 'Bus Fee (Second Term)',
+            };
+            legacyDues.forEach((key, amount) {
+              final amt = parseAmount(amount);
+              if (amt > 0) {
+                final label = legacyLabels[key] ?? key;
+                breakdown[label] = (breakdown[label] ?? 0) + amt;
+                total += amt;
+              }
+            });
+          }
+        }
+      }
+
+      outstandingDuesBreakdown.value = breakdown;
+      totalOutstandingDues.value = total;
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load outstanding dues summary');
+    } finally {
+      isLoadingDuesSummary.value = false;
+    }
+  }
   Future<void> loadDashboardData() async {
     try {
       isLoading.value = true;
@@ -229,6 +308,13 @@ class AccountingController extends GetxController {
         ]);
       } else if (paymentMode == 'upi') {
         formData.fields.add(MapEntry('upiReference', additionalData?['upiReference'] ?? ''));
+      }else if (paymentMode == 'bank_transfer') {
+        formData.fields.addAll([
+          MapEntry('bankName', additionalData?['bankName'] ?? ''),
+          MapEntry('accountNumber', additionalData?['accountNumber'] ?? ''),
+          MapEntry('transactionRef', additionalData?['transactionRef'] ?? ''),
+          MapEntry('transferDate', additionalData?['transferDate'] ?? ''),
+        ]);
       }
       
       // Add files if any
@@ -250,17 +336,14 @@ class AccountingController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
-        print('responseToSeeTheBillNumber:${response.data}');
         Get.snackbar('Success', response.data['message'] ?? 'Fee collected successfully', backgroundColor: Colors.green, colorText: Colors.white);
         // Clear form and reset state
-        print('📄 collectFee response data: ${response.data}');
         final data = response.data['data'];
         // final billNo = data is Map
         //     ? (data['billNo'] ?? data['billNumber'] ?? data['receiptNo'])?.toString()
         //     : null;
 
         final billNo = _findBillNumber(response.data['data'])?.toString();
-        print('📄 collectFee response data: ${response.data}');
         selectedStudent.value = null;
         cashDenominations.clear();
         selectedFiles.clear();
@@ -485,7 +568,6 @@ class AccountingController extends GetxController {
       );
 
       if (response.data != null && response.data['ok'] == true) {
-        print(response.data);
         return response.data['data'];
       }
       return null;

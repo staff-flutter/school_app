@@ -1581,8 +1581,7 @@ class SchoolController extends GetxController {
     try {
       isLoading.value = true;
       
-      print('🔍 getAllStudents called with: schoolId=$schoolId, classId=$classId, sectionId=$sectionId');
-      
+
       // Build query parameters
       Map<String, String> queryParams = {};
       if (schoolId != null) queryParams['schoolId'] = schoolId;
@@ -1590,14 +1589,12 @@ class SchoolController extends GetxController {
       if (sectionId != null && sectionId.isNotEmpty) queryParams['sectionId'] = sectionId;
       queryParams['limit'] = '1000';
 
-      print('📤 API Query Params: $queryParams');
 
       final response = await _apiService.get(ApiConstants.getAllStudents, queryParameters: queryParams);
 
       if (response.data['ok'] == true) {
         final studentList = response.data['data'] as List;
-        print('📥 API returned ${studentList.length} students');
-        
+
         students.value = studentList.map((json) {
           try {
             return Student.fromJson(json as Map<String, dynamic>);
@@ -1606,10 +1603,8 @@ class SchoolController extends GetxController {
           }
         }).where((student) => student != null).cast<Student>().toList();
         
-        print('✅ Final students count: ${students.length}');
       }
     } catch (e) {
-      print('❌ Error loading students: $e');
       if (e is DioException && e.response?.data != null) {
         _showSnackbar('Error', e.response!.data['message'] ?? 'Failed to load students', AppTheme.errorRed);
       }

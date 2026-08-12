@@ -24,7 +24,6 @@ class _MyHomePageState extends State<TimeTablePage> {
   static const double _chipMargin = 6.0;
   late final MyChildrenController controller;
 
- // final session = Get.find<UserSession>();
   final auth_ctrl = Get.find<AuthController>();
   final PageController _pageController = PageController();
   final ScrollController _textScrollController = ScrollController();
@@ -50,81 +49,31 @@ class _MyHomePageState extends State<TimeTablePage> {
     controller = Get.put(MyChildrenController());
     _currentPageIndex = 0;
     _timetableFutures[0] = fetchTimetable(days[0]);
-    //loginAndGetToken();
   }
 
   @override
   void dispose() {
-    super.dispose();
     _pageController.dispose();
     _textScrollController.dispose();
     _dayScrollController.dispose();
+    super.dispose();
   }
 
-  // Future<void> loginAndGetToken() async {
-  //   final url = Uri.parse('${ApiConstants.baseUrl}/api/user/login');
-  //
-  //   try {
-  //     final response = await http.post(
-  //       url,
-  //       headers: {'Content-Type': 'application/json'},
-  //       body: jsonEncode({
-  //         "identifier": "parent1@gmail.com",
-  //         "password": "parent1@123",
-  //       }),
-  //     );
-  //
-  //     if (response.statusCode == 200) {
-  //       final Map<String, dynamic> data = jsonDecode(response.body);
-  //       final prefs = await SharedPreferences.getInstance();
-  //       final userData = data['user'];
-  //
-  //       if (userData != null) {
-  //         if (userData['studentId'] != null) {
-  //           List<String> studentIds = (userData['studentId'] as List)
-  //               .map((e) => e.toString())
-  //               .toList();
-  //           await prefs.setStringList('studentId', studentIds);
-  //         }
-  //
-  //         await prefs.setString('token', (data['token'] ?? '').toString());
-  //         await prefs.setString('parentId', (userData['_id'] ?? '').toString());
-  //         await prefs.setString('parentName', (userData['userName'] ?? '').toString());
-  //         await prefs.setString('parentEmail', (userData['email'] ?? '').toString());
-  //         await prefs.setString('parentPhoneNo', (userData['phoneNo'] ?? '').toString());
-  //         await prefs.setString('role', (userData['role'] ?? '').toString());
-  //         await prefs.setBool('isPlatformAdmin', userData['isPlatformAdmin'] ?? false);
-  //
-  //         final schoolData = userData['schoolId'];
-  //         if (schoolData != null) {
-  //           await prefs.setString('schoolId', (schoolData['_id'] ?? '').toString());
-  //           await prefs.setString('schoolName', (schoolData['name'] ?? '').toString());
-  //           await prefs.setString('schoolEmail', (schoolData['email'] ?? '').toString());
-  //           await prefs.setString('schoolPhoneNo', (schoolData['phoneNo'] ?? '').toString());
-  //           await prefs.setString('schoolAddress', (schoolData['address'] ?? '').toString());
-  //           await prefs.setString('schoolSocialPlatform', (schoolData['socialPlatform'] ?? '').toString());
-  //         }
-  //       }
-  //     }
-  //   } catch (e) {
-  //     debugPrint("Login Error: $e");
-  //   }
-  // }
+  Future<void> _onRefresh(int pageIndex) async {
+    setState(() {
+      _timetableFutures[pageIndex] = fetchTimetable(days[pageIndex]);
+    });
+    await _timetableFutures[pageIndex];
+  }
 
-  // ─── FIX 1: Parse nested weeklySchedule → periods for the requested day ───
   Future<List<TimetableListStrings>> fetchTimetable(String day) async {
     final String baseUrl = ApiConstants.baseUrl;
     final selectedStudent = controller.selectedChild;
-
-   // final String? token = session.token;
-    //final String? schoolId = session.schoolId;
 
     final String? token = auth_ctrl.storage.read('token');
     final String? schoolId = auth_ctrl.user.value?.schoolId;
     final String? classId = controller.selectedChild['classId'] ?? 'null';
     final String? sectionId = selectedStudent['sectionId'] ?? 'null';
-
-    debugPrint("TIMETABLE FETCH → schoolId:$schoolId | classId:$classId | sectionId:$sectionId | day:$day | token:$token");
 
     final Map<String, String> queryParameters = {
       "schoolId": schoolId ?? "null",
@@ -133,9 +82,7 @@ class _MyHomePageState extends State<TimeTablePage> {
       "day": day.toLowerCase(),
     };
 
-    debugPrint("schoolId:$schoolId | classId:$classId | SectionId:$sectionId | day:$day");
     if (schoolId == null || classId == null) {
-      debugPrint("TIMETABLE: Missing schoolId or classId, aborting fetch");
       return [];
     }
     final uri = Uri.parse('$baseUrl/api/timetable/getall')
@@ -146,15 +93,12 @@ class _MyHomePageState extends State<TimeTablePage> {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
-      print('schoolId:$schoolId');
-      print('classId:$classId');
-      print('sectionId:$sectionId');
+
       if (response.statusCode == 200) {
         final decodedData = jsonDecode(response.body);
         final List<dynamic> scheduleList =
         (decodedData is Map ? (decodedData['data'] ?? []) : decodedData) as List;
 
-        // ✅ Prefer the record whose sectionId matches, fallback to null-section record
         Map<String, dynamic>? matchedSchedule;
         Map<String, dynamic>? fallbackSchedule;
 
@@ -184,10 +128,8 @@ class _MyHomePageState extends State<TimeTablePage> {
           }
         }
       } else {
-        debugPrint("Timetable Error: ${response.statusCode} ${response.body}");
       }
     } catch (e) {
-      debugPrint("Timetable fetch exception: $e");
     }
 
     return [];
@@ -205,8 +147,8 @@ class _MyHomePageState extends State<TimeTablePage> {
 
     return Theme(
       data: Theme.of(context).copyWith(
-        appBarTheme: AppBarTheme(
-          systemOverlayStyle: const SystemUiOverlayStyle(
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.light,
           ),
@@ -346,39 +288,63 @@ class _MyHomePageState extends State<TimeTablePage> {
                           itemBuilder: (context, pageIndex) {
                             _timetableFutures[pageIndex] ??=
                                 fetchTimetable(days[pageIndex]);
-                            return FutureBuilder<List<TimetableListStrings>>(
-                              future: _timetableFutures[pageIndex],
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const Center(
-                                      child: CircularProgressIndicator());
-                                } else if (snapshot.hasError) {
-                                  return Center(
-                                      child: Text(
-                                          'Error: ${snapshot.error}'));
-                                } else if (!snapshot.hasData ||
-                                    snapshot.data!.isEmpty) {
-                                  return const Center(
-                                      child: Text(
-                                          'No classes scheduled for today.'));
-                                }
+                            return RefreshIndicator(
+                              color: const Color(0xff4A90E2),
+                              onRefresh: () => _onRefresh(pageIndex),
+                              child: FutureBuilder<List<TimetableListStrings>>(
+                                future: _timetableFutures[pageIndex],
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                        child: CircularProgressIndicator());
+                                  } else if (snapshot.hasError) {
+                                    return ListView(
+                                      physics: const AlwaysScrollableScrollPhysics(
+                                          parent: BouncingScrollPhysics()),
+                                      children: [
+                                        SizedBox(
+                                          height: screenHeight * 0.5,
+                                          child: Center(
+                                            child: Text(
+                                                'Error: ${snapshot.error}'),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  } else if (!snapshot.hasData ||
+                                      snapshot.data!.isEmpty) {
+                                    return ListView(
+                                      physics: const AlwaysScrollableScrollPhysics(
+                                          parent: BouncingScrollPhysics()),
+                                      children: [
+                                        SizedBox(
+                                          height: screenHeight * 0.5,
+                                          child: const Center(
+                                            child: Text(
+                                                'No classes scheduled for today.'),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
 
-                                // ─── FIX 3: Use real API data, not dummyData ───
-                                final items = snapshot.data!;
-                                return ListView.builder(
-                                  physics: const BouncingScrollPhysics(),
-                                  padding: EdgeInsets.only(
-                                    left: screenWidth * 0.03,
-                                    right: screenWidth * 0.03,
-                                    top: 10,
-                                    bottom: 20,
-                                  ),
-                                  itemCount: items.length,
-                                  itemBuilder: (context, index) =>
-                                      TimeTableTile(user: items[index]),
-                                );
-                              },
+                                  final items = snapshot.data!;
+                                  return ListView.builder(
+                                    physics: const AlwaysScrollableScrollPhysics(
+                                        parent: BouncingScrollPhysics()),
+                                    padding: EdgeInsets.only(
+                                      left: screenWidth * 0.03,
+                                      right: screenWidth * 0.03,
+                                      top: 10,
+                                      bottom: 20,
+                                    ),
+                                    itemCount: items.length,
+                                    itemBuilder: (context, index) =>
+                                        TimeTableTile(user: items[index]),
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
@@ -446,7 +412,6 @@ class TimetableListStrings {
     required this.isBreak,
   });
 
-  // ─── FIX 2: teacherId can be a String OR a nested Map {_id, userName} ───
   factory TimetableListStrings.fromJson(Map<String, dynamic> json) {
     final teacherRaw = json['teacherId'];
     final String teacherName;
@@ -460,10 +425,10 @@ class TimetableListStrings {
       subjectName: json['isBreak'] == true
           ? "Break"
           : (json['subjectName'] ?? "Unknown").toString(),
-      time:json['timeRange'] ??
-    (json['startTime'] != null && json['endTime'] != null
-    ? '${json['startTime']} - ${json['endTime']}'
-        : "No time set"),
+      time: json['timeRange'] ??
+          (json['startTime'] != null && json['endTime'] != null
+              ? '${json['startTime']} - ${json['endTime']}'
+              : "No time set"),
       teacherName: teacherName,
       periodNumber: json['periodNumber']?.toString() ?? "-",
       isBreak: json['isBreak'] ?? false,
@@ -505,7 +470,7 @@ class TimeTableTile extends StatelessWidget {
             Icon(Icons.free_breakfast,
                 color: Colors.blue.shade300, size: 16),
             const SizedBox(width: 8),
-            Text('Break',
+            const Text('Break',
                 style: TextStyle(
                     color: Colors.blue,
                     fontWeight: FontWeight.w600,

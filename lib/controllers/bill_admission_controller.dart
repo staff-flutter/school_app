@@ -301,7 +301,6 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final response = await _apiService.get('${ApiConstants.getAllAdmissionBooks}/$schoolId');
-      print('schoolId:$schoolId');
 
       if (response.data['ok'] == true) {
         final list = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
@@ -444,38 +443,28 @@ class BillAdmissionController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      debugPrint('[submitAdmissionForm] admissionFormId=$admissionFormId');
-      debugPrint('[submitAdmissionForm] formData=$formData');
-      debugPrint('[submitAdmissionForm] fatherName="${formData['fatherName']}" motherName="${formData['motherName']}"');
 
       final response = await _apiService.put(
         '${ApiConstants.submitAdmissionForm}/$admissionFormId',
         data: formData,
       );
 
-      debugPrint('[submitAdmissionForm] status=${response.statusCode}');
-      debugPrint('[submitAdmissionForm] response.data=${response.data}');
 
       if (response.data['ok'] == true) {
-        debugPrint('[submitAdmissionForm] SUCCESS, saved data=${response.data['data']}');
         _showSnackbar('Success', response.data['message'] ?? 'Admission form submitted successfully', AppTheme.successGreen);
         return true;
       } else {
-        debugPrint('[submitAdmissionForm] ok != true, message=${response.data['message']}');
         _showSnackbar('Error', response.data['message'] ?? 'Failed to submit admission form', AppTheme.errorRed);
         return false;
       }
     } catch (e) {
-      debugPrint('[submitAdmissionForm] CAUGHT ERROR: $e');
       if (e is DioException) {
-        debugPrint('[submitAdmissionForm] DioException status=${e.response?.statusCode}');
-        debugPrint('[submitAdmissionForm] DioException response=${e.response?.data}');
+
       }
       _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while submitting admission form'), AppTheme.errorRed);
       return false;
     } finally {
       isLoading.value = false;
-      debugPrint('[submitAdmissionForm] end');
     }
   }
 
@@ -525,8 +514,6 @@ class BillAdmissionController extends GetxController {
         if (admissionFormId != null) 'id': admissionFormId,
         if (studentId != null) 'studentId': studentId,
       };
-      print('admissionFormId:$admissionFormId');
-      print('studentId:$studentId');
 
       final response = await _apiService.get(
         ApiConstants.getSingleAdmissionForm,
@@ -553,16 +540,13 @@ class BillAdmissionController extends GetxController {
         // Role doesn't have permission to view this — surface distinctly,
         // don't scare the user with a generic error.
         currentAdmissionForm.value = null;
-        debugPrint('Admission form fetch forbidden for this role: ${e.response?.data}');
         // Optional: skip the snackbar entirely and just show the "No admission form" empty state in the tab.
         return null;
       }
 
-      debugPrint('Admission form DioException: ${e.response?.statusCode} ${e.response?.data}');
       _showSnackbar('Error', 'An error occurred while loading the admission form.', AppTheme.errorRed);
       return null;
     } catch (e) {
-      print("DEBUG ERROR: $e");
       _showSnackbar('Error', 'An unexpected error occurred.', AppTheme.errorRed);
       return null;
     } finally {
@@ -599,8 +583,7 @@ class BillAdmissionController extends GetxController {
         '${ApiConstants.getAllAdmissionForms}/$schoolId',
         queryParameters: queryParams,
       );
-      print("ACTUAL BACKEND DATA: ${response.data['data']}");
-      print('getAllAdmissionForms schoolId :$schoolId');
+
       if (response.data['ok'] == true) {
         final backendData = response.data['data'] ?? {};
         final list = List<Map<String, dynamic>>.from(backendData['forms'] ?? []);
@@ -617,7 +600,6 @@ class BillAdmissionController extends GetxController {
       }
     } catch (e) {
 
-      print("DEBUG ERROR: $e");
       //  _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while loading admission forms'), AppTheme.errorRed);
       return {'data': <Map<String, dynamic>>[]};
     } finally {
@@ -710,7 +692,6 @@ class BillAdmissionController extends GetxController {
         queryParameters: queryParams,
         data: updatedData,
       );
-      print('🔎 updateAdmissionFormAfterSubmission response: ${response.data}');   // ← add this
 
       if (response.data['ok'] == true) {
         _showSnackbar('Success', response.data['message'] ?? 'Admission form updated successfully', AppTheme.successGreen);
@@ -720,10 +701,8 @@ class BillAdmissionController extends GetxController {
         return false;
       }
     }catch (e) {
-      debugPrint('💥 updateAdmissionFormAfterSubmission EXCEPTION: $e');   // ← add this
       if (e is DioException) {
-        debugPrint('💥 DioException status: ${e.response?.statusCode}');
-        debugPrint('💥 DioException body: ${e.response?.data}');
+
       }
       _showSnackbar('Error', _extractErrorMessage(e, 'An error occurred while updating admission form'), AppTheme.errorRed);
       return false;
@@ -794,7 +773,6 @@ class BillAdmissionController extends GetxController {
         }
       }
     } catch (e) {
-      debugPrint('Error fetching active admission book preview: $e');
     }
     return null;
   }
@@ -807,7 +785,6 @@ class BillAdmissionController extends GetxController {
       isLoading.value = true;
 
       final url = ApiConstants.linkAdmissionFormToStudent.replaceFirst(':id', admissionFormId);
-      print('🔗 PATCH url: $url');
       final response = await _apiService.patch(url, data: {'studentId': studentId});
 
       if (response.data['ok'] == true) {

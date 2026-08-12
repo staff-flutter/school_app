@@ -273,6 +273,9 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   final _bankNameController = TextEditingController();
   final _chequeDateController = TextEditingController();
   final _upiReferenceController = TextEditingController();
+  final _bankAccountNumberController = TextEditingController();
+  final _bankTransactionRefController = TextEditingController();
+  final _bankTransferDateController = TextEditingController();
   final _remarksController = TextEditingController();
   final _referenceNumberController = TextEditingController();
   final _busPointController = TextEditingController();
@@ -397,7 +400,6 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     isLoadingDues.value = true;
     try {
       final record = await controller.getStudentRecord(schoolId, studentId);
-      print('📋 getStudentRecord for manual allocation: $record');
       final rawDues = (record?['duesv1'] as Map<String, dynamic>?)
           ?? (record?['dues'] as Map<String, dynamic>?)
           ?? {};
@@ -445,6 +447,9 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
     _referenceNumberController.dispose();
     _busPointController.dispose();
     _studentSearchController.dispose();
+    _bankAccountNumberController.dispose();      
+    _bankTransactionRefController.dispose();
+    _bankTransferDateController.dispose();
     for (final c in _paidHeadControllers.values) {
       c.dispose();
     }
@@ -860,8 +865,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   // ── FIXED _selectStudent: reads classId/sectionId from the
   //    student's own data, not from schoolController.classes.first
   void _selectStudent(Map<String, dynamic> student) {
-    print('Top-level keys: ${student.keys.toList()}');
-    print('Student raw data: $student');
+
 
     // Helper function to extract ID securely whether it's a raw String or a nested Map object
     String extractId(dynamic field) {
@@ -1630,7 +1634,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.directions_bus, color: const Color(0xFF2563EB)),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 2),
                         Text(
                           'Bus Fee Applicable',
                           style: TextStyle(
@@ -2090,6 +2094,8 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         return _buildChequeFields(context, isTablet);
       case 'upi':
         return _buildUPIFields(context, isTablet);
+      case 'bank':
+        return _buildBankFields(context, isTablet);
       default:
         return const SizedBox();
     }
@@ -2401,10 +2407,14 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
       final classId = student['classId']?.toString() ?? '';
       final sectionId = student['sectionId']?.toString() ?? '';
       final schoolId = _feeSchoolCtrl.selectedSchool.value?.id ?? '';
-      print('studentId: $studentId');
-      print('classId: $classId');
-      print('sectionId: $sectionId');
-      print('schoolId: $schoolId');
+
+      const paymentModeMap = {
+        'bank': 'bank_transfer',
+      };
+      final backendPaymentMode =
+          paymentModeMap[controller.selectedPaymentMode.value] ??
+              controller.selectedPaymentMode.value;
+
       if (manualDueAllocation.value && selectedPaidHeads.isEmpty) {
         Get.snackbar('Select Fee Heads', 'Please select at least one fee head to collect.',
             backgroundColor: Colors.orange, colorText: Colors.white);
@@ -2421,7 +2431,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         'classId': classId,
         'sectionId': sectionId,
         'amount': amount,
-        'paymentMode': controller.selectedPaymentMode.value,
+        'paymentMode': backendPaymentMode,
         'studentName': student['studentName'] ?? '',
         'newOld': selectedStudentType.value, // 'old' or 'new'
         'academicYear': AcademicYearUtils.getCurrentAcademicYear(),
@@ -2441,6 +2451,12 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         },
         if (controller.selectedPaymentMode.value == 'upi')
           'upiReference': _upiReferenceController.text,
+        if (controller.selectedPaymentMode.value == 'bank') ...{
+          'bankName': _bankNameController.text,
+          'accountNumber': _bankAccountNumberController.text,
+          'transactionRef': _bankTransactionRefController.text,
+          'transferDate': _bankTransferDateController.text,
+        },
       };
 
       controller.collectFee(
@@ -2448,7 +2464,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         classId: classId,
         sectionId: sectionId,
         amount: amount,
-        paymentMode: controller.selectedPaymentMode.value,
+        paymentMode: backendPaymentMode,
         additionalData: additionalData,
       ).then((billNo) {
         // Clear form fields after successful submission
@@ -2462,6 +2478,9 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         _bankNameController.clear();
         _chequeDateController.clear();
         _upiReferenceController.clear();
+        _bankAccountNumberController.clear();
+        _bankTransactionRefController.clear();
+        _bankTransferDateController.clear();
         _busPointController.clear();
         showPaymentDetails.value = false;
         isStudentSelectorCollapsed.value = false;
@@ -2609,7 +2628,103 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
         ),
       );
     });
-  }}
+  }
+
+  Widget _buildBankFields(BuildContext context, bool isTablet) {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _bankNameController,
+          decoration: InputDecoration(
+            labelText: 'Bank Name',
+            prefixIcon: const Icon(Icons.account_balance),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter bank name';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _bankAccountNumberController,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Account Number (Optional)',
+            prefixIcon: const Icon(Icons.numbers_rounded),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _bankTransactionRefController,
+          decoration: InputDecoration(
+            labelText: 'Transaction / UTR Reference',
+            hintText: 'e.g. NEFT/IMPS reference number',
+            prefixIcon: const Icon(Icons.confirmation_number_rounded),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter transaction reference';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _bankTransferDateController,
+          readOnly: true,
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+            );
+            if (picked != null) {
+              _bankTransferDateController.text =
+              '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+            }
+          },
+          decoration: InputDecoration(
+            labelText: 'Transfer Date',
+            prefixIcon: const Icon(Icons.calendar_today),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please select transfer date';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // DROP-IN REPLACEMENT for _FeeStructureViewTab + _FeeStructureViewTabState
@@ -2739,7 +2854,6 @@ class _FeeStructureViewTabState extends State<_FeeStructureViewTab> {
       newFeeHeads.assignAll(results[1]);
 
     } catch (e) {
-      debugPrint('❌ Parallel fee head loading error: $e');
       Get.snackbar(
         'Error',
         'Failed to load fee configurations.',

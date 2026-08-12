@@ -454,173 +454,110 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
   }
 
   Widget _buildFiltersCard(BuildContext context, bool isTablet) {
-    return Obx(() => Column(
+    return Obx(() => Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () => _showClassFilterSheet(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: selectedClass.value != null
-                      ? _kPrimary.withOpacity(0.1)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: selectedClass.value != null ? _kPrimary : const Color(0xFFDDE6F5),
-                    width: selectedClass.value != null ? 1.5 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.class_rounded,
-                      size: 14,
-                      color: selectedClass.value != null ? _kPrimary : const Color(0xFF90A4BE)),
-                  const SizedBox(width: 6),
-                  Text(
-                    selectedClass.value?.name ?? 'All Classes',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: selectedClass.value != null ? _kPrimary : const Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down_rounded,
-                      size: 14,
-                      color: selectedClass.value != null ? _kPrimary : const Color(0xFF90A4BE)),
-                ]),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _showSectionFilterSheet(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: selectedSection.value != null
-                      ? _kPrimary.withOpacity(0.1)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: selectedSection.value != null ? _kPrimary : const Color(0xFFDDE6F5),
-                    width: selectedSection.value != null ? 1.5 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.group_rounded,
-                      size: 14,
-                      color: selectedSection.value != null ? _kPrimary : const Color(0xFF90A4BE)),
-                  const SizedBox(width: 6),
-                  Text(
-                    selectedSection.value?.name ?? 'All Sections',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: selectedSection.value != null ? _kPrimary : const Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down_rounded,
-                      size: 14,
-                      color: selectedSection.value != null ? _kPrimary : const Color(0xFF90A4BE)),
-                ]),
-              ),
-            ),
-          ],
+        _filterChip(
+          icon: Icons.class_rounded,
+          label: selectedClass.value?.name ?? 'All Classes',
+          active: selectedClass.value != null,
+          onTap: () => _showClassFilterSheet(context),
         ),
-        const SizedBox(height: 10),
-        Row(children: [
+        _filterChip(
+          icon: Icons.group_rounded,
+          label: selectedSection.value?.name ?? 'All Sections',
+          active: selectedSection.value != null,
+          onTap: () => _showSectionFilterSheet(context),
+        ),
+        _filterChip(
+          icon: Icons.calendar_today_rounded,
+          label: selectedAcademicYear.value,
+          active: true,
+          onTap: () => _showAcademicYearFilterSheet(context),
+        ),
+        if (selectedClass.value != null || selectedSection.value != null)
           GestureDetector(
-            onTap: _applyFilter,
+            onTap: () {
+              selectedClass.value = null;
+              selectedSection.value = null;
+              _applyFilter();
+            },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: _kPrimary,
+                color: Colors.red.shade50,
                 borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: _kPrimary.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.search_rounded, size: 14, color: Colors.white),
-                SizedBox(width: 5),
-                Text('Search',
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.close_rounded, size: 13, color: Colors.red.shade600),
+                const SizedBox(width: 4),
+                Text('Clear',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white)),
+                        color: Colors.red.shade600)),
               ]),
             ),
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _showAcademicYearFilterSheet(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: _kPrimary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(color: _kPrimary, width: 1.5),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.calendar_today_rounded, size: 14, color: _kPrimary),
-                const SizedBox(width: 6),
-                Obx(() => Text(selectedAcademicYear.value,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kPrimary))),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: _kPrimary),
-              ]),
-            ),
+        if (isLoading.value)
+          const SizedBox(
+            width: 16, height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: _kPrimary),
           ),
-          if (selectedClass.value != null || selectedSection.value != null) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                selectedClass.value = null;
-                selectedSection.value = null;
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.close_rounded, size: 13, color: Colors.red.shade600),
-                  const SizedBox(width: 4),
-                  Text('Clear',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red.shade600)),
-                ]),
-              ),
-            ),
-          ],
-        ]),
       ],
     ));
   }
 
+  Widget _filterChip({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? _kPrimary.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: active ? _kPrimary : const Color(0xFFDDE6F5),
+            width: active ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: active ? _kPrimary : const Color(0xFF90A4BE)),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 110),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? _kPrimary : const Color(0xFF64748B),
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.keyboard_arrow_down_rounded,
+              size: 14, color: active ? _kPrimary : const Color(0xFF90A4BE)),
+        ]),
+      ),
+    );
+  }
   Widget _buildTabsSection(BuildContext context, bool isTablet) {
     return DefaultTabController(
       length: 2,
@@ -834,7 +771,6 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       if (response != null) {
         final records = List<Map<String, dynamic>>.from(response['data'] ?? []);
         if (records.isNotEmpty) {
-          debugPrint('RAW RECORD: ${jsonEncode(records.first)}');
         }
         studentRecords.value = records;
       } else {
@@ -918,6 +854,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
               selectedClass.value = null;
               selectedSection.value = null;
               Get.back();
+              _applyFilter();
             },
           ),
           ConstrainedBox(
@@ -951,6 +888,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                     selectedSection.value = null;
                     schoolController.getAllSections(classId: c.id, schoolId: selectedSchool.value!.id);
                     Get.back();
+                    _applyFilter();
                   },
                 );
               },
@@ -1009,6 +947,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
             onTap: () {
               selectedSection.value = null;
               Get.back();
+              _applyFilter();
             },
           ),
           ConstrainedBox(
@@ -1050,6 +989,7 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                     onTap: () {
                       selectedSection.value = s;
                       Get.back();
+                      _applyFilter();
                     },
                   );
                 },

@@ -67,7 +67,6 @@ class StudentController extends GetxController {
         return false;
       }
     } catch (e) {
-      debugPrint('File upload error: $e');
       Get.snackbar('Error', 'Upload failed: $e',
           backgroundColor: Colors.red, colorText: Colors.white);
       return false;

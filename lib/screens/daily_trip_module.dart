@@ -6,9 +6,8 @@ import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/transport_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 
-/// Daily Trip Logs screen — mirrors the web dashboard's trip log list page:
-/// search bar, filter chips (Bus, Date Range), and a list/empty-state below.
-/// Wire `onLogTrip` / `onEditTripLog` / `onViewTripLog` to your navigation.
+/// Daily Trip Logs screen — styled with the application theme
+/// (White background, Blue primary, Green, Yellow accents, Red preserved for delete actions).
 class DailyTripLogDirectoryScreen extends StatefulWidget {
   final VoidCallback? onLogTrip;
   final Future<bool?> Function(Map<String, dynamic> tripLog)? onEditTripLog;
@@ -33,15 +32,21 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
   SchoolController? get _school =>
       Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
 
+  // Theme Constants
+  static const Color primaryBlue = Color(0xFF2563EB);
+  static const Color lightBlueBg = Color(0xFFEFF6FF);
+  static const Color primaryGreen = Color(0xFF10B981);
+  static const Color lightGreenBg = Color(0xFFD1FAE5);
+  static const Color cardBg = Colors.white;
+  static const Color textDark = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF64748B);
+
   String? _selectedBusId;
   String? _selectedBusLabel;
   DateTime? _dateFrom;
   DateTime? _dateTo;
   String _search = '';
 
-  // Correspondents can switch between multiple schools, so their schoolId
-  // comes from the currently-selected school; every other role is scoped
-  // to the single school on their own user profile.
   String? get _schoolId {
     final role = _authController.user.value?.role?.toLowerCase() ?? '';
     if (role == 'correspondent') {
@@ -107,9 +112,6 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
     _loadLogs();
   }
 
-  // Search text and date range aren't supported by the
-  // /api/transport/dailytriplog/ query params (only schoolId, busId,
-  // academicYear, page, limit), so they're applied client-side.
   List<Map<String, dynamic>> get _visibleLogs {
     return _controller.dailyTripLogs.where((log) {
       if (_search.isNotEmpty) {
@@ -133,27 +135,29 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        elevation: 0,
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
         titleSpacing: 16,
         title: const Text(
           'Daily Trip Logs',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700, fontSize: 18),
+          style: TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        foregroundColor: Colors.black87,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 16),
             child: ElevatedButton.icon(
               onPressed: widget.onLogTrip,
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Log Trip'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black87,
+                backgroundColor: primaryBlue,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
             ),
           ),
@@ -163,21 +167,25 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
         children: [
           _buildSearchBar(),
           _buildFilterChipsBar(),
+          const SizedBox(height: 8),
           Expanded(
             child: Obx(() {
               if (_controller.isLoading.value && _controller.dailyTripLogs.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator(color: primaryBlue));
               }
+
               final visible = _visibleLogs;
-              if (visible.isEmpty) {
-                return _buildEmptyState();
-              }
+
               return RefreshIndicator(
+                color: primaryBlue,
                 onRefresh: _loadLogs,
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(12),
+                child: visible.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
                   itemCount: visible.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) => _TripLogCard(
                     tripLog: visible[index],
                     onView: () => widget.onViewTripLog?.call(visible[index]),
@@ -194,22 +202,28 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: TextField(
         controller: _searchController,
+        style: const TextStyle(color: textDark, fontSize: 14),
         decoration: InputDecoration(
           hintText: 'Log no, notes...',
-          prefixIcon: const Icon(Icons.search, size: 20),
+          hintStyle: const TextStyle(color: textMuted, fontSize: 14),
+          prefixIcon: const Icon(Icons.search, size: 20, color: textMuted),
           filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+          fillColor: cardBg,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: primaryBlue, width: 1.5),
           ),
         ),
         onChanged: (value) => setState(() => _search = value),
@@ -219,10 +233,10 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
 
   Widget _buildFilterChipsBar() {
     return SizedBox(
-      height: 44,
+      height: 38,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           _FilterChip(
             label: _selectedBusLabel == null ? 'Filter by Bus' : 'Bus: $_selectedBusLabel',
@@ -238,10 +252,14 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
           if (_hasActiveFilters) ...[
             const SizedBox(width: 8),
             ActionChip(
-              avatar: const Icon(Icons.close, size: 16),
-              label: const Text('Clear Filters'),
+              avatar: const Icon(Icons.close, size: 14, color: textMuted),
+              label: const Text('Clear Filters', style: TextStyle(color: textMuted, fontSize: 12)),
               onPressed: _clearFilters,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: cardBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
             ),
           ],
         ],
@@ -257,39 +275,50 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.grey.shade200,
-              child: const Icon(Icons.route_outlined, size: 32, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            const Text('No Trip Logs Found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text(
-              'Adjust your filters or log a new trip to see data here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-          ],
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(32),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(color: lightBlueBg, shape: BoxShape.circle),
+                child: const Icon(Icons.route_outlined, size: 36, color: primaryBlue),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No Trip Logs Found',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Adjust your filters or log a new trip to see data here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: textMuted, fontSize: 13),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   void _confirmDelete(Map<String, dynamic> tripLog) {
     Get.defaultDialog(
       title: 'Delete Trip Log',
+      titleStyle: const TextStyle(fontWeight: FontWeight.bold, color: textDark),
       middleText: 'Are you sure you want to delete this trip log?',
+      middleTextStyle: const TextStyle(color: textMuted),
       textCancel: 'Cancel',
       textConfirm: 'Delete',
       confirmTextColor: Colors.white,
       buttonColor: AppTheme.errorRed,
+      cancelTextColor: textMuted,
+      radius: 12,
       onConfirm: () async {
         Get.back();
         final id = tripLog['_id']?.toString();
@@ -306,7 +335,10 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         String? tempBusId = _selectedBusId;
         String? tempBusLabel = _selectedBusLabel;
@@ -331,7 +363,7 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
                 if (buses.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text('No buses available'),
+                    child: Text('No buses available', style: TextStyle(color: textMuted)),
                   );
                 }
                 return ConstrainedBox(
@@ -342,9 +374,10 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
                       final id = bus['_id']?.toString();
                       final label = (bus['busNumber'] ?? bus['registrationNo'] ?? 'Bus').toString();
                       return RadioListTile<String>(
+                        activeColor: primaryBlue,
                         value: id ?? '',
                         groupValue: tempBusId,
-                        title: Text(label),
+                        title: Text(label, style: const TextStyle(color: textDark, fontWeight: FontWeight.w500)),
                         onChanged: (v) => setSheetState(() {
                           tempBusId = v;
                           tempBusLabel = label;
@@ -364,7 +397,10 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
   void _openDateRangeSheet() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         DateTime? tempFrom = _dateFrom;
         DateTime? tempTo = _dateTo;
@@ -385,7 +421,7 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
                 Navigator.pop(context);
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -398,6 +434,14 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
                             initialDate: tempFrom ?? DateTime.now(),
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(primary: primaryBlue),
+                                ),
+                                child: child!,
+                              );
+                            },
                           );
                           if (picked != null) setSheetState(() => tempFrom = picked);
                         },
@@ -414,6 +458,14 @@ class _DailyTripLogDirectoryScreenState extends State<DailyTripLogDirectoryScree
                             initialDate: tempTo ?? DateTime.now(),
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(primary: primaryBlue),
+                                ),
+                                child: child!,
+                              );
+                            },
                           );
                           if (picked != null) setSheetState(() => tempTo = picked);
                         },
@@ -445,21 +497,31 @@ class _FilterChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? Colors.black87 : Colors.white,
+          color: active ? _DailyTripLogDirectoryScreenState.lightBlueBg : _DailyTripLogDirectoryScreenState.cardBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? Colors.black87 : Colors.grey.shade300),
+          border: Border.all(
+            color: active ? _DailyTripLogDirectoryScreenState.primaryBlue : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               label,
-              style: TextStyle(color: active ? Colors.white : Colors.black87, fontSize: 13, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: active ? _DailyTripLogDirectoryScreenState.primaryBlue : _DailyTripLogDirectoryScreenState.textMuted,
+                fontSize: 12,
+                fontWeight: active ? FontWeight.bold : FontWeight.w500,
+              ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down, size: 16, color: active ? Colors.white : Colors.black54),
+            Icon(
+              Icons.keyboard_arrow_down,
+              size: 16,
+              color: active ? _DailyTripLogDirectoryScreenState.primaryBlue : _DailyTripLogDirectoryScreenState.textMuted,
+            ),
           ],
         ),
       ),
@@ -479,42 +541,49 @@ class _BottomSheetShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 16),
+        padding: const EdgeInsets.only(top: 12, bottom: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40,
+              width: 36,
               height: 4,
               margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  TextButton(onPressed: onClear, child: const Text('Clear')),
+                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _DailyTripLogDirectoryScreenState.textDark)),
+                  TextButton(
+                    onPressed: onClear,
+                    child: const Text('Clear', style: TextStyle(color: _DailyTripLogDirectoryScreenState.textMuted)),
+                  ),
                 ],
               ),
             ),
-            const Divider(height: 20),
+            const Divider(height: 16, color: Color(0xFFF1F5F9)),
             Flexible(child: child),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: onApply,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black87,
+                    backgroundColor: _DailyTripLogDirectoryScreenState.primaryBlue,
                     foregroundColor: Colors.white,
+                    elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Apply'),
+                  child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
               ),
             ),
@@ -537,18 +606,23 @@ class _DatePickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: _DailyTripLogDirectoryScreenState.textMuted, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
         InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(10),
+              color: _DailyTripLogDirectoryScreenState.cardBg,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(value, style: const TextStyle(fontSize: 13)),
-                const Icon(Icons.calendar_today_outlined, size: 16),
+                Text(value, style: const TextStyle(fontSize: 13, color: _DailyTripLogDirectoryScreenState.textDark)),
+                const Icon(Icons.calendar_today_outlined, size: 16, color: _DailyTripLogDirectoryScreenState.primaryBlue),
               ],
             ),
           ),
@@ -583,50 +657,115 @@ class _TripLogCard extends StatelessWidget {
     final kmRun = tripLog['kmRun'];
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+        color: _DailyTripLogDirectoryScreenState.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _DailyTripLogDirectoryScreenState.lightBlueBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.route_outlined,
+                  color: _DailyTripLogDirectoryScreenState.primaryBlue,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(date, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                    Text(
+                      date,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: _DailyTripLogDirectoryScreenState.textDark,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(busLabel, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    Text(
+                      busLabel,
+                      style: const TextStyle(fontSize: 12, color: _DailyTripLogDirectoryScreenState.textDark),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     if (busSubLabel != null)
-                      Text('ID: $busSubLabel', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      Text(
+                        'ID: $busSubLabel',
+                        style: const TextStyle(fontSize: 11, color: _DailyTripLogDirectoryScreenState.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.visibility_outlined, color: Colors.black54, size: 20),
-                tooltip: 'View details',
-                onPressed: onView,
+              SizedBox(
+                width: 32,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.visibility_outlined, color: _DailyTripLogDirectoryScreenState.primaryBlue, size: 18),
+                  tooltip: 'View details',
+                  onPressed: onView,
+                ),
               ),
-              IconButton(
-                icon: Icon(Icons.delete_outline, color: AppTheme.errorRed, size: 20),
-                tooltip: 'Delete',
-                onPressed: onDelete,
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 32,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: Icon(Icons.delete_outline, color: AppTheme.errorRed, size: 18),
+                  tooltip: 'Delete',
+                  onPressed: onDelete,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              _OdometerChip(label: 'Opening', value: opening),
-              const SizedBox(width: 8),
-              _OdometerChip(label: 'Closing', value: closing),
-              const Spacer(),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _OdometerChip(label: 'Opening', value: opening),
+                  const SizedBox(width: 6),
+                  _OdometerChip(label: 'Closing', value: closing),
+                ],
+              ),
               if (kmRun != null)
-                Text('$kmRun km', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700, fontSize: 13)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _DailyTripLogDirectoryScreenState.lightGreenBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$kmRun km',
+                    style: const TextStyle(
+                      color: _DailyTripLogDirectoryScreenState.primaryGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
             ],
           ),
         ],
@@ -644,12 +783,20 @@ class _OdometerChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text('$label: $value', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700)),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          fontSize: 11,
+          color: _DailyTripLogDirectoryScreenState.textDark,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

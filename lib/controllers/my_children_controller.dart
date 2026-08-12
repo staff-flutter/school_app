@@ -28,7 +28,6 @@ class MyChildrenController extends GetxController {
   // --- Selection Method ---
   void selectChild(Map<String, dynamic> child) {
     selectedChild.value = child; //
-    print("Selection Saved: ${child['studentName']}");
 
     update();
   }
@@ -102,7 +101,6 @@ class MyChildrenController extends GetxController {
 
           if (recordResponse.data['ok'] == true) {
             final recordData = recordResponse.data['data'];
-            print("recordData:$recordData");
 
             // Parse the student record to extract proper IDs and names
             studentRecord = StudentRecord.fromJson(recordData);

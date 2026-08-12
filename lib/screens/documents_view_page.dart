@@ -72,7 +72,6 @@ class _DocumentsViewPageState extends State<DocumentsViewPage> {
         });
       }
     } catch (e) {
-      debugPrint('Documents fetch error: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }

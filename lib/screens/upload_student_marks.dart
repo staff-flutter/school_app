@@ -146,8 +146,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
       final val = cfg[key]?.toString();
       if (_isValidObjectId(val)) return val;
     }
-    debugPrint('[CONFIG ID SEARCH] Could not find valid ObjectId in cfg keys: ${cfg.keys.toList()}');
-    debugPrint('[CONFIG ID SEARCH] cfg values: ${cfg.entries.map((e) => "${e.key}=${e.value}").join(", ")}');
+
     return null;
   }
 
@@ -173,23 +172,18 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
 
       if (cfg != null) {
         final extractedId = _extractConfigId(cfg);
-        debugPrint('[CONFIG] Raw cfg: ${cfg.keys.toList()}');
-        debugPrint('[CONFIG] Extracted configId=$extractedId');
+
         setState(() {
           _configId    = extractedId;
           _cfgSubjects = List<Map<String,dynamic>>.from(cfg!['subjects'] ?? []);
           _cfgExams    = List<Map<String,dynamic>>.from(cfg['exams']    ?? []);
         });
-        debugPrint('[CONFIG] Loaded: id=$_configId exams=${_cfgExams.length} subjects=${_cfgSubjects.length}');
         if (!_isValidObjectId(_configId)) {
-          debugPrint('[CONFIG] WARNING: configId "$_configId" is not a valid ObjectId! Marks save will fail.');
         }
       } else {
-        debugPrint('[CONFIG] No config found for class=${_class!.id} school=$_schoolId');
         setState(() { _configId = null; _cfgSubjects = []; _cfgExams = []; });
       }
     } catch (e) {
-      debugPrint('[CONFIG error] $e');
       setState(() { _configId = null; _cfgSubjects = []; _cfgExams = []; });
     } finally {
       setState(() => _configLoading = false);
@@ -204,14 +198,11 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
         'classId': _class!.id,
         if (withAcademicYear) 'academicYear': _academicYear,
       };
-      debugPrint('[CONFIG FETCH] params=$params');
       final resp = await _api.get(ApiConstants.getMarkReportConfigByClass, queryParameters: params);
-      debugPrint('[CONFIG FETCH] ok=${resp.data['ok']} hasData=${resp.data['data'] != null}');
       if (resp.data['ok'] == true && resp.data['data'] != null) {
         return resp.data['data'] as Map<String,dynamic>;
       }
     } catch (e) {
-      debugPrint('[CONFIG FETCH error withAcademicYear=$withAcademicYear] $e');
     }
     return null;
   }
@@ -235,7 +226,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
           final newId = _extractConfigId(
               (resp.data['data'] as Map<String,dynamic>?) ?? {});
           setState(() => _configId = newId);
-          debugPrint('[CONFIG SAVE] Created with id=$_configId');
           _snack('Saved', 'Configuration created');
         } else {
           _snack('Error', resp.data['message'] ?? 'Failed', error: true);
@@ -257,7 +247,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
           : 'HTTP ${e.response?.statusCode}: ${e.message}';
       _snack('Error', msg, error: true);
     } catch (e) {
-      debugPrint('[CONFIG SAVE ERROR] $e');
       _snack('Error', e.toString(), error: true);
     } finally {
       setState(() => _configSaving = false);
@@ -278,7 +267,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
     });
     try {
       await _loadConfig();
-      debugPrint('[DEBUG] configId=$_configId subjects=${_cfgSubjects.length} exams=${_cfgExams.length}');
       final sResp = await _api.get(ApiConstants.getAllStudents, queryParameters: {
         'schoolId': _schoolId!,
         'classId': _class!.id,
@@ -306,10 +294,8 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
       }
       _initCells();
     } on DioException catch (e) {
-      debugPrint('[LOAD STUDENTS DIO ERROR] ${e.response?.statusCode}: ${e.response?.data}');
       _snack('Error', 'Failed to load students: HTTP ${e.response?.statusCode}', error: true);
     } catch (e) {
-      debugPrint('[LOAD STUDENTS ERROR] $e');
       _snack('Error', 'Failed to load students', error: true);
     } finally {
       setState(() { _studentsLoading = false; _showFilters = false; });
@@ -391,12 +377,10 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
         'subjectCode': s['subjectCode'] ?? '',
       }).toList();
 
-      debugPrint('[MARKS SAVE] sid=$sid exams=${examRecords.length} subjects=${topLevelSubjects.length} configId=$_configId');
 
       final existing = _reports[sid];
       if (existing != null) {
         final rid = existing['_id']?.toString() ?? '';
-        debugPrint('[MARKS UPDATE] PUT ${ApiConstants.updateMarkReportV1}/$rid');
         final payload = {
           'schoolId'          : _schoolId!,
           'classId'           : _class!.id,
@@ -409,9 +393,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
           'remarks'           : _remarks[sid]?.text.trim() ?? '',
           'isAbsent'          : _absent[sid] ?? false,
         };
-        debugPrint('[MARKS UPDATE] payload keys=${payload.keys.toList()} configId=${payload['markReportConfigId']}');
         final resp = await _api.put('${ApiConstants.updateMarkReportV1}/$rid', data: payload);
-        debugPrint('[MARKS UPDATE] response ok=${resp.data['ok']} msg=${resp.data['message']}');
         if (resp.data['ok'] == true) {
           if (resp.data['data'] != null) setState(() => _reports[sid] = resp.data['data']);
           _snack('Updated', 'Marks updated successfully');
@@ -419,7 +401,6 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
           _snack('Error', resp.data['message']?.toString() ?? 'Failed to update', error: true);
         }
       } else {
-        debugPrint('[MARKS CREATE] POST ${ApiConstants.createMarkReportV1}');
         final payload = {
           'schoolId'          : _schoolId!,
           'classId'           : _class!.id,
@@ -432,9 +413,7 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
           'remarks'           : _remarks[sid]?.text.trim() ?? '',
           'isAbsent'          : _absent[sid] ?? false,
         };
-        debugPrint('[MARKS CREATE] payload keys=${payload.keys.toList()} configId=${payload['markReportConfigId']}');
         final resp = await _api.post(ApiConstants.createMarkReportV1, data: payload);
-        debugPrint('[MARKS CREATE] response ok=${resp.data['ok']} msg=${resp.data['message']}');
         if (resp.data['ok'] == true) {
           if (resp.data['data'] != null) setState(() => _reports[sid] = resp.data['data']);
           _snack('Saved', 'Marks saved successfully');
@@ -443,14 +422,12 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
         }
       }
     } on DioException catch (e) {
-      debugPrint('[MARKS DIO ERROR] ${e.response?.statusCode}: ${e.response?.data}');
       final data = e.response?.data;
       final msg  = (data is Map && data['message'] != null)
           ? data['message'].toString()
           : 'HTTP ${e.response?.statusCode ?? 'error'}: ${e.message ?? 'Network error'}';
       _snack('Error', msg, error: true);
     } catch (e, st) {
-      debugPrint('[MARKS ERROR] $e\n$st');
       _snack('Error', e.toString(), error: true);
     } finally {
       setState(() => _saving[sid] = false);
@@ -1338,37 +1315,43 @@ class _StudentMarksUploadPageState extends State<StudentMarksUploadPage>
   }
 
   void _picker(String title, List<String> items, void Function(int) onSelect) {
-    Get.bottomSheet(Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const SizedBox(height: 8),
-        Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2))),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: _kText)),
-        ),
-        const Divider(height: 1),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320),
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: items.length,
-            itemBuilder: (_, i) => ListTile(
-              title: Text(items[i], style: const TextStyle(fontSize: 14, color: _kText)),
-              trailing: const Icon(Icons.chevron_right_rounded, color: _kMuted, size: 18),
-              onTap: () => onSelect(i),
-            ),
+    Get.bottomSheet(
+      SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2))),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: _kText)),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: items.length,
+                  itemBuilder: (_, i) => ListTile(
+                    title: Text(items[i], style: const TextStyle(fontSize: 14, color: _kText)),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: _kMuted, size: 18),
+                    onTap: () => onSelect(i),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ]),
         ),
-        const SizedBox(height: 16),
-      ]),
-    ));
+      ),
+      isScrollControlled: true,
+    );
   }
-
   /// Called whenever selectedSchool changes while this page is open.
   /// Filters, config (subjects/exams), loaded students, marks, and reports
   /// are all scoped to the previous school — none of it applies here.

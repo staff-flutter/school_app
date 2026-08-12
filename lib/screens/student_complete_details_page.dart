@@ -120,6 +120,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   final RxBool isLoading = false.obs; // Maps to your response parser line requirements
   int _selectedFilterIndex = 0;
   String _currentSelectedClassName = 'Not Assigned';
+  String _profileStatus = '';
 
   // ── Live student list (loaded up-front, filtered as you type) ──────────────
   List<Map<String, dynamic>> _studentList = [];
@@ -236,9 +237,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         });
       }
     } on DioException catch (e) {
-      debugPrint('Student list DioException ${e.response?.statusCode}: ${e.response?.data}');
     } catch (e) {
-      debugPrint('Student list error: $e');
     } finally {
       if (mounted) setState(() => _isLoadingStudentList = false);
     }
@@ -308,7 +307,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   String? _getToken() => _authController.storage.read('token');
   Future<void> _fetchStudentProfile({String? fallbackQuery}) async {
     final query = fallbackQuery ?? _studentId.trim();
-    print('studentid: $_studentId');
     if (query.isEmpty) {
       _showSnackbar('Empty Input', 'Please enter a value parameter to search.', _DS.warning);
       return;
@@ -328,7 +326,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       }).timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        print('response: ${response.body}');
         _showSnackbar('Query Issue', 'Unable to load that student profile.', _DS.danger);
 
         // 🚀 Safely clear fields to avoid showing previous student's info on error
@@ -340,6 +337,10 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       Map<String, dynamic> doc = decoded['data'] ?? decoded['student'] ?? decoded;
       final Map<String, dynamic> m = doc['mandatory'] ?? {};
       final Map<String, dynamic> n = doc['nonMandatory'] ?? {};
+
+      final clsField = doc['currentClassId'];
+      final classNameFromApi = clsField is Map ? clsField['name']?.toString() : null;
+      final profileStatus = doc['profileStatus']?.toString() ?? '';
 
       final rawDocs = (doc['documents'] as List?) ?? [];
       final parsedDocs = rawDocs
@@ -362,6 +363,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       if (mounted) {
         setState(() {
           _hasSearched1 = true;
+          _profileStatus = profileStatus;
           _studentDocuments = parsedDocs;
           _profileImageUrl = profileImageUrl;
           // ─── MANDATORY CORES ─────────────────────────────────────────────────
@@ -376,16 +378,16 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
           _fieldValues['Gender'] = v('gender');
           _fieldValues['Blood Group'] = v('bloodGroup');
           _fieldValues['Mother Tongue'] = v('motherTongue');
-          _fieldValues['Religion'] = v('religion');
-          _fieldValues['Caste'] = v('caste');
-          _fieldValues['Subcaste'] = v('subcaste');
+         // _fieldValues['Religion'] = v('religion');
+      //   _fieldValues['Caste'] = v('caste');
+       //   _fieldValues['Subcaste'] = v('subcaste');
 
           // Parent Information
           _fieldValues['Father Name'] = v('fatherName');
           _fieldValues['Mother Name'] = v('motherName');
           _fieldValues['Guardian Name'] = v('guardianName');
           _fieldValues['Mobile Number'] = v('mobileNumber');
-          _fieldValues['Alternative Mobile'] = v('alternativeMobile');
+          _fieldValues['Alternative Mobile'] = v('alternateMobile');
 
           // Address Setup
           _fieldValues['Address'] = v('address');
@@ -394,21 +396,23 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
           // ─── NON-MANDATORY (UDISE COMPLIANT FIELDS) ──────────────────────────
           _fieldValues['UDISE Number'] = v('udiseNumber');
           _fieldValues['PEN Number'] = v('penNumber'); // Permanent Education Number
-          _fieldValues['Height (cm)'] = v('height');
-          _fieldValues['Weight (kg)'] = v('weight');
-          _fieldValues['Bank Account No'] = v('bankAccountNo');
-          _fieldValues['Bank IFSC'] = v('ifscCode');
-          _fieldValues['Ration Card Type'] = v('rationCardType');
-          _fieldValues['Ration Card No'] = v('rationCardNumber');
-          _fieldValues['Belongs to BPL'] = v('bplStatus');
-          _fieldValues['Disability Type'] = v('disabilityType');
-
+          _fieldValues['Height (cm)'] = v('heightInCm');
+          _fieldValues['Weight (kg)'] = v('weightInKg');
+         // _fieldValues['Bank Account No'] = v('bankAccountNo');
+         // _fieldValues['Bank IFSC'] = v('ifscCode');
+         // _fieldValues['Ration Card Type'] = v('rationCardType');
+       //   _fieldValues['Ration Card No'] = v('rationCardNumber');
+          _fieldValues['Belongs to BPL'] = v('bpl');
+          _fieldValues['Disability Certificate'] = v('disabilityCert');
+          _fieldValues['Minority Group'] = v('minorityGroup');
+          _fieldValues['Impairments'] = v('impairments');
+          _fieldValues['SLD Type'] = v('sldType');
           // Context structural UI updates
-          _currentSelectedClassName = v('className').isNotEmpty ? v('className') : 'Not Assigned';
-        });
+          _currentSelectedClassName = (classNameFromApi != null && classNameFromApi.isNotEmpty)
+              ? classNameFromApi
+              : (selectedClass.value?.name ?? 'Not Assigned');        });
       }
     } catch (e) {
-      print("Error mapping profile properties: $e");
       _clearFieldsToEmpty();
     } finally {
       setState(() => _isLoadingProfile = false);
@@ -495,7 +499,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         });
       }
     } catch (e) {
-      debugPrint('Academic performance fetch error: $e');
     } finally {
       if (mounted) setState(() => _isLoadingAcademics = false);
     }
@@ -531,7 +534,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         }
       }
     } catch (e) {
-      debugPrint('Fee fetch error: $e');
     } finally {
       if (mounted) setState(() => _isLoadingFee = false);
     }
@@ -540,6 +542,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
   void _clearFieldsToEmpty() {
     if (!mounted) return;
     setState(() {
+      _profileStatus = '';
       _hasSearched1 = true;
       _fieldValues['Student Name'] = 'Unknown Student';
       _currentSelectedClassName = 'Not Assigned';
@@ -552,7 +555,8 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         'Mobile Number', 'Alternative Mobile', 'Address', 'Pincode',
         'UDISE Number', 'PEN Number', 'Height (cm)', 'Weight (kg)',
         'Bank Account No', 'Bank IFSC', 'Ration Card Type', 'Ration Card No',
-        'Belongs to BPL', 'Disability Type'
+        'Belongs to BPL', 'Disability Certificate',
+            'Minority Group', 'Impairments', 'SLD Type',
       ];
 
       for (var key in keysToClear) {
@@ -570,7 +574,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
     final data = await _admissionController.getSingleAdmissionForm(
       studentId:'$_studentId',
     );
-    print('stuentiddd:$_studentId');
 
     if (mounted) {
       setState(() {
@@ -591,14 +594,12 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
         academicYear: AcademicYearUtils.getCurrentAcademicYear(),
       );
 
-      print('📄 getStudentRecord raw response: $data');   // ← add this
 
       if (data != null && mounted) {
         final rawDocs = (data['documents'] as List?) ?? (data['files'] as List?) ?? [];
         final jsonStr = data.toString();
         const chunkSize = 800;
         for (var i = 0; i < jsonStr.length; i += chunkSize) {
-          print('📄 CHUNK: ${jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize)}');
         }        setState(() {
           _studentDocuments = rawDocs.map((d) => d as Map<String, dynamic>).toList();
           final studentObj = data['studentId'] as Map<String, dynamic>?;
@@ -613,11 +614,9 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
           _documentsFetched = true;
         });
       } else if (mounted) {
-        print('📄 getStudentRecord returned null');   // ← add this
         setState(() => _documentsFetched = true);
       }
     } catch (e) {
-      debugPrint('Document fetch error: $e');
     } finally {
       if (mounted) setState(() => _isLoadingDocuments = false);
     }
@@ -909,7 +908,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
                         _selectedFilterIndex = index;
                       });
                       if (!isAllChip) {
-                        debugPrint('Filter selected class ID: ${classes[index - 1].id}');
                       }
                     },
                   ),
@@ -969,8 +967,14 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: _DS.successSoft, borderRadius: BorderRadius.circular(100)),
-                      child: const Text('Active', style: TextStyle(color: _DS.success, fontSize: 10, fontWeight: FontWeight.bold)),
+                      decoration: BoxDecoration(
+                        color: _statusColorForProfile(_profileStatus).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(
+                        _profileStatus.isEmpty ? 'Unknown' : _statusLabel(_profileStatus),
+                        style: TextStyle(color: _statusColorForProfile(_profileStatus), fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -1046,9 +1050,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
               'Gender': _fieldValues['Gender'] ?? '',
               'Blood Group': _fieldValues['Blood Group'] ?? '',
               'Mother Tongue': _fieldValues['Mother Tongue'] ?? '',
-              'Religion': _fieldValues['Religion'] ?? '',
-              'Caste': _fieldValues['Caste'] ?? '',
-              'Subcaste': _fieldValues['Subcaste'] ?? '',
+              'Minority Group': _fieldValues['Minority Group'] ?? '',
             },
           ),
           _buildInfoCard(
@@ -1056,8 +1058,7 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
             icon: Icons.badge_outlined,
             items: {
               'Aadhaar Number': _fieldValues['Aadhaar Number'] ?? '',
-              'UDISE Number': _fieldValues['UDISE Number'] ?? '',
-              'PEN Number': _fieldValues['PEN Number'] ?? '',
+
             },
           ),
           _buildInfoCard(
@@ -1069,6 +1070,8 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
               'Guardian Name': _fieldValues['Guardian Name'] ?? '',
               'Mobile Number': _fieldValues['Mobile Number'] ?? '',
               'Alternative Mobile': _fieldValues['Alternative Mobile'] ?? '',
+              'Impairments': _fieldValues['Impairments'] ?? '',
+              'SLD Type': _fieldValues['SLD Type'] ?? '',
             },
           ),
           _buildInfoCard(
@@ -1085,26 +1088,11 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
             items: {
               'Height (cm)': _fieldValues['Height (cm)'] ?? '',
               'Weight (kg)': _fieldValues['Weight (kg)'] ?? '',
-              'Disability Type': _fieldValues['Disability Type'] ?? '',
+              'Disability Certificate': _fieldValues['Disability Certificate'] ?? '',
               'Belongs to BPL': _fieldValues['Belongs to BPL'] ?? '',
             },
           ),
-          _buildInfoCard(
-            title: 'Bank Details',
-            icon: Icons.account_balance_outlined,
-            items: {
-              'Bank Account No': _fieldValues['Bank Account No'] ?? '',
-              'Bank IFSC': _fieldValues['Bank IFSC'] ?? '',
-            },
-          ),
-          _buildInfoCard(
-            title: 'Ration Card',
-            icon: Icons.receipt_long_outlined,
-            items: {
-              'Ration Card Type': _fieldValues['Ration Card Type'] ?? '',
-              'Ration Card No': _fieldValues['Ration Card No'] ?? '',
-            },
-          ),
+
         ],
       ),
     );
@@ -1193,7 +1181,6 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
                 // Assign selection to load active sub-tab structures instantly
                 selectedStudent.value = student;
                 _studentId = student.id;
-                print("StudentId:$_studentId");
                 _fetchStudentProfile();
                 _fetchFeeDetails();
                 _fetchAdmissionForm();
@@ -1796,4 +1783,25 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
     getAllClasses(newSchoolId);
     _loadStudentList(reset: true);
   }
-}
+
+  String _statusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'Completed';
+      case 'created':
+        return 'Pending';
+      default:
+        return status;
+    }
+  }
+
+  Color _statusColorForProfile(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return Colors.white;
+      case 'created':
+        return _DS.warningSoft;
+      default:
+        return Colors.white70;
+    }
+  }}

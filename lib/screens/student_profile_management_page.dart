@@ -145,7 +145,6 @@ class _StudentProfileManagementPageState
         await _school.getAllClasses(sid);
       }
     } catch (e) {
-      debugPrint('[MGMT] ensureSchoolLoaded: $e');
     }
   }
 
@@ -183,19 +182,16 @@ class _StudentProfileManagementPageState
         if (_search.isNotEmpty) 'search': _search,
       };
 
-      debugPrint('[MGMT] GET ${ApiConstants.getAllStudents}: $q');
       final resp = await _api.get(ApiConstants.getAllStudents,
           queryParameters: q);
 
-      debugPrint('[MGMT] ok=${resp.data['ok']} '
-          'count=${(resp.data['data'] as List?)?.length ?? 0}');
+
 
       if (resp.data['ok'] == true) {
         final list =
         List<Map<String, dynamic>>.from(resp.data['data'] ?? []);
         if (reset && list.isNotEmpty) {
-          debugPrint('[MGMT] sample record keys: '
-              '${_studentData(list.first).keys.toList()}');
+
         }
 
         setState(() {
@@ -209,13 +205,11 @@ class _StudentProfileManagementPageState
         });
       }
     } on dio_pkg.DioException catch (e) {
-      debugPrint('[MGMT] load DioException '
-          '${e.response?.statusCode}: ${e.response?.data}');
+
       _snack('Error',
           'Failed to load students: HTTP ${e.response?.statusCode}',
           error: true);
     } catch (e) {
-      debugPrint('[MGMT] load error: $e');
       _snack('Error', 'Failed to load students', error: true);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -270,10 +264,8 @@ class _StudentProfileManagementPageState
 
     setState(() => _deletingId = studentId);
     try {
-      debugPrint('[MGMT] DELETE ${ApiConstants.deleteStudent}/$studentId');
       final resp =
       await _api.delete('${ApiConstants.deleteStudent}/$studentId');
-      debugPrint('[MGMT] delete ok=${resp.data['ok']}');
 
       if (resp.data['ok'] == true) {
         setState(() => _students
@@ -285,15 +277,12 @@ class _StudentProfileManagementPageState
             error: true);
       }
     } on dio_pkg.DioException catch (e) {
-      debugPrint('[MGMT] delete DioException '
-          '${e.response?.statusCode}: ${e.response?.data}');
       final msg =
       (e.response?.data is Map && e.response?.data['message'] != null)
           ? e.response!.data['message'].toString()
           : 'HTTP ${e.response?.statusCode}: Delete failed';
       _snack('Error', msg, error: true);
     } catch (e) {
-      debugPrint('[MGMT] delete error: $e');
       _snack('Error', e.toString(), error: true);
     } finally {
       if (mounted) setState(() => _deletingId = null);
@@ -318,20 +307,21 @@ class _StudentProfileManagementPageState
         // Note: If you have this defined in ApiConstants, you can use:
         // final endpoint = '${ApiConstants.getStudent}/$studentId';
 
-        debugPrint('[MGMT] GET $endpoint');
         final resp = await _api.get(endpoint);
-        debugPrint('[MGMT] getstudent ok=${resp.data['ok']}');
 
         if (resp.data['ok'] == true && resp.data['data'] is Map) {
           fullData =
               _studentData(Map<String, dynamic>.from(resp.data['data']));
-          debugPrint('[MGMT] getstudent keys: ${fullData.keys.toList()}');
+          print('✅ fullData keys: ${fullData.keys}');
+          print('✅ mandatory: ${fullData['mandatory']}');
+          print('✅ nonMandatory: ${fullData['nonMandatory']}');
         }
       } on dio_pkg.DioException catch (e) {
-        debugPrint('[MGMT] getstudent DioException '
-            '${e.response?.statusCode}: ${e.response?.data}');
+        print('❌ Fetch student failed: ${e.response?.statusCode} ${e.response?.data}');
+
       } catch (e) {
-        debugPrint('[MGMT] getstudent error: $e');
+        print('❌ Fetch student failed: $e');
+
       } finally {
         if (mounted) setState(() => _openingId = null);
       }
@@ -381,6 +371,7 @@ class _StudentProfileManagementPageState
       isActive: data['isActive'] as bool? ?? true,
       classId: id(data['currentClassId']),
       sectionId: id(data['currentSectionId']),
+      newOld: s(data['newOld']),
       // mandatory
       gender: s(m['gender']),
       dob: s(m['dob']),
@@ -414,6 +405,7 @@ class _StudentProfileManagementPageState
       facilitiesForCWSN: s(nm['facilitiesForCWSN']),
       screenedForSLD: s(nm['screenedForSLD']),
       sldType: s(nm['sldType']),
+      studentType: s(nm['studentType']),
       screenedForASD: s(nm['screenedForASD']),
       screenedForADHD: s(nm['screenedForADHD']),
       isGiftedOrTalented: s(nm['isGiftedOrTalented']),
@@ -666,6 +658,7 @@ class _StudentProfileManagementPageState
         ))
             .toList(),
       ),
+      isScrollControlled: true,
     );
   }
 
@@ -737,7 +730,7 @@ class _StudentCard extends StatelessWidget {
     final name = sd['studentName']?.toString() ?? 'Unknown';
     final nm = (sd['nonMandatory'] as Map?) ?? {};
     final m = (sd['mandatory'] as Map?) ?? {};
-    final isActive = sd['isActive'] as bool? ?? true;
+   // final isActive = sd['isActive'] as bool? ?? true;
     final roll = nm['rollNumber']?.toString();
     final gender = m['gender']?.toString();
     final srId = sd['srId']?.toString();
@@ -1179,74 +1172,85 @@ class _PickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: _kCard,
-        borderRadius:
-        BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const SizedBox(height: 8),
-        Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
+    return SafeArea(
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75, // Cap at 75% screen height
+        ),
+        decoration: const BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
                 color: _kBorder,
-                borderRadius: BorderRadius.circular(2))),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(title,
-              style: const TextStyle(
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                title,
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: _kTextPrimary)),
-        ),
-        const Divider(height: 1, color: _kBorder),
-        if (showAll)
-          ListTile(
-            leading: const Icon(Icons.all_inclusive_rounded,
-                color: _kPrimary, size: 20),
-            title: Text(allLabel,
-                style: const TextStyle(
-                    fontSize: 14, color: _kTextPrimary)),
-            trailing: allSelected
-                ? const Icon(Icons.check_rounded,
-                color: _kPrimary, size: 18)
-                : null,
-            onTap: onAllTap,
-          ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320),
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: items.length,
-            itemBuilder: (_, i) {
-              final item = items[i];
-              return ListTile(
-                leading: const Icon(Icons.class_rounded,
-                    color: _kPrimary, size: 20),
-                title: Text(item.label,
-                    style: TextStyle(
+                  color: _kTextPrimary,
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: _kBorder),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  if (showAll)
+                    ListTile(
+                      leading: const Icon(Icons.all_inclusive_rounded,
+                          color: _kPrimary, size: 20),
+                      title: Text(allLabel,
+                          style: const TextStyle(
+                              fontSize: 14, color: _kTextPrimary)),
+                      trailing: allSelected
+                          ? const Icon(Icons.check_rounded,
+                          color: _kPrimary, size: 18)
+                          : null,
+                      onTap: onAllTap,
+                    ),
+                  ...items.map((item) => ListTile(
+                    leading: const Icon(Icons.class_rounded,
+                        color: _kPrimary, size: 20),
+                    title: Text(
+                      item.label,
+                      style: TextStyle(
                         fontSize: 14,
                         color: _kTextPrimary,
                         fontWeight: item.selected
                             ? FontWeight.w700
-                            : FontWeight.w400)),
-                trailing: item.selected
-                    ? const Icon(Icons.check_rounded,
-                    color: _kPrimary, size: 18)
-                    : null,
-                onTap: item.onTap,
-              );
-            },
-          ),
+                            : FontWeight.w400,
+                      ),
+                    ),
+                    trailing: item.selected
+                        ? const Icon(Icons.check_rounded,
+                        color: _kPrimary, size: 18)
+                        : null,
+                    onTap: item.onTap,
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
-        const SizedBox(height: 16),
-      ]),
+      ),
     );
   }
 }
-
 class _SectionGridSheet extends StatelessWidget {
   final List<Section> sections;
   final Section? selected;

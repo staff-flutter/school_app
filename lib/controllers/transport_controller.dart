@@ -186,7 +186,6 @@ class TransportController extends GetxController {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print('response of creating driver:${response.data}');
         _showSnackbar('Success', 'Driver created successfully', AppTheme.successGreen);
         return true;
       }
@@ -736,7 +735,6 @@ class TransportController extends GetxController {
         },
       );
       if (response.data['ok'] == true) {
-        print('response of getDailyTripLogAnalytics:${response.data}');
         return response.data['data'];
       }
       _showSnackbar('Error', response.data['message'] ?? 'Failed to load trip analytics', AppTheme.errorRed);
@@ -821,7 +819,6 @@ class TransportController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
-        print('fuel logs:${response.data}');
         fuelLogs.value = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       } else {
         _showSnackbar('Error', response.data['message'] ?? 'Failed to load fuel logs', AppTheme.errorRed);
@@ -836,7 +833,6 @@ class TransportController extends GetxController {
   Future<Map<String, dynamic>?> getFuelLogById(String id, {required String schoolId}) async {
     try {
       isLoading.value = true;
-      print('Fetching fuel log -> id: $id, schoolId: $schoolId');
       final response = await _apiService.get(
         '${ApiConstants.getFuelLog}/$id',
         queryParameters: {'schoolId': schoolId},
@@ -851,11 +847,8 @@ class TransportController extends GetxController {
     } catch (e) {
       // TEMP DEBUG — remove once fixed
       if (e is DioException) {
-        print('getFuelLogById DioException: ${e.response?.statusCode} '
-            '${e.requestOptions.method} ${e.requestOptions.uri}');
-        print('Response body: ${e.response?.data}');
+
       } else {
-        print('getFuelLogById non-Dio error: $e');
       }
       _showSnackbar('Error', _errorMessage(e, 'An error occurred while loading fuel log'), AppTheme.errorRed);
       return null;
@@ -1070,7 +1063,6 @@ class TransportController extends GetxController {
           'limit': limit,
         },
       );
-      print('response:${response.data}');
       if (response.data['ok'] == true) {
         busRoutes.value = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       } else {
@@ -1186,7 +1178,6 @@ class TransportController extends GetxController {
       isLoading.value = true;
       final response = await _apiService.get('${ApiConstants.getFuelLogAnalytics}/$schoolId');
       if (response.data['ok'] == true) {
-        print('response of getFuelLogAnalytics:${response.data}');
         return response.data['data'];}
       _showSnackbar('Error', response.data['message'] ?? 'Failed to load fuel log analytics', AppTheme.errorRed);
       return null;

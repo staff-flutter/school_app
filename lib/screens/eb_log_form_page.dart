@@ -19,7 +19,7 @@ class EBLogFormScreen extends StatefulWidget {
 
 class _EBLogFormScreenState extends State<EBLogFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final EBController ebController = Get.find();
+  final EBController ebController = Get.put(EBController());
 
   String? _selectedPremisesId;
   final TextEditingController _meterReadingController = TextEditingController();

@@ -911,7 +911,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   label: 'Type',
                   value: _eventType,
                   items: const [
-                    DropdownMenuItem(value: 'holiday', child: Text('Public holiday')),
+                    DropdownMenuItem(value: 'holiday', child: Text('Public holiday',overflow: TextOverflow.ellipsis,maxLines: 1,)),
                     DropdownMenuItem(value: 'exam', child: Text('Exam block')),
                   ],
                   onChanged: (v) => setState(() => _eventType = v!),
@@ -1025,36 +1025,51 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
             ),
             child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Text(dateLabel, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(
+                  event.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 1,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  dateLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                  ),
+                ),
               ],
             ),
           ),
-          _typeBadge(event.type),
           const SizedBox(width: 6),
+          _typeBadge(event.type),
+          const SizedBox(width: 4),
           IconButton(
             onPressed: () => _startEditEvent(event),
             icon: const Icon(Icons.edit_rounded, color: Color(0xFF2563EB), size: 18),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
           ),
-          const SizedBox(width: 4),
           IconButton(
             onPressed: () => _confirmDelete(event),
             icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
           ),
         ],
       ),
     );
   }
-
   Widget _typeBadge(String type) {
     final map = {
       'holiday': [Colors.orange, 'Holiday'],
@@ -1132,25 +1147,43 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const SizedBox(height: 4),
         DropdownButtonFormField<T>(
           value: value,
           isDense: true,
+          isExpanded: true, // Prevents horizontal layout overflow by constraining items to available width
+          icon: const Icon(Icons.arrow_drop_down, size: 20),
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
           ),
           style: const TextStyle(fontSize: 12, color: Colors.black87),
-          hint: Text('Select', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          hint: Text(
+            'Select',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            overflow: TextOverflow.ellipsis,
+          ),
           items: items,
           onChanged: onChanged,
         ),
       ],
     );
   }
-
   Widget _datePicker({
     required String label,
     required DateTime date,

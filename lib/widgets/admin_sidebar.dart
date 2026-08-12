@@ -263,7 +263,6 @@ class _AdminSidebarState extends State<AdminSidebar>
         schoolController.selectedSchool.value = schoolController.schools.first;
       }
     } catch (e) {
-      print('Error loading school data: $e');
     }
   }
 }
@@ -674,6 +673,8 @@ class _MenuBody extends StatelessWidget {
           _Item('Marks Upload', Icons.grade_rounded, AppRoutes.MARKS_UPLOAD),
         ]),
         _Section('Transport Management',[
+          _Item('Dashboard', Icons.dashboard_rounded, AppRoutes.TRANSPORTATION_ANALYTICS_DASHBOARD),
+
           _Item('Driver Module', Icons.group_add_outlined, AppRoutes.DRIVER_MODULE),
           _Item('Bus Module', Icons.directions_bus, AppRoutes.BUS_MODULE),
           _Item('Daily Trip Log', Icons.trip_origin, AppRoutes.DAILY_TRIP_LOG_MODULE),
@@ -1057,8 +1058,7 @@ class _NavItem extends StatelessWidget {
           message: expanded ? '' : item.label,
           child: GestureDetector(
             onTap: () => onNavigate(item.route),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
+            child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               padding: EdgeInsets.symmetric(
                   horizontal: progress > 0.8 ? 12 : 0, vertical: 10),
@@ -1089,12 +1089,10 @@ class _NavItem extends StatelessWidget {
                             style: TextStyle(
                               color: active ? _kSelectedClr : _kTextDefault,
                               fontSize: 13,
-                              fontWeight: active
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
+                              fontWeight:
+                              active ? FontWeight.w600 : FontWeight.w500,
                             ),
                             maxLines: 1,
-                            softWrap: false,
                             overflow: TextOverflow.clip,
                           ),
                         ),
@@ -1201,6 +1199,7 @@ class _Footer extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             GestureDetector(
+              key: const Key('admin_logout_button'),
               onTap: () => _confirmLogout(auth),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1255,6 +1254,7 @@ class _Footer extends StatelessWidget {
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
         ElevatedButton(
+          key: const Key('confirm_logout_button'),
           onPressed: () {
             if (Get.isRegistered<UserSession>()) {
               final userSession = Get.find<UserSession>();

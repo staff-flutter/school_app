@@ -78,9 +78,7 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
   };
 
   void _log(String method, Uri uri, http.Response? res, {Object? err}) {
-    debugPrint('▶️ [BILLBOOK API] $method $uri');
-    if (res != null) debugPrint('◀️ [BILLBOOK API] $method $uri -> ${res.statusCode}\n   body: ${res.body}');
-    if (err != null) debugPrint('❌ [BILLBOOK API] $method $uri -> ERROR: $err');
+
   }
 
   @override
@@ -105,7 +103,7 @@ class _BillBookManagementScreenState extends State<BillBookManagementScreen> {
   Future<void> _fetchBooks({bool isPullToRefresh = false}) async {
     final sid = _schoolId;
     if (sid == null || sid.isEmpty) {
-      debugPrint('⚠️ [BILLBOOK API] GET skipped — schoolId is null');
+
       setState(() { _loading = false; _books = []; });
       return;
     }

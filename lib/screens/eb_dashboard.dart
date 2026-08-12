@@ -7,18 +7,7 @@ import 'package:school_app/controllers/auth_controller.dart';
 import 'package:school_app/controllers/eb_controller.dart';
 import 'package:school_app/controllers/school_controller.dart';
 
-import '../controllers/eb_controller.dart';
-
-/// Mobile "Electricity Dashboard" screen — mirrors the web EB dashboard:
-/// KPI cards, a consumption trend chart with period tabs, a consumption
-/// share donut, an estimated billing cost trend, recent log entries, and
-/// per-premises analytics cards.
-///
-/// Charts are drawn with plain CustomPainter (no chart package dependency
-/// assumed). The "Estimated Billing Cost Over Time" chart has no dedicated
-/// backend time-series endpoint yet, so it's derived client-side by scaling
-/// the consumption series against the `estimatedDailyEBCost` KPI — treat it
-/// as an approximation until a real cost-history endpoint exists.
+/// Mobile "Electricity Dashboard" screen transformed to match application theme.
 class EBDashboardScreen extends StatefulWidget {
   const EBDashboardScreen({super.key});
 
@@ -42,28 +31,37 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     return _authController.user.value?.schoolId ?? '';
   }
 
+  // Theme Constants
+  static const Color primaryBlue = Color(0xFF2563EB);
+  static const Color lightBlueBg = Color(0xFFEFF6FF);
+  static const Color primaryGreen = Color(0xFF10B981);
+  static const Color lightGreenBg = Color(0xFFD1FAE5);
+  static const Color cardBg = Colors.white;
+  static const Color textDark = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF64748B);
+
   // ---------------- Premises Charge Analytics ----------------
   String _chargeView = 'monthly'; // monthly | yearly
   int _chargeYear = DateTime.now().year;
   int _chargeFromYear = DateTime.now().year - 2;
   int _chargeToYear = DateTime.now().year;
   String? _selectedChargePremisesId;
+
   static const List<Color> _palette = [
-    Color(0xFF3B82F6), // blue
-    Color(0xFF16A34A), // green
-    Color(0xFFF59E0B), // orange
-    Color(0xFFEF4444), // red
-    Color(0xFF8B5CF6), // purple
-    Color(0xFF06B6D4), // cyan
+    Color(0xFF2563EB), // Primary Blue
+    Color(0xFF10B981), // Emerald Green
+    Color(0xFFF59E0B), // Amber
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFFEF4444), // Red
+    Color(0xFF06B6D4), // Cyan
   ];
 
-  String _period = 'month'; // today | week | month | year | custom
+  String _period = 'month'; // today | week | month | year
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAll());
   }
 
@@ -71,13 +69,13 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     if (schoolId.isEmpty || _loadingInFlight) return;
     _loadingInFlight = true;
     setState(() => _loading = true);
-    final results = await Future.wait([
+    await Future.wait([
       ebController.getDashboardAnalytics(schoolId),
       ebController.getBillKpi(schoolId),
       ebController.getPremisesAnalytics(schoolId),
       ebController.getConsumptionLineChart(schoolId: schoolId, period: _period),
     ], eagerError: false);
-    // default the charge-analytics premises selector to the first premises
+
     final premises = ebController.premisesAnalytics;
     if (_selectedChargePremisesId == null && premises.isNotEmpty) {
       _selectedChargePremisesId = (premises.first['premisesId'] ?? premises.first['_id'])?.toString();
@@ -86,6 +84,7 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
       await _loadChargeAnalytics();
     }
 
+    _loadingInFlight = false;
     if (mounted) setState(() => _loading = false);
   }
 
@@ -94,11 +93,6 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     await ebController.getConsumptionLineChart(schoolId: schoolId, period: _period);
   }
 
-  // -------------------- data helpers --------------------
-
-  /// Defensive parse of the consumption line-chart payload into
-  /// { premisesName: [(label, value), ...] } — backend field names for the
-  /// per-point series aren't fully specified, so this tries common keys.
   Map<String, List<_ChartPoint>> _parseSeries(Map<String, dynamic>? raw) {
     final result = <String, List<_ChartPoint>>{};
     if (raw == null) return result;
@@ -122,9 +116,7 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     }
     return result;
   }
-  /// Defensive parse of the charge-analytics payload into (period, amount)
-  /// bars — exact backend field names aren't confirmed, so this tries
-  /// common keys for both monthly and yearly views.
+
   List<_ChartPoint> _parseChargeSeries(Map<String, dynamic>? raw) {
     if (raw == null) return [];
     final points = raw['data'] ?? raw['breakdown'] ?? raw['charges'] ?? raw['points'] ?? [];
@@ -137,6 +129,7 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
       return _ChartPoint(label, (value is num) ? value.toDouble() : 0);
     }).toList();
   }
+
   List<_DonutSlice> _donutSlices() {
     final analytics = ebController.premisesAnalytics;
     final slices = <_DonutSlice>[];
@@ -157,11 +150,30 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 16,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Electricity Dashboard',
+              style: TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              'Monitor campus-wide power consumption and trends',
+              style: TextStyle(fontSize: 11, color: textMuted, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: Obx(() {
           if (_loading && ebController.dashboardAnalytics.value == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: primaryBlue));
           }
           final dashboard = ebController.dashboardAnalytics.value ?? {};
           final billKpi = ebController.billKpi.value ?? {};
@@ -171,18 +183,11 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
           final premisesAnalytics = ebController.premisesAnalytics;
 
           return RefreshIndicator(
+            color: primaryBlue,
             onRefresh: _loadAll,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Text('Electricity Dashboard', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 3),
-                Text(
-                  'Monitor campus-wide power consumption and trends.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 16),
-
                 // ---------------- KPI cards ----------------
                 GridView.count(
                   crossAxisCount: 2,
@@ -190,7 +195,7 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 1.55,
+                  childAspectRatio: 1.2,
                   children: [
                     _KpiCard(
                       icon: Icons.bolt,
@@ -275,7 +280,7 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
                   child: recentLogs.isEmpty
                       ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text('No recent logs', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    child: Text('No recent logs available', style: TextStyle(color: textMuted, fontSize: 12)),
                   )
                       : Column(
                     children: recentLogs
@@ -283,16 +288,18 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
                         .toList(),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
                 // ---------------- Premises Consumption Analytics ----------------
-                const Text('Premises Consumption Analytics',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                const Text(
+                  'Premises Consumption Analytics',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark),
+                ),
                 const SizedBox(height: 10),
                 if (premisesAnalytics.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text('No premises analytics yet', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    child: Text('No premises analytics available', style: TextStyle(color: textMuted, fontSize: 12)),
                   )
                 else
                   ...premisesAnalytics.asMap().entries.map((entry) {
@@ -337,9 +344,6 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     );
   }
 
-  /// Rough estimate: scale the consumption values by (dailyCost / avgDailyConsumption)
-  /// so the shape of the cost trend follows the consumption trend. This is a
-  /// stand-in until a real cost-history endpoint exists.
   Map<String, List<_ChartPoint>> _estimateCostSeries(
       Map<String, List<_ChartPoint>> consumption, Map<String, dynamic> billKpi) {
     final dailyCost = (billKpi['estimatedDailyEBCost'] is num) ? (billKpi['estimatedDailyEBCost'] as num).toDouble() : null;
@@ -368,6 +372,7 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
       toYear: _chargeView == 'yearly' ? _chargeToYear : null,
     );
   }
+
   Future<void> _changeChargeView(String view) async {
     setState(() => _chargeView = view);
     await _loadChargeAnalytics();
@@ -379,6 +384,10 @@ class _EBDashboardScreenState extends State<EBDashboardScreen> {
     await _loadChargeAnalytics();
   }
 }
+
+// ============================================================================
+// Supporting UI Components
+// ============================================================================
 
 class _ChargeViewTabs extends StatelessWidget {
   final String selected;
@@ -400,14 +409,18 @@ class _ChargeViewTabs extends StatelessWidget {
             onTap: () => onChanged(opt),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: active ? Colors.black87 : Colors.grey.shade100,
+                color: active ? _EBDashboardScreenState.primaryBlue : _EBDashboardScreenState.lightBlueBg,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
                 _labels[opt] ?? opt,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? Colors.white : Colors.black54),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: active ? Colors.white : _EBDashboardScreenState.primaryBlue,
+                ),
               ),
             ),
           ),
@@ -421,25 +434,27 @@ class _PremisesDropdown extends StatelessWidget {
   final List<Map<String, dynamic>> premises;
   final String? selectedId;
   final ValueChanged<String?> onChanged;
+
   const _PremisesDropdown({required this.premises, required this.selectedId, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+        color: _EBDashboardScreenState.cardBg,
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
           value: selectedId,
-          hint: const Text('Select premises', style: TextStyle(fontSize: 12)),
+          hint: const Text('Select premises', style: TextStyle(fontSize: 13, color: _EBDashboardScreenState.textMuted)),
           items: premises.map((p) {
             final id = (p['premisesId'] ?? p['_id'] ?? '').toString();
             final name = (p['premisesName'] ?? 'Premises').toString();
-            return DropdownMenuItem(value: id, child: Text(name, style: const TextStyle(fontSize: 12)));
+            return DropdownMenuItem(value: id, child: Text(name, style: const TextStyle(fontSize: 13, color: _EBDashboardScreenState.textDark)));
           }).toList(),
           onChanged: onChanged,
         ),
@@ -475,17 +490,17 @@ class _BarChartPainter extends CustomPainter {
     final barWidth = size.width / (points.length * 1.6);
     final gap = barWidth * 0.6;
 
-    final barPaint = Paint()..color = const Color(0xFF3B82F6);
+    final barPaint = Paint()..color = _EBDashboardScreenState.primaryBlue;
 
     for (var i = 0; i < points.length; i++) {
       final x = i * (barWidth + gap);
       final h = maxV <= 0 ? 0.0 : (points[i].value / maxV) * chartHeight;
       final rect = Rect.fromLTWH(x, chartHeight - h, barWidth, h);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(3)), barPaint);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), barPaint);
 
       final labelText = points[i].label.length > 6 ? points[i].label.substring(0, 6) : points[i].label;
       final painter = TextPainter(
-        text: TextSpan(text: labelText, style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
+        text: TextSpan(text: labelText, style: const TextStyle(fontSize: 9, color: _EBDashboardScreenState.textMuted)),
         textDirection: ui.TextDirection.ltr,
       )..layout(maxWidth: barWidth + gap);
       painter.paint(canvas, Offset(x, chartHeight + 4));
@@ -495,25 +510,26 @@ class _BarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BarChartPainter oldDelegate) => true;
 }
-// ============================================================================
-// Reusable pieces
-// ============================================================================
 
 class _KpiCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final String caption;
+
   const _KpiCard({required this.icon, required this.label, required this.value, required this.caption});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _EBDashboardScreenState.cardBg,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,14 +537,22 @@ class _KpiCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade600)),
-              Icon(icon, size: 16, color: Colors.black54),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textMuted, letterSpacing: 0.3),
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: _EBDashboardScreenState.lightBlueBg, shape: BoxShape.circle),
+                child: Icon(icon, size: 14, color: _EBDashboardScreenState.primaryBlue),
+              ),
             ],
           ),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+         SizedBox(height: 4,),
+         // const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark)),
           const SizedBox(height: 2),
-          Text(caption, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          Text(caption, style: const TextStyle(fontSize: 10, color: _EBDashboardScreenState.textMuted)),
         ],
       ),
     );
@@ -541,6 +565,7 @@ class _SectionCard extends StatelessWidget {
   final String? subtitle;
   final Widget? trailing;
   final Widget child;
+
   const _SectionCard({
     required this.icon,
     required this.title,
@@ -555,24 +580,32 @@ class _SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _EBDashboardScreenState.cardBg,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 17, color: Colors.black87),
-              const SizedBox(width: 7),
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
+              Icon(icon, size: 18, color: _EBDashboardScreenState.primaryBlue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark),
+                ),
+              ),
               if (trailing != null) trailing!,
             ],
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 3),
-            Text(subtitle!, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            const SizedBox(height: 4),
+            Text(subtitle!, style: const TextStyle(fontSize: 11, color: _EBDashboardScreenState.textMuted)),
           ],
           const SizedBox(height: 12),
           child,
@@ -585,6 +618,7 @@ class _SectionCard extends StatelessWidget {
 class _PeriodTabs extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onChanged;
+
   const _PeriodTabs({required this.selected, required this.onChanged});
 
   static const _options = ['today', 'week', 'month', 'year'];
@@ -603,14 +637,18 @@ class _PeriodTabs extends StatelessWidget {
               onTap: () => onChanged(opt),
               borderRadius: BorderRadius.circular(16),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: active ? Colors.black87 : Colors.grey.shade100,
+                  color: active ? _EBDashboardScreenState.primaryBlue : _EBDashboardScreenState.lightBlueBg,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   _labels[opt] ?? opt,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? Colors.white : Colors.black54),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: active ? Colors.white : _EBDashboardScreenState.primaryBlue,
+                  ),
                 ),
               ),
             ),
@@ -627,7 +665,7 @@ class _EmptyChartPlaceholder extends StatelessWidget {
     return Container(
       height: 140,
       alignment: Alignment.center,
-      child: Text('No data for this period', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+      child: const Text('No data for this period', style: TextStyle(color: _EBDashboardScreenState.textMuted, fontSize: 12)),
     );
   }
 }
@@ -638,11 +676,11 @@ class _ChartPoint {
   _ChartPoint(this.label, this.value);
 }
 
-/// Simple multi-series line chart with a legend, drawn via CustomPainter.
 class _MultiLineChart extends StatelessWidget {
   final Map<String, List<_ChartPoint>> series;
   final List<Color> palette;
   final String unit;
+
   const _MultiLineChart({required this.series, required this.palette, required this.unit});
 
   @override
@@ -661,7 +699,7 @@ class _MultiLineChart extends StatelessWidget {
               children: [
                 Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
                 const SizedBox(width: 4),
-                Text(e.value, style: const TextStyle(fontSize: 11)),
+                Text(e.value, style: const TextStyle(fontSize: 11, color: _EBDashboardScreenState.textDark)),
               ],
             );
           }).toList(),
@@ -682,6 +720,7 @@ class _MultiLineChart extends StatelessWidget {
 class _LineChartPainter extends CustomPainter {
   final Map<String, List<_ChartPoint>> series;
   final List<Color> palette;
+
   _LineChartPainter({required this.series, required this.palette});
 
   @override
@@ -700,9 +739,8 @@ class _LineChartPainter extends CustomPainter {
       minV = min(minV, 0);
     }
 
-    // gridlines
     final gridPaint = Paint()
-      ..color = Colors.grey.shade200
+      ..color = const Color(0xFFF1F5F9)
       ..strokeWidth = 1;
     for (var i = 0; i <= 3; i++) {
       final y = chartHeight * i / 3;
@@ -737,7 +775,6 @@ class _LineChartPainter extends CustomPainter {
       canvas.drawPath(path, linePaint);
     }
 
-    // x-axis start/end labels using the longest series
     final longest = series.values.reduce((a, b) => a.length >= b.length ? a : b);
     if (longest.isNotEmpty) {
       _drawLabel(canvas, longest.first.label, Offset(leftPad, chartHeight + 4));
@@ -750,8 +787,8 @@ class _LineChartPainter extends CustomPainter {
   void _drawLabel(Canvas canvas, String text, Offset offset) {
     final short = text.length > 8 ? text.substring(text.length - 8) : text;
     final painter = TextPainter(
-      text: TextSpan(text: short, style: TextStyle(fontSize: 9, color: Colors.grey.shade500)),
-      textDirection: ui.TextDirection.ltr
+      text: TextSpan(text: short, style: const TextStyle(fontSize: 9, color: _EBDashboardScreenState.textMuted)),
+      textDirection: ui.TextDirection.ltr,
     )..layout();
     painter.paint(canvas, offset);
   }
@@ -770,6 +807,7 @@ class _DonutSlice {
 class _DonutChartWithLegend extends StatelessWidget {
   final List<_DonutSlice> slices;
   final String unit;
+
   const _DonutChartWithLegend({required this.slices, required this.unit});
 
   @override
@@ -779,17 +817,20 @@ class _DonutChartWithLegend extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 120,
-          height: 120,
+          width: 110,
+          height: 110,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              CustomPaint(size: const Size(120, 120), painter: _DonutPainter(slices: slices)),
+              CustomPaint(size: const Size(110, 110), painter: _DonutPainter(slices: slices)),
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(total.toStringAsFixed(0), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                  Text(unit, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                  Text(
+                    total.toStringAsFixed(0),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark),
+                  ),
+                  Text(unit, style: const TextStyle(fontSize: 10, color: _EBDashboardScreenState.textMuted)),
                 ],
               ),
             ],
@@ -806,7 +847,13 @@ class _DonutChartWithLegend extends StatelessWidget {
                 children: [
                   Container(width: 8, height: 8, decoration: BoxDecoration(color: s.color, shape: BoxShape.circle)),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(s.label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                  Expanded(
+                    child: Text(
+                      s.label,
+                      style: const TextStyle(fontSize: 12, color: _EBDashboardScreenState.textDark),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             ))
@@ -827,7 +874,7 @@ class _DonutPainter extends CustomPainter {
     final total = slices.fold<double>(0, (sum, s) => sum + s.value);
     if (total <= 0) return;
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    const strokeWidth = 16.0;
+    const strokeWidth = 14.0;
     var startAngle = -pi / 2;
 
     for (final slice in slices) {
@@ -866,30 +913,33 @@ class _RecentLogRow extends StatelessWidget {
     final reading = log['meterReading'];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-            child: Text(logNo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: _EBDashboardScreenState.lightBlueBg, borderRadius: BorderRadius.circular(6)),
+            child: Text(
+              logNo,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.primaryBlue),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(premisesName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(premisesName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark)),
                 Text(
                   '${_formatDate(log['date'])}${time.isNotEmpty ? ' · $time' : ''}',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  style: const TextStyle(fontSize: 10, color: _EBDashboardScreenState.textMuted),
                 ),
               ],
             ),
           ),
           Text(
             reading == null ? 'N/A' : '$reading kWh',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark),
           ),
         ],
       ),
@@ -900,6 +950,7 @@ class _RecentLogRow extends StatelessWidget {
 class _PremisesAnalyticsCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final Color color;
+
   const _PremisesAnalyticsCard({required this.data, required this.color});
 
   String _fmt(dynamic v, {String suffix = ''}) {
@@ -912,10 +963,12 @@ class _PremisesAnalyticsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _EBDashboardScreenState.cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border(top: BorderSide(color: color, width: 3)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: const [
+          BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -927,12 +980,16 @@ class _PremisesAnalyticsCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   (data['premisesName'] ?? 'Premises').toString(),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark),
                 ),
               ),
             ],
           ),
-          Text('ENERGY ANALYTICS', style: TextStyle(fontSize: 9, color: Colors.grey.shade500, letterSpacing: 0.5)),
+          const SizedBox(height: 2),
+          const Text(
+            'ENERGY ANALYTICS',
+            style: TextStyle(fontSize: 9, color: _EBDashboardScreenState.textMuted, letterSpacing: 0.5, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -951,6 +1008,7 @@ class _PremisesAnalyticsCard extends StatelessWidget {
 class _MiniStat extends StatelessWidget {
   final String label;
   final String value;
+
   const _MiniStat({required this.label, required this.value});
 
   @override
@@ -958,9 +1016,15 @@ class _MiniStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade500, letterSpacing: 0.3)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 9, color: _EBDashboardScreenState.textMuted, letterSpacing: 0.3, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _EBDashboardScreenState.textDark),
+        ),
       ],
     );
   }

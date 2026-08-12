@@ -93,8 +93,7 @@ class StudentRecordController extends GetxController {
         }
       }
 
-      // Debug: Print formData contents
-      
+
       formData.fields.forEach((field) {
         
       });

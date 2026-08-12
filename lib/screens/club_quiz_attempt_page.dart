@@ -112,7 +112,6 @@ class QuizAttemptApi {
             .toList();
       }
     } catch (e) {
-      debugPrint('⚠️ [QUIZ ATTEMPTS] fetch failed: $e');
     }
     return [];
   }
@@ -126,7 +125,6 @@ class QuizAttemptApi {
       });
       return res.statusCode == 200;
     } catch (e) {
-      debugPrint('⚠️ [QUIZ ATTEMPTS] delete failed: $e');
       return false;
     }
   }

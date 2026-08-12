@@ -129,7 +129,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
 // ── API: load fee heads (Fully Dynamic Setup) ─────────────────
 
   Future<void> _loadFeeHeads(String schoolId, String classId) async {
-    debugPrint('🔵 _loadFeeHeads: schoolId=$schoolId classId=$classId type=$selectedStudentType');
     feeController.isLoading.value = true;
     _disposeAmountControllers();
 
@@ -140,7 +139,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         type:     selectedStudentType,
       );
 
-      debugPrint('🔵 _loadFeeHeads got ${heads.length} heads: $heads');
 
       final List<Map<String, dynamic>> built = [];
 
@@ -148,7 +146,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         final name   = (h['feeName'] ?? '').toString();
         final amount = (h['feeAmount'] as num?)?.toDouble() ?? 0.0;
 
-        debugPrint('   building: name="$name" amount=$amount (${amount.runtimeType})');
 
         final text = amount == 0.0
             ? ''
@@ -156,15 +153,12 @@ class _FeeStructureViewState extends State<FeeStructureView> {
             ? amount.toInt().toString()
             : amount.toStringAsFixed(2));
 
-        debugPrint('controller text will be: "$text"');
 
         _amountControllers[name] = TextEditingController(text: text);
 
         built.add({'id': h['id']?.toString(), 'name': name, 'amount': amount});
       }
 
-      debugPrint('🔵 _feeHeads built: $built');
-      debugPrint('🔵 controllers: ${_amountControllers.map((k, v) => MapEntry(k, v.text))}');
 
       _feeHeads.assignAll(built);
     } finally {
@@ -194,11 +188,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
     final schoolId = schoolController.selectedSchool.value?.id
         ?? authController.user.value?.schoolId;
 
-    debugPrint('🔵 _saveAll called');
-    debugPrint('   schoolId: $schoolId');
-    debugPrint('   selectedClass: ${selectedClass?.name}');
-    debugPrint('   _feeHeads count: ${_feeHeads.length}');
-    debugPrint('   controllers: ${_amountControllers.map((k, v) => MapEntry(k, v.text))}');
 
     if (schoolId == null) {
       Get.snackbar('Error', 'School not found',
@@ -227,12 +216,10 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         final text   = ctrl?.text.trim() ?? '';
         final amount = double.tryParse(text) ?? 0.0;
 
-        debugPrint('   → name="$name" ctrlText="$text" parsed=$amount');
 
         feeHeadsList.add({'feeName': name, 'feeAmount': amount});
       }
 
-      debugPrint('🔵 feeHeadsList to save: $feeHeadsList');
 
       final ok = await feeController.saveAllCustomFeeHeads(
         schoolId: schoolId,
@@ -241,7 +228,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
         feeHeads: feeHeadsList,
       );
 
-      debugPrint('🔵 saveAllCustomFeeHeads returned: $ok');
 
       if (!ok) return;
 
@@ -251,7 +237,6 @@ class _FeeStructureViewState extends State<FeeStructureView> {
       // ✅ Reload to confirm what backend actually stored
       await _loadFeeHeads(schoolId, selectedClass!.id);
     } catch (e, stack) {
-      debugPrint('❌ _saveAll error: $e\n$stack');
       Get.snackbar('Error', 'Failed to save',
           backgroundColor: _kDanger, colorText: Colors.white);
     } finally {

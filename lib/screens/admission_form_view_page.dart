@@ -27,8 +27,7 @@ class _AdmissionFormViewPageState extends State<AdmissionFormViewPage> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     final data = await _admissionController.getSingleAdmissionForm(studentId: widget.studentId);
-    print('data:$data');
-    print('studentId:${widget.studentId}');
+
     if (mounted) {
       setState(() {
         _formData = data;

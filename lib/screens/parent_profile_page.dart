@@ -15,6 +15,8 @@ import '../constants/api_constants.dart';
 import '../services/user_session.dart';
 import 'home_page.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 
 class ParentProfile extends StatefulWidget {
@@ -27,10 +29,7 @@ class ParentProfile extends StatefulWidget {
 class _ParentProfileState extends State<ParentProfile> {
   final session = Get.find<UserSession>();
 
-
- // final storage = const FlutterSecureStorage();
-
- // 1. THE LOGIN FUNCTION
+  // 1. THE LOGIN FUNCTION
   Future<void> loginAndGetToken() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/api/user/login');
 
@@ -45,7 +44,6 @@ class _ParentProfileState extends State<ParentProfile> {
       );
 
       if (response.statusCode == 200) {
-        print(response.body);
         final data = jsonDecode(response.body);
 
         String token = data['token'];
@@ -53,48 +51,26 @@ class _ParentProfileState extends State<ParentProfile> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_token', token);
 
-        print("Login Successful! Token Saved.");
       } else {
-        print("Login Failed: ${response.body}");
       }
     } catch (e) {
-      print("Login Error: $e");
     }
   }
 
 
-// -------------------------------------- THE  PARENT PROFILE FUNCTION ---------------------------------
+// -------------------------------------- THE PARENT PROFILE FUNCTION ---------------------------------
 
 
   Future<List<ParentProfileStrings>> fetchParentProfile() async {
     String baseUrl = ApiConstants.baseUrl;
 
-    //final controller = Get.find<MyChildrenController>();
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-   // String? token = prefs.getString('token');
-   // String? token = prefs.getString('user_token');
-    //String?  userId =prefs.getString('parentId');
-
-  //  final String? token = session.token;
-   // final String? token = await storage.read(key: 'user_token');
-  //  final String? userId = await storage.read(key: 'parentId');
-
     final auth = Get.find<AuthController>();
     final String? token = auth.storage.read('token');
     final String? userId = auth.user.value?.id;
 
-
-    // If no token, try to login first
-    // if (token == null) {
-    //   await loginAndGetToken();
-    //   token = prefs.getString('user_token');
-    // }
-
     final Map<String, String> queryParameters = {
       "userId":"69be7cac7648454b51f80127"
     };
-    //const userId="69be7cac7648454b51f80127";
 
     final uri = Uri.parse('$baseUrl/api/user/$userId');
 
@@ -105,10 +81,8 @@ class _ParentProfileState extends State<ParentProfile> {
         'Accept': 'application/json',
       },
     );
-print('token:$token');
-print('userid:$userId');
+
     if (response.statusCode == 200) {
-      print('parentbody response ${response.body}');
 
       final dynamic decodedData = jsonDecode(response.body);
 
@@ -116,53 +90,62 @@ print('userid:$userId');
         return decodedData.map((data) => ParentProfileStrings.fromJson(data)).toList();
       }
       else if (decodedData is Map<String, dynamic>) {
-        // 1. Get the value from the 'data' key
         final dataValue = decodedData['data'];
 
-        // 2. Check if that specific value is a List
         if (dataValue is List) {
           return dataValue.map((data) => ParentProfileStrings.fromJson(data)).toList();
         }
 
-        // 3. If 'data' is a single Map instead of a List, wrap it in a List
         if (dataValue is Map<String, dynamic>) {
           return [ParentProfileStrings.fromJson(dataValue)];
         }
       }
       return [];
-      //List jsonResponse = jsonDecode(response.body);
-      // return jsonResponse.map((data) => TimetableEntry.fromJson(data)).toList();
     } else {
-      print("Parent profile Error: ${response.statusCode}-${response.body}");
       return [];
     }
   }
 
+  Future<void> _onRefresh() async {
+    await fetchParentProfile();
+    if (Get.isRegistered<MyChildrenController>()) {
+      final childrenController = Get.find<MyChildrenController>();
+      // Calls fetch/reload on children controller if available
+      try {
+        await (childrenController as dynamic).fetchChildren();
+      } catch (_) {}
+    }
+    setState(() {});
+  }
 
+  Future<void> _pickAndUploadProfileImage(AuthController auth) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    final file = File(result.files.single.path!);
+    try {
+      await auth.updateProfileImage(file);
+    } catch (_) {
+      // AuthController.updateProfileImage already shows an error snackbar.
+    }
+  }
   // ------------------------------------ INIT STATE () -------------------------------------------
 
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     fetchParentProfile();
-    // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    //   statusBarColor: Colors.black, // transparent so AppBar image shows through
-    //   statusBarIconBrightness: Brightness.light, // dark icons (visible on light bg)
-    // ));
   }
 
   @override
   Widget build(BuildContext context) {
-    var children = [].obs; // Your list of children from API
-    var selectedChild = {}.obs; // The child currently being viewed
     final controller = Get.find<MyChildrenController>();
-
-
     final school = Get.find<AuthController>().userSchool.value;
 
-    //final session = Get.find<UserSession>();
     String rawData = session.schoolSocialPlatform ?? "";
     String cleaned = rawData.replaceAll('{', '').replaceAll('}', '');
     List<String> pairs = cleaned.split(',');
@@ -187,141 +170,185 @@ print('userid:$userId');
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FB),
         body: Stack(
-            children: [
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
+          children: [
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
 
+              // -------------------------------------- HEADER IMAGE ----------------------------------------
 
-                // -------------------------------------- HEADER IMAGE ----------------------------------------
-
-
-                child: Image.asset(
-                  'assets/images/Blue science and education collection footer.png', // transparent footer image
-                  fit: BoxFit.cover,
-                ),
+              child: Image.asset(
+                'assets/images/Blue science and education collection footer.png', // transparent footer image
+                fit: BoxFit.cover,
               ),
-              Positioned.fill(
-                child: SafeArea(
-                    top: false,
-                    bottom: true,
+            ),
+            Positioned.fill(
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: RefreshIndicator(
+                  color: const Color(0xff4A90E2),
+                  onRefresh: _onRefresh,
                   child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     child: Column(
                       children: [
-                        //  Gradient Header
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            ClipPath(
-                              clipper: HeaderClipper(),
-                              child: Stack(
+                        // Gradient Header
+                        SizedBox(
+                          height: 310, // must fully contain the avatar (195 to 305) — see below
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              ClipPath(
+                                clipper: HeaderClipper(),
+                                child: Stack(
                                   children: [
                                     Container(
                                       height: 250,
                                       width: double.infinity,
                                       decoration: const BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [
-                                            Color(0xff4A90E2),
-                                            Color(0xff6FD3F7),
-                                          ],
+                                          colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
                                       ),
                                     ),
-
-                                  ]
-                              ),
-                            ),
-                            Align(
-                                alignment: Alignment.topCenter,
-                                child: Image.asset('assets/images/Scientific UI background design header.png' , fit: BoxFit.cover,)
-                            ),
-
-
-                  // ---------------------------------------  Avatar + Edit Button  ------------------------------------
-
-
-                            Positioned(
-                              bottom: -60,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.2),
-                                            blurRadius: 15,
-                                            offset: const Offset(0, 5),
-                                          )
-                                        ],
-                                      ),
-                                      child: const CircleAvatar(
-                                        radius: 55,
-                                        backgroundColor: Colors.white,
-                                        child: CircleAvatar(
-                                            radius: 50,
-                                          backgroundColor: Colors.blue, // Sets the circle background
-                                          child: Icon(
-                                            Icons.person,
-                                            color: Colors.white,
-                                            size: 40, // Sets the size of the icon
-                                          ),
-                                           // AssetImage('assets/images/parent_image.webp')
-                                        ),
-                                      ),
-                                    ),
-
-                                    //  Edit Button
-                                    // Positioned(
-                                    //   bottom: 5,
-                                    //   right: 5,
-                                    //   child: GestureDetector(
-                                    //     onTap: () {
-                                    //       debugPrint("Edit Profile Clicked");
-                                    //     },
-                                    //     child: Container(
-                                    //       padding: const EdgeInsets.all(6),
-                                    //       decoration: BoxDecoration(
-                                    //         shape: BoxShape.circle,
-                                    //         gradient: const LinearGradient(
-                                    //           colors: [
-                                    //             // Color(0xFF4F6DB8),
-                                    //             // Color(0xFF3E5AA8),
-                                    //             Color(0xff4A90E2),
-                                    //             Color(0xff6FD3F7),
-                                    //           ],
-                                    //         ),
-                                    //         border: Border.all(
-                                    //           color: Colors.white,
-                                    //           width: 2,
-                                    //         ),
-                                    //       ),
-                                    //       child: const Icon(
-                                    //         Icons.edit,
-                                    //         color: Colors.white,
-                                    //         size: 18,
-                                    //       ),
-                                    //     ),
-                                    //   ),
-                                    // ),
                                   ],
                                 ),
+                              ),
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: Image.asset('assets/images/Scientific UI background design header.png', fit: BoxFit.cover),
+                              ),
+                              Positioned(
+                                top: 195, // 250 (header height) - 55 (half of avatar's 110 diameter) — centers avatar on the header edge
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: Obx(() {
+
+                                  final auth = Get.find<AuthController>();
+                                  final user = auth.user.value;
+                                  final String? avatarUrl = user?.profileImage?.url;
+                                  final bool isUploadingImage = auth.isLoading.value;
+
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Container(
+                                        width: 110,
+                                        height: 110,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.2),
+                                              blurRadius: 15,
+                                              offset: const Offset(0, 5),
+                                            )
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.all(5),
+                                        child: ClipOval(
+                                          child: Container(
+                                            color: Colors.blue,
+                                            child: avatarUrl != null
+                                                ? Image.network(
+                                              avatarUrl,
+                                              width: 100,
+                                              height: 100,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                                size: 40,
+                                              ),
+                                            )
+                                                : Center(
+                                              child: isUploadingImage
+                                                  ? const SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                                  : const Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                                size: 40,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // Loading ring over an existing photo while a new one uploads.
+                                      if (avatarUrl != null && isUploadingImage)
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.black.withOpacity(0.35),
+                                            ),
+                                            child: const Center(
+                                              child: SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: GestureDetector(
+                                          onTap: isUploadingImage
+                                              ? null
+                                              : () => _pickAndUploadProfileImage(auth),
+                                          child: Container(
+                                            width: 30,
+                                            height: 30,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xff4A90E2),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: Colors.white, width: 2),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.15),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(
+                                              Icons.edit,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }),
                               ),
                             ),
                           ],
                         ),
+                      ),
 
-                        const SizedBox(height: 75),
+                        const SizedBox(height: 30),
 
 
-                  // -----------------------------------------------  Name  ---------------------------------------------
+                        // -----------------------------------------------  Name  ---------------------------------------------
 
 
                         const Text(
@@ -350,15 +377,13 @@ print('userid:$userId');
                         const SizedBox(height: 20),
 
 
-                                 // ---------------------------------  PERSONAL INFORMATION  ---------------------------------------------------
+                        // ---------------------------------  PERSONAL INFORMATION  ---------------------------------------------------
 
 
                         buildGradientSection(
                           title: "Personal Information",
                           icon: Icons.info_outline,
                           children: [
-                            //InfoRow( title:"Email", icon:Icons.email,data:session.parentEmail),
-                           // InfoRow(title:"Mobile Number" ,icon: Icons.phone,data:session.parentPhoneNo),
                             Builder(builder: (context) {
                               final user = Get.find<AuthController>().user.value;
                               return Column(children: [
@@ -370,7 +395,7 @@ print('userid:$userId');
                         ),
 
 
-                  // ---------------------------------  SCHOOL INFORMATION  ------------------------------------------------
+                        // ---------------------------------  SCHOOL INFORMATION  ------------------------------------------------
 
 
                         buildGradientSection(
@@ -380,14 +405,13 @@ print('userid:$userId');
                             InfoRow(title: "School Name", icon: Icons.apartment, data: school?['name']),
                             InfoRow(title: "Address", icon: Icons.location_on, data: school?['address']),
                             InfoRow(title: "Contact Email", icon: Icons.email, data: school?['email']),
-                            //InfoRow( title:"Social Media", icon: Icons.share,data:session.schoolSocialPlatform),
                             buildSocialMediaRow(socialMap),
 
                           ],
                         ),
 
 
-                  // ---------------------------------  MY CHILDREN  ---------------------------------------------------
+                        // ---------------------------------  MY CHILDREN  ---------------------------------------------------
 
 
                         buildGradientSection(
@@ -402,42 +426,41 @@ print('userid:$userId');
                                 );
                               }
                               return Column(
-                                children: [...controller.children.map((childData) {
+                                  children: [...controller.children.map((childData) {
 
-                                  final String name = childData['studentName']?.toString() ?? "Unknown";
-                                  String? imageUrl;
-                                  if (childData['studentImage'] is Map) {
-                                    imageUrl = childData['studentImage']['url'];
-                                  } else if (childData['studentImage'] is String) {
-                                    imageUrl = childData['studentImage'];
-                                  }
+                                    final String name = childData['studentName']?.toString() ?? "Unknown";
+                                    String? imageUrl;
+                                    if (childData['studentImage'] is Map) {
+                                      imageUrl = childData['studentImage']['url'];
+                                    } else if (childData['studentImage'] is String) {
+                                      imageUrl = childData['studentImage'];
+                                    }
 
+                                    final bool isSelected = controller.selectedChild['_id'] == childData['_id'];
 
+                                    return childListTile(name, imageUrl, isSelected, () {
+                                      controller.selectedChild.value = childData;
+                                    });
+                                  }).toList(),
 
-                                  final bool isSelected = controller.selectedChild['_id'] == childData['_id'];
-
-                                  return childListTile(name, imageUrl, isSelected, () {
-                                    controller.selectedChild.value = childData;
-                                  });
-                                }).toList(),
-
-                                // --- LOGOUT BUTTON START ---
-                                const Divider(indent: 20, endIndent: 20), // Subtle separator
-                                ListTile(
-                                  onTap: () => _handleLogout(),
-                                  leading: const Icon(Icons.logout, color: Colors.redAccent,size: 18,),
-                                  title: const Text(
-                                    "Logout Account",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.redAccent,
-                                      fontWeight: FontWeight.bold,
+                                    // --- LOGOUT BUTTON START ---
+                                    const Divider(indent: 20, endIndent: 20), // Subtle separator
+                                    ListTile(
+                                      key: const Key('parent_logout_button'),
+                                      onTap: () => _handleLogout(),
+                                      leading: const Icon(Icons.logout, color: Colors.redAccent,size: 18,),
+                                      title: const Text(
+                                        "Logout Account",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.redAccent,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.redAccent),
                                     ),
-                                  ),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.redAccent),
-                                ),
-                                const SizedBox(height: 10),
-                              ]
+                                    const SizedBox(height: 10),
+                                  ]
                               );
                             }),
                           ],
@@ -448,11 +471,13 @@ print('userid:$userId');
                   ),
                 ),
               ),
-            ],
+            ),
+          ],
         ),
       ),
     );
   }
+
   Future<void> _handleLogout() async {
     Get.dialog(
       AlertDialog(
@@ -461,46 +486,20 @@ print('userid:$userId');
         actions: [
           TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
           ElevatedButton(
+            key: const Key('confirm_logout_button'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               Get.back();
               Get.find<AuthController>().logout(); // handles everything already
             },
-            // async {
-            //   Get.back(); // close dialog first
-            //
-            //   // 1. Clear FlutterSecureStorage (parent-specific keys)
-            //  // await storage.delete(key: 'user_token');
-            //  // await storage.delete(key: 'parentId');
-            //
-            //   // 2. Clear UserSession — THIS was missing, causing stale token
-            //   if (Get.isRegistered<UserSession>()) {
-            //     final userSession = Get.find<UserSession>();
-            //     userSession.token = null;
-            //     userSession.schoolId = null;
-            //     userSession.role = null;
-            //     userSession.update();
-            //   }
-            //
-            //   // 3. Clear AuthController — THIS was missing
-            //   if (Get.isRegistered<AuthController>()) {
-            //     final auth = Get.find<AuthController>();
-            //     auth.user.value = null;
-            //     // also wipe GetStorage so checkAuthStatus() doesn't restore parent
-            //     auth.storage.remove('token');
-            //     auth.storage.remove('user');
-            //     auth.storage.remove('userSchool');
-            //   }
-            //
-            //   Get.offAllNamed('/login');
-            // },
-
             child: const Text("Logout", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-  }  Widget buildGradientSection({
+  }
+
+  Widget buildGradientSection({
     required String title,
     required IconData icon,
     required List<Widget> children,
@@ -573,7 +572,6 @@ print('userid:$userId');
             ),
             child: ClipOval(
               child: Container(
-
                 color: Colors.grey.shade200,
                 child: (imageUrl != null && imageUrl.isNotEmpty)
                     ? Image.network(
@@ -623,12 +621,10 @@ print('userid:$userId');
   }
 
   Widget buildSocialMediaRow(Map<String, String> socialMap) {
-    // Filter only non-empty URLs
     final validSocials = socialMap.entries
         .where((e) => e.value.isNotEmpty)
         .toList();
 
-    // Hide entire row if no valid social links
     if (validSocials.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -683,10 +679,11 @@ print('userid:$userId');
       },
     );
   }
+
 }
 
 
-// ----------------------------------------  MODEL CLASS FOR PARENT PROFILE --------------------------------
+// ---------------------------------------- MODEL CLASS FOR PARENT PROFILE --------------------------------
 
 
 class ParentProfileStrings {
@@ -699,13 +696,10 @@ class ParentProfileStrings {
 
   });
 
-
   factory ParentProfileStrings.fromJson(Map<String, dynamic> json) {
     return ParentProfileStrings(
-
       title: json['title'] ?? "Unknown",
       icon: json['icon'] ?? "Unknown",
-
     );
   }
 }
@@ -754,7 +748,8 @@ Widget childListTile(String name, String? imageUrl, bool isSelected, VoidCallbac
       ),
     ),
   );
-}//  Info Row
+}
+
 class InfoRow extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -777,7 +772,7 @@ class InfoRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start, // TOP align when text wraps
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: Colors.black,size: 15,),
             const SizedBox(width: 10),
@@ -786,13 +781,13 @@ class InfoRow extends StatelessWidget {
               style: const TextStyle(color: Colors.black, fontSize: 12),
             ),
             const SizedBox(width: 8),
-            Expanded( // THIS prevents overflow
+            Expanded(
               child: Text(
                 (data == null || data!.isEmpty) ? '-' : data!,
                 textAlign: TextAlign.end,
                 style: const TextStyle(color: Colors.black54, fontSize: 12),
-                softWrap: true,       // wraps to next line
-                overflow: TextOverflow.visible, // never cuts text
+                softWrap: true,
+                overflow: TextOverflow.visible,
               ),
             ),
           ],
@@ -802,7 +797,6 @@ class InfoRow extends StatelessWidget {
   }
 }
 
-//  Curved Header
 class HeaderClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

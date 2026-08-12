@@ -115,8 +115,7 @@ class _CommunicationsViewState extends State<CommunicationsView> {
 
           if (announcementController.schools.isNotEmpty) {
             final firstSchool = announcementController.schools.first;
-            print('School name: ${firstSchool.name}');
-            print('Logo map: ${firstSchool.logo}');
+
           }
           // Auto-select school for non-correspondent users
           if (userRole != 'correspondent' && userSchoolId != null) {
@@ -843,13 +842,16 @@ class _CommunicationsViewState extends State<CommunicationsView> {
               
               if (controller.schools.isNotEmpty)
                 DropdownButtonFormField<School>(
+                  isExpanded: true,
                   value: controller.selectedSchool.value,
                   decoration: const InputDecoration(labelText: 'School'),
                   hint: const Text('Select School'),
                   items: controller.schools.toSet().map((school) {
                     return DropdownMenuItem<School>(
                       value: school,
-                      child: Text(school.name,style: TextStyle(fontSize: 13),),
+                      child: Text(school.name,style: TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
                   onChanged: (value) => controller.selectedSchool.value = value,
@@ -1623,9 +1625,14 @@ class _AnnouncementsList extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              controller.deleteAnnouncement(id);
-              Get.back();
+            onPressed: () async {
+              Get.back(); // close ONLY the confirmation dialog
+              try {
+                await controller.deleteAnnouncement(id);
+              } catch (e) {
+                Get.snackbar('Error', 'Failed to delete announcement',
+                    backgroundColor: AppTheme.errorRed, colorText: Colors.white);
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             child: const Text('Delete'),
@@ -1634,7 +1641,6 @@ class _AnnouncementsList extends StatelessWidget {
       ),
     );
   }
-
   Future<void> _openPdf(String url) async {
     final Uri uri = Uri.parse(url);
     try {

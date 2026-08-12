@@ -191,10 +191,8 @@ class _ProfilePageState extends State<ProfilePage> {
       final childController = Get.find<MyChildrenController>();
       _studentId = childController.selectedChild['_id'] ?? '';
 
-      debugPrint('▶ Loading profile for studentId: $_studentId');
 
       if (_studentId.isEmpty) {
-        debugPrint('✗ studentId is empty — aborting load');
         if (mounted) setState(() => _isLoading = false);
         return;
       }
@@ -220,7 +218,6 @@ class _ProfilePageState extends State<ProfilePage> {
       await _fetchStudentProfile();
       await _fetchPendingRequest();
     } catch (e) {
-      debugPrint('✗ Load error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -251,13 +248,11 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _fetchStudentProfile() async {
     final token = _getToken();
     if (token == null || _studentId.isEmpty) {
-      debugPrint('✗ fetchStudentProfile aborted — token=$token id=$_studentId');
       return;
     }
 
     final uri =
     Uri.parse('${ApiConstants.baseUrl}/api/student/get/$_studentId');
-    debugPrint('▶ GET $uri');
 
     try {
       final response = await http.get(uri, headers: {
@@ -265,17 +260,13 @@ class _ProfilePageState extends State<ProfilePage> {
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 15));
 
-      debugPrint('◀ status : ${response.statusCode}');
-      print('◀ body   : ${response.body}');
 
       if (response.statusCode != 200) {
-        debugPrint('✗ Non-200 — cannot parse profile');
         return;
       }
 
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) {
-        debugPrint('✗ Unexpected root type: ${decoded.runtimeType}');
         return;
       }
 
@@ -287,7 +278,6 @@ class _ProfilePageState extends State<ProfilePage> {
       } else if (decoded['student'] is Map<String, dynamic>) {
         doc = decoded['student'] as Map<String, dynamic>;
       }
-      debugPrint('▶ doc keys: ${doc.keys.toList()}');
 
       // ── Step 2: extract mandatory / nonMandatory sub-maps ────────
       // Schema guarantees these keys exist; default to {} if missing.
@@ -300,8 +290,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ? doc['nonMandatory'] as Map<String, dynamic>
           : <String, dynamic>{};
 
-      debugPrint('▶ mandatory    keys: ${m.keys.toList()}');
-      debugPrint('▶ nonMandatory keys: ${n.keys.toList()}');
 
       // ── Step 3: safe value extractor ─────────────────────────────
       // Checks mandatory → nonMandatory → doc root (fallback safety).
@@ -384,7 +372,6 @@ class _ProfilePageState extends State<ProfilePage> {
           .where((e) => e.value.isNotEmpty)
           .map((e) => '  ${e.key}: ${e.value}')
           .join('\n');
-      debugPrint('▶ Resolved non-empty fields:\n$filled');
 
       if (mounted) {
         setState(() {
@@ -399,7 +386,6 @@ class _ProfilePageState extends State<ProfilePage> {
         await _saveToCache(_fieldValues);
       }
     } catch (e, st) {
-      debugPrint('✗ fetchStudentProfile error: $e\n$st');
     }
   }
 
@@ -417,8 +403,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'Accept': 'application/json',
       });
 
-      debugPrint('▶ pending status: ${response.statusCode}');
-      debugPrint('▶ pending body  : ${response.body}');
+
 
       if (response.statusCode != 200) return;
 
@@ -442,7 +427,6 @@ class _ProfilePageState extends State<ProfilePage> {
           }
         });
 
-        debugPrint('▶ pending changes (label→value): $labelChanges');
 
         setState(() {
           _pendingValues = labelChanges;
@@ -454,7 +438,6 @@ class _ProfilePageState extends State<ProfilePage> {
         await _savePendingToCache({});
       }
     } catch (e) {
-      debugPrint('✗ fetchPendingRequest error: $e');
     }
   }
 
@@ -572,9 +555,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final token  = _getToken();
     final userId = _getUserId();
     final schoolid = _getSchoolId();
-       print('token:$token');
-       print('userId:$userId');
-       print('schoolid:$schoolid');
+
 
 
     if (token == null || userId == null) {
@@ -608,7 +589,6 @@ class _ProfilePageState extends State<ProfilePage> {
     };
 
     try {
-      debugPrint('▶ POST request-update payload:\n${jsonEncode(body)}');
 
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/student/request-update'),
@@ -619,7 +599,6 @@ class _ProfilePageState extends State<ProfilePage> {
         body: jsonEncode(body),
       ).timeout(const Duration(seconds: 15));
 
-      debugPrint('◀ status: ${response.statusCode}  body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final decoded = jsonDecode(response.body);
@@ -634,11 +613,9 @@ class _ProfilePageState extends State<ProfilePage> {
         await _savePendingToCache(_pendingValues);
         _showSnack('✓ Sent for admin verification', Colors.orange.shade700);
       } else {
-        debugPrint('✗ Backend [${response.statusCode}]: ${response.body}');
         _showSnack('Failed to submit — try again', Colors.red);
       }
     } catch (e) {
-      debugPrint('✗ Submit error: $e');
       _showSnack('Connection error', Colors.red);
     } finally {
       if (mounted) setState(() => _savingFields.remove(label));

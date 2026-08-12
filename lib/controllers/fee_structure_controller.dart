@@ -28,39 +28,31 @@ class FeeStructureController extends GetxController {
     try {
       isLoading.value = true;
 
-      debugPrint('🔵 getCustomFeeHeads called: schoolId=$schoolId classId=$classId type=$type');
 
       final response = await _apiService.get(
         '/api/feestructure/v1/getbyclass',
         queryParameters: {'schoolId': schoolId, 'classId': classId},
       );
 
-      debugPrint('📥 raw response: ${response.data}');
 
       final List<Map<String, dynamic>> processedHeads = [];
 
       if (response.data != null && response.data['ok'] == true) {
         final dynamic rawData = response.data['data'];
-        debugPrint('📥 data field type: ${rawData.runtimeType}');
 
         if (rawData is List) {
-          debugPrint('📥 data list length: ${rawData.length}');
 
           final dynamic matchedRecord = rawData.firstWhere(
                 (element) => element != null && element['type']?.toString() == type,
             orElse: () => null,
           );
 
-          debugPrint('📥 matchedRecord for type="$type": $matchedRecord');
 
           if (matchedRecord != null && matchedRecord is Map) {
-            debugPrint('📥 feeHead field: ${matchedRecord['feeHead']}');
-            debugPrint('📥 feeHeads field: ${matchedRecord['feeHeads']}');
 
             if (matchedRecord['feeHeads'] != null &&
                 matchedRecord['feeHeads'] is Map) {
               final Map customMap = matchedRecord['feeHeads'];
-              debugPrint('📥 feeHeads map entries: ${customMap.entries.map((e) => "${e.key}:${e.value}(${e.value.runtimeType})").toList()}');
 
               customMap.forEach((key, value) {
                 // ✅ Parse value safely regardless of type from backend
@@ -71,10 +63,8 @@ class FeeStructureController extends GetxController {
                   amount = value.toDouble();
                 } else if (value is String) {
                   amount = double.tryParse(value) ?? 0.0;
-                  debugPrint('⚠️ feeHeads value for "$key" was String "$value" — parsed to $amount');
                 } else {
                   amount = 0.0;
-                  debugPrint('⚠️ feeHeads value for "$key" unexpected type ${value.runtimeType}');
                 }
 
                 processedHeads.add({
@@ -84,24 +74,15 @@ class FeeStructureController extends GetxController {
                   'isStandard': false,
                 });
 
-                debugPrint('   processed: feeName="${key}" feeAmount=$amount');
               });
-            } else {
-              debugPrint('⚠️ feeHeads is null or not a Map');
             }
-          } else {
-            debugPrint('⚠️ No record matched type="$type" in data list');
           }
         }
-      } else {
-        debugPrint('⚠️ response ok=false or data null');
       }
 
-      debugPrint('📥 processedHeads final: $processedHeads');
       activeCustomHeads.assignAll(processedHeads);
       return processedHeads;
     } catch (e, stack) {
-      debugPrint('❌ getCustomFeeHeads error: $e\n$stack');
       return [];
     } finally {
       isLoading.value = false;
@@ -150,16 +131,11 @@ class FeeStructureController extends GetxController {
     try {
       isLoading.value = true;
 
-      debugPrint('🔵 saveAllCustomFeeHeads called');
-      debugPrint('   schoolId: $schoolId');
-      debugPrint('   classId:  $classId');
-      debugPrint('   type:     $type');
-      debugPrint('   feeHeads: $feeHeads');
+
 
       // Check types explicitly
       for (final h in feeHeads) {
-        debugPrint('   → feeName: "${h['feeName']}" (${h['feeName'].runtimeType})');
-        debugPrint('   → feeAmount: ${h['feeAmount']} (${h['feeAmount'].runtimeType})');
+
       }
 
       if (type != 'old' && type != 'new') {
@@ -172,7 +148,6 @@ class FeeStructureController extends GetxController {
       //     .where((n) => n.isNotEmpty)
       //     .toList();
       //
-      // debugPrint('🔵 ensureFeeConfig with names: $feeHeadNames');
       //
       // if (feeHeadNames.isNotEmpty) {
       //   final configOk = await ensureFeeConfig(
@@ -180,7 +155,6 @@ class FeeStructureController extends GetxController {
       //     feeHeads: feeHeadNames,
       //     isActive: true,
       //   );
-      //   debugPrint('🔵 ensureFeeConfig result: $configOk');
       //   if (!configOk) return false;
       // }
 
@@ -198,13 +172,10 @@ class FeeStructureController extends GetxController {
             amount = rawAmount.toDouble();
           } else if (rawAmount is String) {
             amount = double.tryParse(rawAmount) ?? 0.0;
-            debugPrint('⚠️ feeAmount was a String "$rawAmount" — converted to $amount');
           } else {
             amount = 0.0;
-            debugPrint('⚠️ feeAmount was unexpected type ${rawAmount.runtimeType} — defaulted to 0.0');
           }
           feeHeadsMap[name] = amount;
-          debugPrint('   mapped: "$name" → $amount (${amount.runtimeType})');
         }
       }
 
@@ -215,20 +186,16 @@ class FeeStructureController extends GetxController {
         'feeHead': feeHeadsMap,
       };
 
-      debugPrint('📤 Final payload: $payload');
 
       final response = await _apiService.post(
         '/api/feestructure/v1/set',
         data: payload,
       );
 
-      debugPrint('📥 saveAllCustomFeeHeads response: ${response.data}');
 
       if (response.data['ok'] == true) {
-        debugPrint('✅ Save successful');
         return true;
       } else {
-        debugPrint('❌ Save failed: ${response.data['message']}');
         _showSnackbar('Error',
             response.data['message'] ?? 'Failed to save fee heads',
             AppTheme.errorRed);
@@ -238,15 +205,13 @@ class FeeStructureController extends GetxController {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['message'] ?? e.response?.data.toString())
           : e.response?.data?.toString();
-      debugPrint('❌ DioException: ${e.response?.statusCode}');
-      debugPrint('❌ Body: ${e.response?.data}');
+
       _showSnackbar('Error',
           serverMessage ?? 'Failed to save fee heads',
           AppTheme.errorRed);
       return false;
     } catch (e, stack) {
-      debugPrint('❌ Unexpected error: $e');
-      debugPrint('❌ Stack: $stack');
+
       _showSnackbar('Error', e.toString(), AppTheme.errorRed);
       return false;
     } finally {
@@ -296,11 +261,9 @@ class FeeStructureController extends GetxController {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['message'] ?? e.response?.data.toString())
           : e.response?.data?.toString();
-      debugPrint('❌ setFeeStructure 400 Backend Error Details: ${e.response?.data}');
       _showSnackbar('Error', serverMessage ?? 'Failed to update fee structure', AppTheme.errorRed);
       return false;
     } catch (e) {
-      debugPrint('❌ setFeeStructure unexpected error: $e');
       _showSnackbar('Error',
           'An error occurred while updating fee structure.', AppTheme.errorRed);
       return false;
@@ -339,7 +302,6 @@ class FeeStructureController extends GetxController {
       }
       return null;
     } catch (e) {
-      debugPrint('❌ getFeeStructureByClass error: $e');
       // Return null silently — empty state is shown in UI
       return null;
     } finally {
@@ -357,7 +319,6 @@ class FeeStructureController extends GetxController {
     try {
       final response = await _apiService.get('/api/fee-config/get/$schoolId');
       if (response.data != null && response.data['ok'] == true) {
-        debugPrint('📥 fee-config/get raw: ${response.data}');
         final data = response.data['data'];
         if (data != null && data['feeHeads'] is List) {
           return List<Map<String, dynamic>>.from(data['feeHeads']);
@@ -365,7 +326,6 @@ class FeeStructureController extends GetxController {
       }
       return [];
     } catch (e) {
-      debugPrint('⚠️ getFeeConfigHeads error: $e');
       return [];
     }
   }
@@ -380,7 +340,6 @@ class FeeStructureController extends GetxController {
     bool isActive = true,
   }) async {
     try {
-      debugPrint('📤 ensureFeeConfigV1: schoolId=$schoolId, feeHeads=$feeHeads');
 
       final response = await _apiService.post(
         '/api/fee-config/v1/set/$schoolId',
@@ -390,7 +349,6 @@ class FeeStructureController extends GetxController {
         },
       );
 
-      debugPrint('📥 ensureFeeConfigV1 response: ${response.data}');
 
       if (response.data['ok'] == true) {
         return true;
@@ -404,12 +362,10 @@ class FeeStructureController extends GetxController {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['message'] ?? e.response?.data.toString())
           : e.response?.data?.toString();
-      debugPrint('❌ ensureFeeConfigV1 400 body: ${e.response?.data}');
       _showSnackbar('Error',
           serverMessage ?? 'Failed to configure fee heads', AppTheme.errorRed);
       return false;
     } catch (e) {
-      debugPrint('❌ ensureFeeConfigV1 error: $e');
       _showSnackbar('Error', 'Failed to configure fee heads', AppTheme.errorRed);
       return false;
     }
@@ -449,14 +405,12 @@ class FeeStructureController extends GetxController {
         'feeHead':  {feeHead['feeName']: feeHead['feeAmount']},
       };
 
-      debugPrint('📤 addCustomFeeHead payload: $payload');
 
       final response = await _apiService.post(
         '/api/feestructure/v1/set',
         data: payload,
       );
 
-      debugPrint('📥 addCustomFeeHead response: ${response.data}');
 
       if (response.data['ok'] == true) {
         return true;
@@ -470,14 +424,12 @@ class FeeStructureController extends GetxController {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['message'] ?? e.response?.data.toString())
           : e.response?.data?.toString();
-      debugPrint('❌ addCustomFeeHead 400 body: ${e.response?.data}');
       _showSnackbar('Error',
           serverMessage ?? 'Failed to add fee head (${e.response?.statusCode})',
           AppTheme.errorRed);
       return false;
     } catch (e, stack) {
-      debugPrint('❌ addCustomFeeHead unexpected error: $e');
-      debugPrint('❌ Stack: $stack');
+
       _showSnackbar('Error', e.toString(), AppTheme.errorRed);
       return false;
     } finally {
@@ -503,7 +455,6 @@ class FeeStructureController extends GetxController {
   //       },
   //     );
   //
-  //     debugPrint('📥 getCustomFeeHeads response: ${response.data}');
   //
   //     if (response.data['ok'] == true) {
   //       final data = response.data['data'];
@@ -515,8 +466,6 @@ class FeeStructureController extends GetxController {
   //     }
   //     return [];
   //   } catch (e, stack) {
-  //     debugPrint('❌ getCustomFeeHeads error: $e');
-  //     debugPrint('❌ Stack: $stack');
   //     return [];
   //   } finally {
   //     isLoading.value = false;

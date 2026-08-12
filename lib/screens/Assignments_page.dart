@@ -24,18 +24,19 @@ class _AssignmentUIState extends State<AssignmentUI> {
   int selectedIndex = 0;
   late final List<Map<String, String>> dates;
   late final PageController _pageController;
+
   static String _currentAcademicYear() {
     final now = DateTime.now();
     final startYear = now.month >= 6 ? now.year : now.year - 1;
     return '$startYear-${startYear + 1}';
   }
+
   @override
   void initState() {
     super.initState();
     dates = _buildDates(); // Computed once safely
     selectedIndex = DateTime.now().weekday % 7;
 
-    // Fixed: page controller initialization matches the current day
     _pageController = PageController(initialPage: selectedIndex);
     _assignmentFutures[selectedIndex] = fetchAssignments(selectedIndex);
   }
@@ -67,12 +68,17 @@ class _AssignmentUIState extends State<AssignmentUI> {
       curve: Curves.easeInOut,
     );
   }
+
+  Future<void> _onRefresh(int index) async {
+    setState(() {
+      _assignmentFutures[index] = fetchAssignments(index);
+    });
+    await _assignmentFutures[index];
+  }
+
   Future<String> _resolveAcademicYear() async {
     final schoolController = Get.find<SchoolController>();
 
-    // If we don't have a school loaded yet, try to load it.
-    // For non-correspondent roles this internally calls _loadUserSchool(),
-    // which fetches the user's own school by their schoolId.
     if (schoolController.selectedSchool.value == null) {
       await schoolController.getAllSchools();
     }
@@ -82,11 +88,11 @@ class _AssignmentUIState extends State<AssignmentUI> {
       return year;
     }
 
-    // Fallback only — shouldn't normally be hit.
     final now = DateTime.now();
     final startYear = now.month >= 6 ? now.year : now.year - 1;
     return '$startYear-${startYear + 1}';
   }
+
   Future<List<AssignmentListStrings>> fetchAssignments(int dayIndex) async {
     String baseUrl = ApiConstants.baseUrl;
     final controller = Get.find<MyChildrenController>();
@@ -119,10 +125,6 @@ class _AssignmentUIState extends State<AssignmentUI> {
       );
 
       if (response.statusCode == 200) {
-        print('SCHOOLID:$schoolId');
-        print('CLASSID:$classId');
-        print('sectionId:$sectionId');
-        print(response.body);
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
         final List<AssignmentListStrings> allAssignments = [];
         final homeworkData = decodedData['homework'] ?? decodedData['data'];
@@ -243,48 +245,61 @@ class _AssignmentUIState extends State<AssignmentUI> {
                     itemCount: dates.length,
                     itemBuilder: (context, index) {
                       _assignmentFutures[index] ??= fetchAssignments(index);
-                      return FutureBuilder<List<AssignmentListStrings>>(
-                        future: _assignmentFutures[index],
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
+                      return RefreshIndicator(
+                        color: Colors.blue,
+                        onRefresh: () => _onRefresh(index),
+                        child: FutureBuilder<List<AssignmentListStrings>>(
+                          future: _assignmentFutures[index],
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
 
-                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                              return ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
                                 children: [
-                                  Icon(Icons.assignment_outlined, size: 60, color: Colors.grey.shade300),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No assignments today!',
-                                    style: TextStyle(color: Colors.grey.shade400, fontSize: 15, fontWeight: FontWeight.w500),
+                                  SizedBox(
+                                    height: MediaQuery.of(context).size.height * 0.5,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.assignment_outlined, size: 60, color: Colors.grey.shade300),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'No assignments today!',
+                                            style: TextStyle(color: Colors.grey.shade400, fontSize: 15, fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
-                              ),
-                            );
-                          }
-
-                          final assignments = snapshot.data!;
-                          return ListView.builder(
-                            padding: EdgeInsets.fromLTRB(16, 12, 16, AppTheme.navBarPadding(context)),
-                            itemCount: assignments.length,
-                            itemBuilder: (ctx, i) {
-                              final item = assignments[i];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 15),
-                                child: AssignmentContainer(
-                                  subject: item.subject,
-                                  title: item.description,
-                                  pages: "View Attachments (${item.imageUrls.length})",
-                                  date: item.date.split('T')[0],
-                                  color: Colors.blue,
-                                ),
                               );
-                            },
-                          );
-                        },
+                            }
+
+                            final assignments = snapshot.data!;
+                            return ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(16, 12, 16, AppTheme.navBarPadding(context)),
+                              itemCount: assignments.length,
+                              itemBuilder: (ctx, i) {
+                                final item = assignments[i];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 15),
+                                  child: AssignmentContainer(
+                                    subject: item.subject,
+                                    title: item.description,
+                                    pages: "View Attachments (${item.imageUrls.length})",
+                                    date: item.date.split('T')[0],
+                                    color: Colors.blue,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                       );
                     },
                   ),

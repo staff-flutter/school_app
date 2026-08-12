@@ -904,33 +904,43 @@ class ClubController extends GetxController {
   }
 
   // Filter clubs by class ID
-  Future<void> getClubsByClass(String classId) async {
+// Filter clubs by class ID
+  Future<void> getClubsByClass(String classId, {String? schoolId}) async {
     try {
       isLoading.value = true;
+      final targetSchoolId = schoolId ?? _getSchoolId();
 
-      // Get all clubs and filter by classId
-      final response = await _apiService.get('/api/club/getall');
+      final response = await _apiService.get(
+        '/api/club/getall',
+        queryParameters: {
+          'schoolId': targetSchoolId,
+        },
+      );
 
       if (response.data['ok'] == true) {
         final allClubs = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
 
-        // Filter clubs that have the specified classId
         final filteredClubs = allClubs.where((club) {
           final clubClassId = club['classId'];
-          return clubClassId != null && clubClassId == classId;
+
+          if (clubClassId == null) return true;
+
+          final resolvedId = clubClassId is Map
+              ? clubClassId['_id']?.toString()
+              : clubClassId.toString();
+
+          if (resolvedId == null || resolvedId.isEmpty) return true;
+
+          return resolvedId == classId;
         }).toList();
 
         clubs.assignAll(filteredClubs);
-        
       } else {
         clubs.clear();
-        
       }
     } catch (e) {
-      
       clubs.clear();
     } finally {
       isLoading.value = false;
     }
-  }
-}
+  }}

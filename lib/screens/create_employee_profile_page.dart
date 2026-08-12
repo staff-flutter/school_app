@@ -422,7 +422,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
   // ── Submit (create or update) ──────────────────────────────────────────
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    print('_submit start: _userId="$_userId" isNewStaff=$_isNewStaff widget.userId="${widget.userId}" widget.isEdit=${widget.isEdit}');
 
     final schoolId = _resolvedSchoolId;
     if (schoolId == null || schoolId.isEmpty) {
@@ -505,7 +504,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
         data: formData,
         options: dio.Options(headers: {'x-school-id': schoolId}),
       );
-      print('responseOfSubmit:$response');
 
       final ok = response.data is Map && response.data['ok'] == true;
       if (ok) {
@@ -522,8 +520,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
         throw Exception(msg ?? 'Failed to save profile');
       }
     } on dio.DioException catch (e) {
-      print('DioException on ${e.requestOptions.method} ${e.requestOptions.uri}');
-      print('Response: ${e.response?.statusCode} ${e.response?.data}');
+
       final msg = (e.response?.data is Map ? e.response!.data['message']?.toString() : null) ?? e.message;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $msg')));

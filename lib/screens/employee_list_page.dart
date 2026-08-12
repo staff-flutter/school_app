@@ -172,7 +172,6 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
         }
       });
     } catch (e) {
-      debugPrint('Error fetching staff: $e');
       if (mounted) {
         setState(() => _error = 'Failed to load staff list');
       }

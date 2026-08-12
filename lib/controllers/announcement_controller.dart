@@ -417,7 +417,6 @@ class AnnouncementController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
-        print('👍${response.data}');
         final List<dynamic> data = response.data['data'] ?? [];
 
         // Log each announcement for debugging
@@ -634,6 +633,7 @@ class AnnouncementController extends GetxController {
   }
 
   // Delete announcement
+  // Delete announcement
   Future<void> deleteAnnouncement(String id) async {
     if (!_hasPermission(['correspondent', 'principal', 'administrator'])) {
       Get.snackbar('Access Denied', 'You do not have permission to delete announcements');
@@ -642,36 +642,26 @@ class AnnouncementController extends GetxController {
 
     try {
       isLoading.value = true;
-      
+
       final response = await _apiService.delete(
         '${ApiConstants.deleteAnnouncement}/$id',
       );
 
       if (response.data['ok'] == true) {
-        Navigator.pop(Get.context!);
         Get.snackbar('Success', 'Announcement deleted successfully');
         final schoolId = selectedSchool.value?.id;
         if (schoolId != null) {
-          if (isLoading.value) {
-            Get.dialog(
-              const Center(child: CircularProgressIndicator()),
-              barrierDismissible: false,
-            );
-          }
           await getAllAnnouncements(schoolId);
         }
       } else {
         Get.snackbar('Error', response.data['message'] ?? 'Failed to delete announcement');
       }
     } catch (e) {
-      Navigator.pop(Get.context!);
       Get.snackbar('Error', 'Failed to delete announcement');
-
     } finally {
       isLoading.value = false;
     }
   }
-
   // Filter announcements by target audience
   void _applyFilter() {
 

@@ -118,6 +118,7 @@ class MandatoryDetails {
 
 class NonMandatoryDetails {
   String? facilitiesProvided, facilitiesForCWSN, screenedForSLD, sldType;
+  String? studentType;
   String? screenedForASD, screenedForADHD, isGiftedOrTalented;
   String? participatedInCompetitions, participatedInActivities;
   String? canHandleDigitalDevices, heightInCm, weightInKg;
@@ -132,6 +133,7 @@ class NonMandatoryDetails {
     'facilitiesForCWSN': facilitiesForCWSN,
     'screenedForSLD': screenedForSLD,
     'sldType': sldType,
+    'studentType': studentType,
     'screenedForASD': screenedForASD,
     'screenedForADHD': screenedForADHD,
     'isGiftedOrTalented': isGiftedOrTalented,
@@ -480,7 +482,19 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       }
     });
   }
-
+  /// Safely resolves a value from an API-provided student record against a
+  /// dropdown's fixed option list. Website-created (or otherwise free-text)
+  /// data may not match the app's fixed options exactly — different casing,
+  /// typos, or values the app's dropdown simply doesn't offer. Returning null
+  /// for a non-match avoids DropdownButtonFormField's "exactly one item must
+  /// match value" assertion crash, at the cost of showing the field blank
+  /// until the user picks a valid option and resaves.
+  String? _matchOption(String? raw, List<String> options) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    return options.firstWhereOrNull(
+          (o) => o.toLowerCase() == raw.trim().toLowerCase(),
+    );
+  }
   // ── Date helpers ────────────────────────────────────────────────────────────
 
   /// DD/MM/YYYY (UI) → YYYY-MM-DD (server)
@@ -498,7 +512,8 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
   String? _fromIsoDate(String? v) {
     if (v == null || v.trim().isEmpty) return null;
     if (v.contains('/')) return v; // already DD/MM/YYYY
-    final parts = v.split('-');
+    final datePart = v.contains('T') ? v.split('T')[0] : v;
+    final parts = datePart.split('-');
     if (parts.length == 3 && parts[0].length == 4) {
       return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}/${parts[0]}';
     }
@@ -512,6 +527,14 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     _nameCtrl.text = s.name ?? '';
     _srIdCtrl.text = s.srId ?? '';
     _isActive = s.isActive ?? true;
+
+
+    // Prefill Student Type (New/Old) — normalize case since it's saved
+    // lowercase but the dropdown options are capitalized.
+    final rawType = s.newOld?.toLowerCase();
+    _selectedStudentType = _studentTypeOptions.firstWhereOrNull(
+          (opt) => opt.toLowerCase() == rawType,
+    );
 
     if (s.classId != null) {
       final matchedClass =
@@ -531,7 +554,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     // The user can still assign one later via the "Change" banner.
     if (widget.isEdit || _pickedClassId != null) _selectionDone = true;
 
-    _selGender = s.gender;
+    _selGender = _matchOption(s.gender, _genders);
     // FIX: convert ISO dates → DD/MM/YYYY for display in date fields
     _dobCtrl.text = _fromIsoDate(s.dob) ?? '';
     _eduNoCtrl.text = s.educationNumber ?? '';
@@ -546,30 +569,30 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     _altMobileCtrl.text = s.alternateMobile ?? '';
     _emailCtrl.text = s.email ?? '';
     _motherTongueCtrl.text = s.motherTongue ?? '';
-    _selSocialCat = s.socialCategory;
+    _selSocialCat = _matchOption(s.socialCategory, _socCats);
     _minorityCtrl.text = s.minorityGroup ?? '';
-    _selBpl = s.bpl;
-    _selAay = s.aay;
-    _selEws = s.ews;
-    _selCwsn = s.cwsn;
+    _selBpl = _matchOption(s.bpl, _yesNo);
+    _selAay = _matchOption(s.aay, _yesNo);
+    _selEws = _matchOption(s.ews, _yesNo);
+    _selCwsn = _matchOption(s.cwsn, _yesNo);
     _impairmentsCtrl.text = s.impairments ?? '';
-    _selIndian = s.indian;
-    _selOos = s.outOfSchool;
+    _selIndian = _matchOption(s.indian, _yesNo);
+    _selOos = _matchOption(s.outOfSchool, _yesNo);
     _mainstreamedDateCtrl.text = _fromIsoDate(s.mainstreamedDate) ?? '';
-    _selDisCert = s.disabilityCert;
+    _selDisCert = _matchOption(s.disabilityCert, _yesNo);
     _disabilityPctCtrl.text = s.disabilityPercent ?? '';
-    _selBlood = s.bloodGroup;
+    _selBlood = _matchOption(s.bloodGroup, _bloods);
 
     _facilitiesCtrl.text = s.facilitiesProvided ?? '';
     _facCwsnCtrl.text = s.facilitiesForCWSN ?? '';
-    _selSLD = s.screenedForSLD;
+    _selSLD = _matchOption(s.screenedForSLD, _yesNo);
     _sldTypeCtrl.text = s.sldType ?? '';
-    _selASD = s.screenedForASD;
-    _selADHD = s.screenedForADHD;
-    _selGifted = s.isGiftedOrTalented;
-    _selCompetitions = s.participatedInCompetitions;
+    _selASD = _matchOption(s.screenedForASD, _yesNo);
+    _selADHD = _matchOption(s.screenedForADHD, _yesNo);
+    _selGifted = _matchOption(s.isGiftedOrTalented, _yesNo);
+    _selCompetitions = _matchOption(s.participatedInCompetitions, _yesNo);
     _activitiesCtrl.text = s.participatedInActivities ?? '';
-    _selDigital = s.canHandleDigitalDevices;
+    _selDigital = _matchOption(s.canHandleDigitalDevices, _yesNo);
     _heightCtrl.text = s.heightInCm ?? '';
     _weightCtrl.text = s.weightInKg ?? '';
     _distanceCtrl.text = s.distanceToSchool ?? '';
@@ -578,14 +601,14 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     _admNoCtrl.text = s.admissionNumber ?? '';
     _admDateCtrl.text = _fromIsoDate(s.admissionDate) ?? '';
     _rollNoCtrl.text = s.rollNumber ?? '';
-    _selMedium = s.mediumOfInstruction;
+    _selMedium = _matchOption(s.mediumOfInstruction, _mediums);
     _languagesCtrl.text = s.languagesStudied ?? '';
-    _selStream = s.academicStream;
+    _selStream = _matchOption(s.academicStream, _streams);
     _subjectsCtrl.text = s.subjectsStudied ?? '';
-    _selPrevStatus = s.statusInPreviousYear;
+    _selPrevStatus = _matchOption(s.statusInPreviousYear, _prevSts);
     _gradeLastCtrl.text = s.gradeStudiedLastYear ?? '';
     _enrolledCtrl.text = s.enrolledUnder ?? '';
-    _selPrevResult = s.previousResult;
+    _selPrevResult = _matchOption(s.previousResult, _prevRes);
     _marksPctCtrl.text = s.marksObtainedPercentage ?? '';
     _daysCtrl.text = s.daysAttendedLastYear ?? '';
 
@@ -785,6 +808,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       ..facilitiesForCWSN = _t(_facCwsnCtrl)
       ..screenedForSLD = _selSLD
       ..sldType = _t(_sldTypeCtrl)
+      ..studentType = _selectedStudentType
       ..screenedForASD = _selASD
       ..screenedForADHD = _selADHD
       ..isGiftedOrTalented = _selGifted
@@ -848,8 +872,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       }
     }
 
-    debugPrint('[STUDENT UPLOAD] POST ${ApiConstants.uploadStudentFiles}/$studentId '
-        '(${workPhotoFiles.length} file(s))');
+
 
     final resp = await apiService.dio.post(
       '${ApiConstants.uploadStudentFiles}/$studentId',
@@ -857,14 +880,11 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       options: dio.Options(headers: {'x-school-id': schoolId}),
     );
 
-    print('[STUDENT UPLOAD] status=${resp.statusCode} ok=${resp.data['ok']}');
-    print('[STUDENT UPLOAD] 📦 FULL RESPONSE: ${resp.data}');
+
     final verifyResp = await apiService.get('${ApiConstants.getStudent}/$studentId');
-    print('[STUDENT UPLOAD] 🔍 Re-fetched student: ${verifyResp.data}');
     final jsonStr = verifyResp.data.toString();
     const chunkSize = 800;
     for (var i = 0; i < jsonStr.length; i += chunkSize) {
-      print('🔍 CHUNK: ${jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize)}');
     }
     if (resp.data['ok'] != true) {
       throw Exception('File upload failed: ${resp.data['message']}');
@@ -896,7 +916,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
       final mandatoryMap = _stripNulls(payload.mandatory.toJson());
       final nonMandatoryMap = _stripNulls(payload.nonMandatory.toJson());
-
+      print('📤 Submitting mandatoryMap: $mandatoryMap');
       // Convert date fields UI (DD/MM/YYYY) → server (YYYY-MM-DD)
       if (mandatoryMap['dob'] != null) {
         mandatoryMap['dob'] = _isoDate(mandatoryMap['dob'] as String);
@@ -910,8 +930,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
             _isoDate(nonMandatoryMap['admissionDate'] as String);
       }
 
-      debugPrint('[STUDENT ${_resolvedIsEdit  ? "UPDATE" : "CREATE"}] '
-          'name=${payload.studentName} classId=${payload.currentClassId}');
+
 
       // Build flat FormData — mandatory & nonMandatory are JSON strings so the
       // server can call JSON.parse() on them directly (no bracket notation).
@@ -926,6 +945,17 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         'isActive': payload.isActive.toString(),
         'mandatory': jsonEncode(mandatoryMap),       // ← JSON string
         'nonMandatory': jsonEncode(nonMandatoryMap), // ← JSON string
+        // The create endpoint reads these specific fields from the top level of
+        // the request body (mirroring the website's quick-create step), not from
+        // inside the 'mandatory' JSON blob — send both to be safe.
+        if (!_resolvedIsEdit && mandatoryMap['gender'] != null)
+          'gender': mandatoryMap['gender'],
+        if (!_resolvedIsEdit && mandatoryMap['dob'] != null)
+          'dob': mandatoryMap['dob'],
+        if (!_resolvedIsEdit && mandatoryMap['mobileNumber'] != null)
+          'mobileNumber': mandatoryMap['mobileNumber'],
+        if (!_resolvedIsEdit)
+          'newOld': (_selectedStudentType ?? 'New').toLowerCase(),
       });
 
       // Profile photo only — sent with the main create/update request.
@@ -942,38 +972,26 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
 
       // (work-photo files are uploaded separately after save — see below)
 
-      // Debug: log every field
-      print('[STUDENT PAYLOAD FIELDS]');
-      for (final f in formData.fields) {
-        debugPrint('  ${f.key} = ${f.value}');
-      }
-      for (final f in formData.files) {
-        debugPrint('  ${f.key} = <binary: ${f.value.filename}>');
-      }
 
       Map<String, dynamic>? responseData;
 
       if (_resolvedIsEdit) {
         final studentId = _resolvedStudent!.id!;
-        debugPrint(
-            '[STUDENT UPDATE] PUT ${ApiConstants.updateStudent}/$studentId');
+
         final res = await apiService.dio.put(
           '${ApiConstants.updateStudent}/$studentId',
           data: formData,
           options: dio.Options(headers: {'x-school-id': schoolId}),
         );
-        debugPrint(
-            '[STUDENT UPDATE] status=${res.statusCode} ok=${res.data['ok']}');
+
         responseData = res.data as Map<String, dynamic>?;
       } else {
-        debugPrint('[STUDENT CREATE] POST ${ApiConstants.createStudent}');
         final res = await apiService.dio.post(
           ApiConstants.createStudent,
           data: formData,
           options: dio.Options(headers: {'x-school-id': schoolId}),
         );
-        debugPrint(
-            '[STUDENT CREATE] status=${res.statusCode} ok=${res.data['ok']}');
+
         responseData = res.data as Map<String, dynamic>?;
       }
 
@@ -982,17 +1000,13 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       if (responseData?['ok'] == true) {
         final studentId = responseData?['data']?['_id']?.toString() ??
             responseData?['student']?['_id']?.toString();
-        print('[STUDENT SUCCESS] studentId=$studentId');
-         print('response:${responseData}');
+
         // Upload work-photo files via the dedicated endpoint AFTER save.
         if (studentId != null && workPhotoFiles.isNotEmpty) {
-          debugPrint(
-              '[STUDENT] Uploading ${workPhotoFiles.length} work photo(s)…');
+
           try {
             await _uploadFilesToStudent(studentId, schoolId);
-            debugPrint('[STUDENT] File upload complete');
           } catch (e) {
-            debugPrint('[STUDENT] File upload failed (non-critical): $e');
             // Non-fatal: student was saved; notify but don't block nav.
             Get.snackbar('Upload Warning',
                 'Student saved, but file upload failed: $e',
@@ -1023,9 +1037,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
               // academic year if not provided; pass one explicitly if you collect it.
             });
 
-            debugPrint('[STUDENT] class assignment ${assigned ? "succeeded" : "failed"}');
           } catch (e) {
-            debugPrint('[STUDENT] class assignment error: $e');
           }
         }
         final action = _resolvedIsEdit  ? 'Updated' : 'Created';
@@ -1045,13 +1057,11 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       } else {
         final msg = responseData?['message']?.toString() ??
             'Failed to ${_resolvedIsEdit  ? 'update' : 'create'} student.';
-        debugPrint('[STUDENT ERROR] $msg');
         _showError(msg);
       }
     } on dio.DioException catch (e) {
       if (!mounted) return;
-      debugPrint(
-          '[STUDENT DioException] ${e.response?.statusCode}: ${e.response?.data}');
+
       _showError(
         (e.response?.data is Map
             ? e.response!.data['message']?.toString()
@@ -1061,7 +1071,6 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
       );
     } catch (e, st) {
       if (!mounted) return;
-      debugPrint('[STUDENT CATCH] $e\n$st');
       _showError(e.toString());
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -1435,31 +1444,31 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
           ),
           const SizedBox(height: 16),
           // ACTIVE TOGGLE ROW CARD
-          _FormCard(
-            child: Row(children: [
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Active Student',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _AppColors.textPrimary)),
-                      const SizedBox(height: 2),
-                      const Text('Shows on class rosters',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: _AppColors.textSecondary)),
-                    ]),
-              ),
-              Switch.adaptive(
-                value: _isActive,
-                onChanged: (v) => setState(() => _isActive = v),
-                activeColor: _AppColors.primary,
-              ),
-            ]),
-          ),
+          // _FormCard(
+          //   child: Row(children: [
+          //     Expanded(
+          //       child: Column(
+          //           crossAxisAlignment: CrossAxisAlignment.start,
+          //           children: [
+          //             const Text('Active Student',
+          //                 style: TextStyle(
+          //                     fontSize: 14,
+          //                     fontWeight: FontWeight.w600,
+          //                     color: _AppColors.textPrimary)),
+          //             const SizedBox(height: 2),
+          //             const Text('Shows on class rosters',
+          //                 style: TextStyle(
+          //                     fontSize: 12,
+          //                     color: _AppColors.textSecondary)),
+          //           ]),
+          //     ),
+          //     Switch.adaptive(
+          //       value: _isActive,
+          //       onChanged: (v) => setState(() => _isActive = v),
+          //       activeColor: _AppColors.primary,
+          //     ),
+          //   ]),
+          // ),
           const SizedBox(height: 16),
           // NEW SEPARATE DROPDOWN CARD FOR STUDENT TYPE
           _FormCard(
@@ -1607,6 +1616,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                 _field(_minorityCtrl, 'Minority Group',
                     icon: Icons.people_outline),
                 _divider(),
+                SizedBox(height: 12),
                 Row(children: [
                   Expanded(
                       child: _dropCompact('BPL', _selBpl, _yesNo,
@@ -1630,6 +1640,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                 _field(_impairmentsCtrl, 'Impairments',
                     icon: Icons.accessibility_new_outlined),
                 _divider(),
+                SizedBox(height: 12,),
                 Row(children: [
                   Expanded(
                       child: _dropCompact('Indian National', _selIndian, _yesNo,
@@ -1690,6 +1701,7 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
                 _divider(),
                 _field(_sldTypeCtrl, 'SLD Type', icon: Icons.notes_rounded),
                 _divider(),
+                SizedBox(height: 12),
                 Row(children: [
                   Expanded(
                       child: _dropCompact('ASD', _selASD, _yesNo,
@@ -2320,13 +2332,11 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
     setState(() => _deletingDocId = doc.id);
     try {
       final apiService = Get.find<ApiService>();
-      debugPrint('[STUDENT] DELETE '
-          '${ApiConstants.deleteStudentDocument}/$studentId/${doc.id}');
+
       final resp = await apiService.dio.delete(
         '${ApiConstants.deleteStudentDocument}/$studentId/${doc.id}',
         options: dio.Options(headers: {'x-school-id': schoolId}),
       );
-      debugPrint('[STUDENT] delete-document ok=${resp.data['ok']}');
       if (resp.data['ok'] == true) {
         setState(() {
           _documents.removeWhere((d) => d.id == doc.id);
@@ -2341,15 +2351,13 @@ class _CreateStudentProfilePageState extends State<CreateStudentProfilePage>
         throw Exception(resp.data['message']?.toString() ?? 'Delete failed');
       }
     } on dio.DioException catch (e) {
-      debugPrint('[STUDENT] delete-document DioException '
-          '${e.response?.statusCode}: ${e.response?.data}');
+
       if (mounted) setState(() => _deletingDocId = null);
       _showError((e.response?.data is Map
           ? e.response!.data['message']?.toString()
           : null) ??
           'Failed to delete document');
     } catch (e) {
-      debugPrint('[STUDENT] delete-document error: $e');
       if (mounted) setState(() => _deletingDocId = null);
       _showError('Failed to delete document: $e');
     }

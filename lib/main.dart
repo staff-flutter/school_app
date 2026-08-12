@@ -130,7 +130,7 @@ void main() async {
 
       DevicePreview(
 
-        enabled: false,
+        enabled: true,
 
         builder: (context) => SchoolApp(),
 
@@ -160,7 +160,7 @@ class SchoolApp extends StatelessWidget {
 
 // this below three lines are to check with all screen sizes
 
-// useInheritedMediaQuery: true,
+  useInheritedMediaQuery: true,
 
       locale: DevicePreview.locale(context),
 

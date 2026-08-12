@@ -92,17 +92,14 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
         // 2. Watch for subsequent changes
         _schoolWatcher = ever(schoolController.selectedSchool, (school) {
           if (!mounted) return;
-          debugPrint('🔄 Sidebar school changed to: ${school?.id}. Refetching requests...');
           final newId = school?.id;
           final role = Get.find<AuthController>().user.value?.role?.toLowerCase();
 
           if (role == 'correspondent' && newId != _lastFetchedSchoolId && newId != null) {
-            debugPrint('🔄 School changed in sidebar to: $newId. Refetching...');
             _fetchRequests();
           }
         });
       } catch (e) {
-        debugPrint('SchoolController missing: $e');
       }
     });
   }
@@ -141,8 +138,7 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
  //final String schoolId = _getSchoolId();
     final token    = _getToken();
     final schoolId = _getSchoolId();
-    print('schoolid: $schoolId');
-    print('token: $token');
+
 
 
     if (token == null || schoolId == null) {
@@ -166,13 +162,7 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
         'status': 'resolved',
       });
 
-      debugPrint('--- AUTH DIAGNOSTICS ---');
-      debugPrint('Active User Role: ${Get.find<UserSession>().role}');
-      debugPrint('Requesting SchoolID: $schoolId');
-      debugPrint('Pending URI : $pendingUri');
-      debugPrint('Resolved URI: $resolvedUri');
-      debugPrint('Token snippet: ${token.length > 20 ? token.substring(0, 20) : token}...');
-      debugPrint('------------------------');
+
 
       final headers = {
         'Authorization': 'Bearer $token',
@@ -182,33 +172,25 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
       // .timeout() added — without this, a hung/unresponsive server just
       // sits on `await` forever with zero logging, which is exactly what
       // was happening. Each request now fails loudly after 15s instead.
-      debugPrint('▶ sending GET $pendingUri ...');
       final pendingResponse = await http
           .get(pendingUri, headers: headers)
           .timeout(const Duration(seconds: 15));
-      debugPrint('◀ PENDING  status=${pendingResponse.statusCode} body=${pendingResponse.body}');
 
-      debugPrint('▶ sending GET $resolvedUri ...');
       final resolvedResponse = await http
           .get(resolvedUri, headers: headers)
           .timeout(const Duration(seconds: 15));
-      debugPrint('◀ RESOLVED status=${resolvedResponse.statusCode} body=${resolvedResponse.body}');
 
       List<PendingProfileRequest> parse(http.Response r) {
         if (r.statusCode != 200) {
-          debugPrint('API Error Status [${r.statusCode}]: ${r.body}');
           return [];
         }
         final decoded = jsonDecode(r.body);
         if (decoded is! Map<String, dynamic>) {
-          debugPrint('✗ Unexpected response shape: ${decoded.runtimeType}');
           return [];
         }
         if (decoded['ok'] != true) {
-          debugPrint('✗ ok!=true — message: ${decoded['message']}');
         }
         final list = decoded['data'] as List? ?? [];
-        debugPrint('▶ parsed ${list.length} item(s)');
         return list
             .map((j) => PendingProfileRequest.fromJson(j as Map<String, dynamic>))
             .toList();
@@ -222,13 +204,11 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
         });
       }
     } on TimeoutException catch (e) {
-      debugPrint('✗ Request TIMED OUT: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         _snack('Server took too long to respond. Check your connection / API.', Colors.red.shade700);
       }
     } catch (e, st) {
-      debugPrint('Fetch requests error: $e\n$st');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -272,11 +252,9 @@ class _ProfileVerificationPageState extends State<ProfileVerificationPage>
           action == 'approved' ? Colors.green : Colors.red.shade700,
         );
       } else {
-        debugPrint('Review failed: ${response.statusCode} ${response.body}');
         _snack('Failed — try again', Colors.red.shade700);
       }
     } catch (e) {
-      debugPrint('Review error: $e');
       _snack('Connection error', Colors.red.shade700);
     } finally {
       setState(() => _processingIds.remove(req.id));

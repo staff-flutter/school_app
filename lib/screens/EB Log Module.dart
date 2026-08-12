@@ -8,9 +8,7 @@ import 'package:school_app/controllers/school_controller.dart';
 import '../core/permissions/eb_permissions.dart';
 import 'eb_log_form_page.dart';
 
-/// Mobile "EB Logs" screen — mirrors the web "Electricity (EB) Logs" page:
-/// search, Premises / Date Range / Meter Reading filters, and a list of
-/// log cards (log no, date/time, premises, reading, edit/delete actions).
+/// Mobile "EB Logs" screen restyled with clean white and blue theme system.
 class EBLogListScreen extends StatefulWidget {
   const EBLogListScreen({super.key});
 
@@ -28,6 +26,17 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
   Worker? _authWorker;
   Worker? _schoolWorker;
   String _lastLoadedSchoolId = '';
+
+  // Theme Colors
+  static const Color primaryBlue = Color(0xFF2563EB);
+  static const Color lightBlueBg = Color(0xFFEFF6FF);
+  static const Color amberYellow = Color(0xFFD97706);
+  static const Color lightAmberBg = Color(0xFFFEF3C7);
+  static const Color cardBg = Colors.white;
+  static const Color textDark = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF64748B);
+  static const Color borderColor = Color(0xFFE2E8F0);
+
   String get role => _authController.user.value?.role?.toLowerCase() ?? '';
 
   String get schoolId {
@@ -46,7 +55,11 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
   bool _premisesRequested = false;
 
   bool get _hasActiveFilters =>
-      _selectedPremisesId != null || _fromDate != null || _toDate != null || _minReading != null || _maxReading != null;
+      _selectedPremisesId != null ||
+          _fromDate != null ||
+          _toDate != null ||
+          _minReading != null ||
+          _maxReading != null;
 
   @override
   void initState() {
@@ -67,6 +80,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
       });
     }
   }
+
   @override
   void dispose() {
     _authWorker?.dispose();
@@ -74,6 +88,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
   Future<void> _loadLogs() async {
     if (schoolId.isEmpty) return;
     await ebController.getAllEBLogs(
@@ -83,7 +98,9 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
       toDate: _toDate?.toIso8601String(),
       minReading: _minReading,
       maxReading: _maxReading,
-      search: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
+      search: _searchController.text.trim().isEmpty
+          ? null
+          : _searchController.text.trim(),
     );
   }
 
@@ -108,16 +125,26 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
   Future<void> _confirmDelete(Map<String, dynamic> log) async {
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
-        title: const Text('Delete EB Log', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete EB Log', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark)),
         content: Text(
-          'Remove log "${log['ebLogNo'] ?? ''}"? This cannot be undone.',
-          style: const TextStyle(fontSize: 13),
+          'Remove log "${log['ebLogNo'] ?? ''}"? This action cannot be undone.',
+          style: const TextStyle(fontSize: 13, color: textMuted),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(result: false), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
           TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel', style: TextStyle(fontSize: 13, color: textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () => Get.back(result: true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red, fontSize: 13)),
+            child: const Text('Delete', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -131,7 +158,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
 
   Future<void> _openPremisesFilterSheet() async {
     if (schoolId.isEmpty) {
-      Get.snackbar('Please wait', 'Still loading your school info...',
+      Get.snackbar('Please wait', 'Still loading school info...',
           snackPosition: SnackPosition.BOTTOM);
       return;
     }
@@ -143,6 +170,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: cardBg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Padding(
@@ -165,7 +193,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Filter by Premises', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                          const Text('Filter by Premises', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark)),
                           TextButton(
                             onPressed: () {
                               setState(() {
@@ -174,41 +202,43 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                               });
                               Get.back();
                             },
-                            child: const Text('Clear', style: TextStyle(fontSize: 13)),
+                            child: const Text('Clear', style: TextStyle(fontSize: 13, color: primaryBlue)),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: searchController,
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13, color: textDark),
                         onChanged: (_) => setSheetState(() {}),
                         decoration: InputDecoration(
                           hintText: 'Search premises...',
-                          hintStyle: const TextStyle(fontSize: 13),
-                          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                          hintStyle: const TextStyle(fontSize: 13, color: textMuted),
+                          prefixIcon: const Icon(Icons.search, size: 20, color: textMuted),
                           filled: true,
-                          fillColor: Colors.grey.shade100,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: borderColor)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: borderColor)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: primaryBlue)),
                         ),
                       ),
                       const SizedBox(height: 10),
                       Expanded(
                         child: Obx(() {
                           if (ebController.isLoading.value && ebController.premisesList.isEmpty) {
-                            return const Center(child: CircularProgressIndicator());
+                            return const Center(child: CircularProgressIndicator(color: primaryBlue));
                           }
                           if (premisesList.isEmpty) {
-                            return Center(child: Text('No premises found', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)));
+                            return const Center(child: Text('No premises found', style: TextStyle(color: textMuted, fontSize: 13)));
                           }
                           return ListView.separated(
                             itemCount: premisesList.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            separatorBuilder: (_, __) => const Divider(height: 1, color: borderColor),
                             itemBuilder: (context, index) {
                               final p = premisesList[index];
                               return ListTile(
                                 dense: true,
-                                title: Text(p['premisesName'] ?? '', style: const TextStyle(fontSize: 13)),
+                                title: Text(p['premisesName'] ?? '', style: const TextStyle(fontSize: 13, color: textDark, fontWeight: FontWeight.w500)),
                                 onTap: () {
                                   setState(() {
                                     _selectedPremisesId = (p['_id'] ?? p['id']).toString();
@@ -240,6 +270,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
 
     await showModalBottomSheet(
       context: context,
+      backgroundColor: cardBg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(
@@ -254,13 +285,13 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Date Range', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                        const Text('Date Range', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark)),
                         TextButton(
                           onPressed: () => setSheetState(() {
                             tempFrom = null;
                             tempTo = null;
                           }),
-                          child: const Text('Clear', style: TextStyle(fontSize: 13)),
+                          child: const Text('Clear', style: TextStyle(fontSize: 13, color: primaryBlue)),
                         ),
                       ],
                     ),
@@ -313,12 +344,13 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                           _loadLogs();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black87,
+                          backgroundColor: primaryBlue,
                           foregroundColor: Colors.white,
+                          elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        child: const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -337,6 +369,7 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
 
     await showModalBottomSheet(
       context: context,
+      backgroundColor: cardBg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return SafeArea(
@@ -354,13 +387,13 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Meter Reading', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                    const Text('Meter Reading', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark)),
                     TextButton(
                       onPressed: () {
                         minController.clear();
                         maxController.clear();
                       },
-                      child: const Text('Clear', style: TextStyle(fontSize: 13)),
+                      child: const Text('Clear', style: TextStyle(fontSize: 13, color: primaryBlue)),
                     ),
                   ],
                 ),
@@ -371,11 +404,12 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                       child: TextField(
                         controller: minController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13, color: textDark),
                         decoration: InputDecoration(
                           labelText: 'Min',
-                          labelStyle: const TextStyle(fontSize: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          labelStyle: const TextStyle(fontSize: 12, color: textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: borderColor)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: primaryBlue)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                       ),
@@ -385,11 +419,12 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                       child: TextField(
                         controller: maxController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13, color: textDark),
                         decoration: InputDecoration(
                           labelText: 'Max',
-                          labelStyle: const TextStyle(fontSize: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          labelStyle: const TextStyle(fontSize: 12, color: textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: borderColor)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: primaryBlue)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                       ),
@@ -409,12 +444,13 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                       _loadLogs();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black87,
+                      backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
+                      elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    child: const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -428,50 +464,69 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 16,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'EB Logs',
+              style: TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              'Monitor electricity meter readings',
+              style: TextStyle(fontSize: 11, color: textMuted, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+        actions: [
+          if (EBPermissions.canEditEBLogs(role))
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: ElevatedButton.icon(
+                onPressed: () => _openForm(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryBlue,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Log Reading', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text('EB Logs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _openForm(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black87,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Log Reading', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
               TextField(
                 controller: _searchController,
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: 13, color: textDark),
                 onSubmitted: (_) => _loadLogs(),
                 decoration: InputDecoration(
                   hintText: 'Log No, Notes...',
-                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                  hintStyle: const TextStyle(color: textMuted, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search, size: 20, color: textMuted),
                   filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  fillColor: cardBg,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: borderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: borderColor)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: primaryBlue)),
                 ),
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 38,
+                height: 36,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
@@ -499,10 +554,11 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
                     if (_hasActiveFilters) ...[
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.close, size: 14),
-                        label: const Text('Clear', style: TextStyle(fontSize: 12)),
+                        avatar: const Icon(Icons.close, size: 14, color: textMuted),
+                        label: const Text('Clear', style: TextStyle(fontSize: 12, color: textDark)),
                         onPressed: _clearFilters,
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        side: BorderSide.none,
                       ),
                     ],
                   ],
@@ -512,13 +568,14 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
               Expanded(
                 child: Obx(() {
                   if (ebController.isLoading.value && ebController.ebLogs.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator(color: primaryBlue));
                   }
                   final logs = ebController.ebLogs;
                   if (logs.isEmpty) {
-                    return Center(child: Text('No EB logs found', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)));
+                    return const Center(child: Text('No EB logs found', style: TextStyle(color: textMuted, fontSize: 13)));
                   }
                   return RefreshIndicator(
+                    color: primaryBlue,
                     onRefresh: _loadLogs,
                     child: ListView.separated(
                       itemCount: logs.length,
@@ -545,11 +602,12 @@ class _EBLogListScreenState extends State<EBLogListScreen> {
     final id = schoolId;
     if (id.isEmpty || id == _lastLoadedSchoolId) return;
     _lastLoadedSchoolId = id;
-    ebController.ebLogs.clear();       // drop stale previous-user data
-    ebController.premisesList.clear(); // clear so the filter sheet doesn't show old premises either
-    _premisesRequested = false;        // force premises to be refetched for the new school
+    ebController.ebLogs.clear();
+    ebController.premisesList.clear();
+    _premisesRequested = false;
     _loadLogs();
-  }}
+  }
+}
 
 class _MiniDateField extends StatelessWidget {
   final String label;
@@ -562,18 +620,19 @@ class _MiniDateField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+        Text(label, style: const TextStyle(fontSize: 11, color: _EBLogListScreenState.textMuted)),
         const SizedBox(height: 4),
         InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(border: Border.all(color: _EBLogListScreenState.borderColor), borderRadius: BorderRadius.circular(8)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(value, style: const TextStyle(fontSize: 12)),
-                const Icon(Icons.calendar_today_outlined, size: 14),
+                Text(value, style: const TextStyle(fontSize: 12, color: _EBLogListScreenState.textDark)),
+                const Icon(Icons.calendar_today_outlined, size: 14, color: _EBLogListScreenState.textMuted),
               ],
             ),
           ),
@@ -595,18 +654,25 @@ class _FilterChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? Colors.black87 : Colors.white,
+          color: active ? _EBLogListScreenState.primaryBlue : _EBLogListScreenState.cardBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? Colors.black87 : Colors.grey.shade300),
+          border: Border.all(color: active ? _EBLogListScreenState.primaryBlue : _EBLogListScreenState.borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(color: active ? Colors.white : Colors.black87, fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.white : _EBLogListScreenState.textDark,
+                fontSize: 12,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
             const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down, size: 14, color: active ? Colors.white : Colors.black54),
+            Icon(Icons.keyboard_arrow_down, size: 14, color: active ? Colors.white : _EBLogListScreenState.textMuted),
           ],
         ),
       ),
@@ -620,6 +686,7 @@ class _EBLogCard extends StatelessWidget {
   final bool canDelete;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
   const _EBLogCard({
     required this.log,
     required this.canEdit,
@@ -627,6 +694,7 @@ class _EBLogCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
   });
+
   String _formatDate(dynamic raw) {
     if (raw == null) return 'N/A';
     final parsed = DateTime.tryParse(raw.toString());
@@ -645,9 +713,12 @@ class _EBLogCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _EBLogListScreenState.cardBg,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2)),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,8 +726,11 @@ class _EBLogCard extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: const Color(0xFFFFF3D6), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.bolt, color: Color(0xFFCA8A04), size: 20),
+            decoration: BoxDecoration(
+              color: _EBLogListScreenState.lightAmberBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.bolt, color: _EBLogListScreenState.amberYellow, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -667,12 +741,15 @@ class _EBLogCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(ebLogNo, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        ebLogNo,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _EBLogListScreenState.textDark),
+                      ),
                     ),
                     if (canEdit)
                       IconButton(
                         onPressed: onEdit,
-                        icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.black54),
+                        icon: const Icon(Icons.edit_outlined, size: 18, color: _EBLogListScreenState.textMuted),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
@@ -681,7 +758,7 @@ class _EBLogCard extends StatelessWidget {
                     if (canDelete)
                       IconButton(
                         onPressed: onDelete,
-                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
@@ -692,26 +769,32 @@ class _EBLogCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     '${_formatDate(log['date'])}${time.isNotEmpty ? ' · $time' : ''}',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                    style: const TextStyle(color: _EBLogListScreenState.textMuted, fontSize: 11),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.apartment, size: 13, color: Colors.grey.shade500),
+                      const Icon(Icons.apartment, size: 13, color: _EBLogListScreenState.textMuted),
                       const SizedBox(width: 4),
-                      Text(premisesName, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                      Text(
+                        premisesName,
+                        style: const TextStyle(color: _EBLogListScreenState.textDark, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFDCEBFC), borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(
+                    color: _EBLogListScreenState.lightBlueBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Text(
                     reading == null ? 'N/A' : '$reading kWh',
-                    style: const TextStyle(color: Color(0xFF3B82F6), fontWeight: FontWeight.w700, fontSize: 11),
+                    style: const TextStyle(color: _EBLogListScreenState.primaryBlue, fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ),
               ],

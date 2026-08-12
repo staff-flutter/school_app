@@ -8,10 +8,12 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
+import '../controllers/auth_controller.dart';
 import '../services/user_session.dart';
 import 'club_video_player_page.dart';
 import 'club_quiz_attempt_page.dart';
 import 'quiz_leaderboard_page.dart';
+import 'package:video_player/video_player.dart';
 // ── Model ─────────────────────────────────────────────────────────
 class ClubVideo {
   final String id;
@@ -83,9 +85,9 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
     setState(() { _isLoading = true; _errorMsg = null; });
 
     try {
-      final session  = Get.find<UserSession>();
-      final token    = session.token ?? '';
-      final schoolId = session.schoolId ?? '';
+      final authController = Get.find<AuthController>();
+      final token    = authController.storage.read('token') ?? '';
+      final schoolId = authController.user.value?.schoolId ?? '';
 
       final uri = Uri.parse('${ApiConstants.baseUrl}/api/club/video/getall')
           .replace(queryParameters: {
@@ -102,7 +104,6 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        print('response to know pdf:${response.body}');
         final List<dynamic> list = decoded['data'] ?? [];
         setState(() {
           _videos   = list.map((j) => ClubVideo.fromJson(j)).toList();
@@ -119,7 +120,6 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
         _errorMsg  = 'Connection error — tap to retry';
         _isLoading = false;
       });
-      debugPrint('ClubVideos fetch error: $e');
     }
   }
 
@@ -298,22 +298,8 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
               fit: StackFit.expand,
               children: [
                 // ── Thumbnail ──────────────────────────────────────
-                if (video.thumbnailUrl != null &&
-                    video.thumbnailUrl!.isNotEmpty)
-                  CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: const Color(0xffEEF3FB),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: SchoolGalleryPage._primaryBlue),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) =>
-                        _buildThumbnailFallback(video),
-                  )
+                if (video.videoUrl != null && video.videoUrl!.isNotEmpty)
+                  _VideoFrameThumbnail(videoUrl: video.videoUrl!)
                 else
                   _buildThumbnailFallback(video),
 
@@ -486,6 +472,82 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
           ),
         ),
       ]),
+    );
+  }
+
+}
+
+class _VideoFrameThumbnail extends StatefulWidget {
+  final String videoUrl;
+  const _VideoFrameThumbnail({required this.videoUrl});
+
+  @override
+  State<_VideoFrameThumbnail> createState() => _VideoFrameThumbnailState();
+}
+
+class _VideoFrameThumbnailState extends State<_VideoFrameThumbnail> {
+  VideoPlayerController? _controller;
+  bool _ready = false;
+  bool _errored = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+      await controller.pause(); // ensure it stays on frame 0, doesn't autoplay
+      if (mounted) setState(() => _ready = true);
+    } catch (_) {
+      if (mounted) setState(() => _errored = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose(); // critical — leaking these will crash a long grid
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_errored) {
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: Icon(Icons.play_circle_fill_rounded,
+              color: Colors.white.withOpacity(0.6), size: 48),
+        ),
+      );
+    }
+    if (!_ready || _controller == null) {
+      return Container(
+        color: const Color(0xffEEF3FB),
+        child: const Center(
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: SchoolGalleryPage._primaryBlue),
+        ),
+      );
+    }
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: _controller!.value.size.width,
+        height: _controller!.value.size.height,
+        child: VideoPlayer(_controller!),
+      ),
     );
   }
 }

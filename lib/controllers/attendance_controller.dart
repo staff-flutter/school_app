@@ -89,7 +89,6 @@ class AttendanceController extends GetxController {
       );
 
       if (response.data['ok'] == true) {
-        print('getAttendanceSheet:${response.data}');
         final data = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
         attendanceSheet.value = data;
         return data;
@@ -178,7 +177,6 @@ class AttendanceController extends GetxController {
 
       
       if (response.data['ok'] == true) {
-        print('getAttendanceHistory:${response.data}');
         final data = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
         attendanceHistory.value = data;
         return data;

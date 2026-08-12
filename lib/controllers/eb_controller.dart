@@ -155,7 +155,6 @@ class EBController extends GetxController {
       final response = await _apiService.get('${ApiConstants.getPremises}/$schoolId/$premisesId');
 
       if (response.data['ok'] == true) {
-        print('response of get premisses by ID :${response.data}');
 
         currentPremises.value = response.data['data'];
         return response.data['data'];
@@ -363,11 +362,10 @@ class EBController extends GetxController {
       isLoading.value = true;
       final response = await _apiService.get('${ApiConstants.ebLogsAnalyticsBase}/$schoolId/premises');
       final url = '${ApiConstants.ebLogsAnalyticsBase}/$schoolId/premises';
-      print('GET $url');
       if (response.data['ok'] == true) {
         premisesAnalytics.value = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       } else {
-        _showSnackbar('Error', response.data['message'] ?? 'Failed to load premises analytics', AppTheme.errorRed);
+       // _showSnackbar('Error', response.data['message'] ?? 'Failed to load premises analytics', AppTheme.errorRed);
       }
     } catch (e) {
       _showSnackbar('Error', _errorMessage(e, 'An error occurred while loading premises analytics'), AppTheme.errorRed);
@@ -383,7 +381,6 @@ class EBController extends GetxController {
       isLoading.value = true;
 
       final response = await _apiService.get('${ApiConstants.ebLogsAnalyticsBase}/$schoolId/dashboard');
-      print('school ID :$schoolId');
       if (response.data['ok'] == true) {
         dashboardAnalytics.value = response.data['data'];
         return response.data['data'];

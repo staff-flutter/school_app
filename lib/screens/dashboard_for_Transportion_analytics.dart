@@ -7,33 +7,6 @@ import 'package:school_app/controllers/transport_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/school_controller.dart';
 
-/// "Transportation Analytics" screen — mirrors /dashboard/transportaion-analytics.
-///
-/// Requires the `fl_chart` package: add `fl_chart: ^0.68.0` (or latest) to pubspec.yaml.
-///
-/// CHANGELOG vs previous version:
-///   - FIXED: stat-card grid overflow ("BOTTOM OVERFLOWED BY N PIXELS"). The
-///     old GridView.count(childAspectRatio: 1.8) forced a fixed card height
-///     that didn't fit longer labels ("PROJECTED MONTH-END") or larger text
-///     scale settings. Cards now size to their own content via IntrinsicHeight
-///     row-pairs + a FittedBox on the value text, so they can never overflow
-///     regardless of label length or accessibility text scaling.
-///   - CONFIRMED: the fuel-log `dailyTrend` field (date/totalAmountSpent)
-///     rendered correctly on-device and matches the web's "Total Fleet Spend
-///     Over Time" card shape — no longer flagged as unconfirmed.
-///   - ADDED (fuel tab, matching the web reference screenshots):
-///       * Bus-Wise Fuel Consumption — grouped bars (amount/quantity/fill-ups)
-///       * Payment Modes — donut chart
-///       * Fleet Mileage Performance — km/L per bus
-///       * Top Fuel Stations — ranked list
-///     These read GUESSED field names (see comments on each) and are built
-///     defensively: if the key isn't in the API response yet, the section
-///     just doesn't render — nothing crashes. Swap in real field names once
-///     you can confirm them from a fuller getFuelLogAnalytics payload.
-///
-/// STILL UNCONFIRMED: the query param names used to filter by
-/// Today/Week/Month/Year and the custom Apply range — check the Network tab
-/// and adjust `period`/`fromDate`/`toDate` in TransportController if wrong.
 class TransportationAnalyticsScreen extends StatefulWidget {
   const TransportationAnalyticsScreen({super.key});
 
@@ -64,7 +37,24 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   final DateFormat _apiDateFmt = DateFormat('yyyy-MM-dd');
   final DateFormat _chartDateFmt = DateFormat('dd MMM');
 
-  static const List<Color> _busColors = [Colors.indigo, Colors.teal, Colors.deepOrange, Colors.purple, Colors.blueGrey, Colors.pink];
+  // App Theme Palette (Matching Dashboard: Blue, Yellow/Amber, Green, White)
+  static const Color primaryBlue = Color(0xFF2563EB);
+  static const Color lightBlueBg = Color(0xFFEFF6FF);
+  static const Color primaryYellow = Color(0xFFF59E0B);
+  static const Color lightYellowBg = Color(0xFFFEF3C7);
+  static const Color primaryGreen = Color(0xFF10B981);
+  static const Color lightGreenBg = Color(0xFFD1FAE5);
+  static const Color cardBg = Colors.white;
+  static const Color textDark = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF64748B);
+
+  static const List<Color> _busColors = [
+    Color(0xFF2563EB), // Blue
+    Color(0xFF10B981), // Green
+    Color(0xFFF59E0B), // Yellow/Orange
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFF06B6D4), // Cyan
+  ];
 
   @override
   void initState() {
@@ -114,6 +104,18 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       firstDate: DateTime(2015),
       lastDate: DateTime(2100),
       initialDateRange: _customFrom != null && _customTo != null ? DateTimeRange(start: _customFrom!, end: _customTo!) : null,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: primaryBlue,
+              onPrimary: Colors.white,
+              surface: cardBg,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (range != null) {
       setState(() {
@@ -121,43 +123,54 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
         _customTo = range.end;
         _range = _RangeType.custom;
       });
+      _load();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Transportation Analytics'),
+        elevation: 0,
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Transportation Analytics',
+          style: TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 20),
+        ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: SegmentedButton<_AnalyticsTab>(
-              segments: const [
-                ButtonSegment(value: _AnalyticsTab.dailyTrips, label: Text('Daily Trips'), icon: Icon(Icons.alt_route, size: 16)),
-                ButtonSegment(value: _AnalyticsTab.fuelLogs, label: Text('Fuel Logs'), icon: Icon(Icons.local_gas_station, size: 16)),
-              ],
-              selected: {_tab},
-              onSelectionChanged: (sel) {
-                setState(() => _tab = sel.first);
-                _load();
-              },
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  _buildTabButton('Daily Trips', Icons.alt_route, _AnalyticsTab.dailyTrips),
+                  _buildTabButton('Fuel Logs', Icons.local_gas_station, _AnalyticsTab.fuelLogs),
+                ],
+              ),
             ),
           ),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
           : schoolId == null
-          ? const Center(child: Text('No school selected.'))
+          ? const Center(child: Text('No school selected.', style: TextStyle(color: textMuted)))
           : RefreshIndicator(
+        color: primaryBlue,
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             _buildRangeSelector(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             if (_tab == _AnalyticsTab.dailyTrips) _buildDailyTripsTab() else _buildFuelLogsTab(),
           ],
         ),
@@ -165,34 +178,96 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
     );
   }
 
-  // ---------------------------------------------------------------------
-  // Range / period selector
-  // ---------------------------------------------------------------------
-
-  Widget _buildRangeSelector() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final r in [_RangeType.today, _RangeType.week, _RangeType.month, _RangeType.year])
-          ChoiceChip(
-            label: Text(r.name[0].toUpperCase() + r.name.substring(1)),
-            selected: _range == r,
-            onSelected: (_) {
-              setState(() => _range = r);
-              _load();
-            },
+  Widget _buildTabButton(String title, IconData icon, _AnalyticsTab tab) {
+    final isSelected = _tab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (!isSelected) {
+            setState(() => _tab = tab);
+            _load();
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
           ),
-        OutlinedButton.icon(
-          onPressed: _pickCustomRange,
-          icon: const Icon(Icons.date_range, size: 16),
-          label: Text(
-            _customFrom != null && _customTo != null ? '${_apiDateFmt.format(_customFrom!)} - ${_apiDateFmt.format(_customTo!)}' : 'Custom range',
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? Colors.white : textMuted),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : textMuted,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
-        if (_range == _RangeType.custom && _customFrom != null && _customTo != null) ElevatedButton(onPressed: _load, child: const Text('Apply')),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildRangeSelector() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final r in [_RangeType.today, _RangeType.week, _RangeType.month, _RangeType.year])
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(r.name[0].toUpperCase() + r.name.substring(1)),
+                selected: _range == r,
+                selectedColor: lightBlueBg,
+                backgroundColor: cardBg,
+                labelStyle: TextStyle(
+                  color: _range == r ? primaryBlue : textMuted,
+                  fontWeight: _range == r ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 13,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _range == r ? primaryBlue : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                showCheckmark: false,
+                onSelected: (_) {
+                  setState(() => _range = r);
+                  _load();
+                },
+              ),
+            ),
+          ActionChip(
+            onPressed: _pickCustomRange,
+            avatar: Icon(Icons.date_range, size: 16, color: _range == _RangeType.custom ? primaryBlue : textMuted),
+            label: Text(
+              _customFrom != null && _customTo != null
+                  ? '${_apiDateFmt.format(_customFrom!)} - ${_apiDateFmt.format(_customTo!)}'
+                  : 'Custom',
+            ),
+            backgroundColor: _range == _RangeType.custom ? lightBlueBg : cardBg,
+            labelStyle: TextStyle(
+              color: _range == _RangeType.custom ? primaryBlue : textMuted,
+              fontWeight: _range == _RangeType.custom ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: _range == _RangeType.custom ? primaryBlue : const Color(0xFFE2E8F0),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -217,34 +292,46 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
         _sectionTitle('Daily Trip Analytics'),
         const SizedBox(height: 12),
         _buildStatGrid([
-          _StatCardData('Total Distance', '${summary['totalKmRun'] ?? 0} km', Icons.map_outlined, Colors.indigo),
-          _StatCardData('Total Trips', '${summary['totalTrips'] ?? 0}', Icons.alt_route, Colors.teal),
-          _StatCardData('Avg KM / Trip', '${_fmtNum(summary['avgKmPerTrip'])} km', Icons.speed, Colors.orange),
-          _StatCardData('Max KM in a Day', '${summary['maxKmInADay'] ?? 0} km', Icons.event, Colors.pink),
+          _StatCardData('Total Distance', '${summary['totalKmRun'] ?? 0} km', Icons.map_outlined, primaryBlue, lightBlueBg),
+          _StatCardData('Total Trips', '${summary['totalTrips'] ?? 0}', Icons.alt_route, primaryGreen, lightGreenBg),
+          _StatCardData('Avg KM / Trip', '${_fmtNum(summary['avgKmPerTrip'])} km', Icons.speed, primaryYellow, lightYellowBg),
+          _StatCardData('Max KM in a Day', '${summary['maxKmInADay'] ?? 0} km', Icons.event, const Color(0xFFEC4899), const Color(0xFFFCE7F3)),
         ]),
-        const SizedBox(height: 24),
-        _sectionTitle('Daily Distance Trend'),
-        const Text('Kilometers covered across all fleet vehicles per day.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-        SizedBox(height: 220, child: _buildFleetDailyTrendChart(dailyTrend)),
-        const SizedBox(height: 24),
-        _sectionTitle('Individual Bus Trends'),
-        const Text('Daily distance covered by each vehicle.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-        SizedBox(height: 220, child: _buildBusDailyTrendChart(busDailyTrend)),
-        const SizedBox(height: 24),
-        _sectionTitle('Fleet Utilization'),
-        const Text('Total distance driven segmented by individual buses.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-        SizedBox(height: 220, child: _buildFleetUtilizationChart(busWise)),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+        _buildChartCard('Daily Distance Trend', 'Kilometers covered across all fleet vehicles per day.', _buildFleetDailyTrendChart(dailyTrend)),
+        const SizedBox(height: 16),
+        _buildChartCard('Individual Bus Trends', 'Daily distance covered by each vehicle.', _buildBusDailyTrendChart(busDailyTrend)),
+        const SizedBox(height: 16),
+        _buildChartCard('Fleet Utilization', 'Total distance driven segmented by individual buses.', _buildFleetUtilizationChart(busWise)),
+        const SizedBox(height: 16),
         _buildIdleVehiclesCard(idleBuses),
       ],
     );
   }
 
+  Widget _buildChartCard(String title, String subtitle, Widget chartWidget) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [BoxShadow(color: Color(0x05000000), blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textDark)),
+          Text(subtitle, style: const TextStyle(fontSize: 11, color: textMuted)),
+          const SizedBox(height: 16),
+          SizedBox(height: 200, child: chartWidget),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFleetDailyTrendChart(List dailyTrend) {
-    if (dailyTrend.isEmpty) return const Center(child: Text('No trend data for this period.'));
+    if (dailyTrend.isEmpty) return const Center(child: Text('No trend data for this period.', style: TextStyle(color: textMuted)));
 
     final spots = <FlSpot>[];
     final labels = <String>[];
@@ -257,22 +344,29 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
 
     return LineChart(
       LineChartData(
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1)),
         titlesData: FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, m) => _axisLabelText(v.toInt().toString()))),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
         ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: Colors.indigo,
+            color: primaryBlue,
             barWidth: 3,
             dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(show: true, color: Colors.indigo.withOpacity(0.1)),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                colors: [primaryBlue.withOpacity(0.2), primaryBlue.withOpacity(0.0)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
         ],
       ),
@@ -280,7 +374,7 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   }
 
   Widget _buildBusDailyTrendChart(List busDailyTrend) {
-    if (busDailyTrend.isEmpty) return const Center(child: Text('No per-bus trend data for this period.'));
+    if (busDailyTrend.isEmpty) return const Center(child: Text('No per-bus trend data for this period.', style: TextStyle(color: textMuted)));
 
     final allDates = busDailyTrend.map((e) => e['date']?.toString() ?? '').toSet().toList()..sort();
     final dateIndex = {for (var i = 0; i < allDates.length; i++) allDates[i]: i};
@@ -305,18 +399,10 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
         final idx = dateIndex[e['date']?.toString() ?? ''] ?? 0;
         final km = (e['dailyKmRun'] as num?)?.toDouble() ?? 0;
         return FlSpot(idx.toDouble(), km);
-      }).toList()
-        ..sort((a, b) => a.x.compareTo(b.x));
+      }).toList()..sort((a, b) => a.x.compareTo(b.x));
 
-      lines.add(LineChartBarData(spots: spots, isCurved: true, color: color, barWidth: 3, dotData: const FlDotData(show: true)));
-      legend.add(Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
-      ));
+      lines.add(LineChartBarData(spots: spots, isCurved: true, color: color, barWidth: 2.5, dotData: const FlDotData(show: false)));
+      legend.add(_LegendDot(color: color, label: label));
     }
 
     final labels = allDates.map(_formatChartDate).toList();
@@ -325,16 +411,16 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(spacing: 12, runSpacing: 4, children: legend),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Expanded(
           child: LineChart(
             LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1)),
               titlesData: FlTitlesData(
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, m) => _axisLabelText(v.toInt().toString()))),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
+                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
               ),
               borderData: FlBorderData(show: false),
               lineBarsData: lines,
@@ -346,7 +432,7 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   }
 
   Widget _buildFleetUtilizationChart(List busWise) {
-    if (busWise.isEmpty) return const Center(child: Text('No bus activity for this period.'));
+    if (busWise.isEmpty) return const Center(child: Text('No bus activity for this period.', style: TextStyle(color: textMuted)));
 
     final bars = <BarChartGroupData>[];
     final labels = <String>[];
@@ -354,19 +440,24 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       final b = busWise[i];
       final km = (b['totalKmRun'] as num?)?.toDouble() ?? 0;
       bars.add(BarChartGroupData(x: i, barRods: [
-        BarChartRodData(toY: km, color: _busColors[i % _busColors.length], width: 28, borderRadius: BorderRadius.circular(4)),
+        BarChartRodData(
+          toY: km,
+          color: _busColors[i % _busColors.length],
+          width: 20,
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
+        ),
       ]));
       labels.add(b['registrationNo']?.toString() ?? b['busNumber']?.toString() ?? 'Bus');
     }
 
     return BarChart(
       BarChartData(
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1)),
         titlesData: FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, m) => _axisLabelText(v.toInt().toString()))),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
         ),
         borderData: FlBorderData(show: false),
         barGroups: bars,
@@ -375,41 +466,52 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   }
 
   Widget _buildIdleVehiclesCard(List idleBuses) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
-                const SizedBox(width: 8),
-                const Text('Idle Vehicles', style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-                  child: Text('${idleBuses.length} Inactive', style: const TextStyle(fontSize: 12, color: Colors.orange)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (idleBuses.isEmpty)
-              const Text('All buses had activity this period.')
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: idleBuses
-                    .map((b) => Chip(
-                  avatar: const Icon(Icons.directions_bus, size: 16),
-                  label: Text(b['registrationNo']?.toString() ?? b['busNumber']?.toString() ?? 'Bus'),
-                ))
-                    .toList(),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [BoxShadow(color: Color(0x05000000), blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: lightYellowBg, shape: BoxShape.circle),
+                child: const Icon(Icons.warning_amber_rounded, color: primaryYellow, size: 18),
               ),
-          ],
-        ),
+              const SizedBox(width: 10),
+              const Text('Idle Vehicles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textDark)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: lightYellowBg, borderRadius: BorderRadius.circular(12)),
+                child: Text('${idleBuses.length} Inactive', style: const TextStyle(fontSize: 12, color: primaryYellow, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (idleBuses.isEmpty)
+            const Text('All buses had activity during this period.', style: TextStyle(color: textMuted, fontSize: 13))
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: idleBuses
+                  .map((b) => Chip(
+                elevation: 0,
+                backgroundColor: const Color(0xFFF8FAFC),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                avatar: const Icon(Icons.directions_bus, size: 16, color: primaryBlue),
+                label: Text(b['registrationNo']?.toString() ?? b['busNumber']?.toString() ?? 'Bus', style: const TextStyle(color: textDark, fontSize: 12)),
+              ))
+                  .toList(),
+            ),
+        ],
       ),
     );
   }
@@ -426,10 +528,6 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
     final summary = (_fuelAnalytics!['summary'] as Map?) ?? {};
     final busWise = (_fuelAnalytics!['busWiseBreakdown'] as List?) ?? [];
     final dailyTrend = (_fuelAnalytics!['dailyTrend'] as List?) ?? [];
-
-    // GUESSED — not in the sample payload shared so far. Each section only
-    // renders if its list is non-empty, so this is safe even if the backend
-    // never sends these keys.
     final paymentModeBreakdown = (_fuelAnalytics!['paymentModeBreakdown'] as List?) ?? [];
     final mileageBreakdown = (_fuelAnalytics!['mileageBreakdown'] as List?) ?? [];
     final topFuelStations = (_fuelAnalytics!['topFuelStations'] as List?) ?? [];
@@ -440,38 +538,27 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
         _sectionTitle('Fuel Log Analytics'),
         const SizedBox(height: 12),
         _buildStatGrid([
-          _StatCardData('Total Spent', '₹${summary['totalAmountSpent'] ?? 0}', Icons.currency_rupee, Colors.red),
-          _StatCardData('Total Fuel', '${_fmtNum(summary['totalFuelQuantity'])} L', Icons.local_gas_station, Colors.blue),
-          _StatCardData('Fill-Ups', '${summary['totalFillUps'] ?? 0}', Icons.local_shipping, Colors.teal),
-          _StatCardData('Avg Daily Cost', '₹${_fmtNum(summary['avgDailyCost'])}', Icons.calendar_today, Colors.orange),
-          _StatCardData('Avg Daily Use', '${_fmtNum(summary['avgDailyConsumption'])} L', Icons.speed, Colors.purple),
-          _StatCardData('Projected Month Spend', '₹${_fmtNum(summary['projectedMonthEndCost'])}', Icons.trending_up, Colors.pink),
+          _StatCardData('Total Spent', '₹${summary['totalAmountSpent'] ?? 0}', Icons.currency_rupee, primaryYellow, lightYellowBg),
+          _StatCardData('Total Fuel', '${_fmtNum(summary['totalFuelQuantity'])} L', Icons.local_gas_station, primaryBlue, lightBlueBg),
+          _StatCardData('Fill-Ups', '${summary['totalFillUps'] ?? 0}', Icons.local_shipping, primaryGreen, lightGreenBg),
+          _StatCardData('Avg Daily Cost', '₹${_fmtNum(summary['avgDailyCost'])}', Icons.calendar_today, const Color(0xFF6366F1), const Color(0xFFEEF2FF)),
+          _StatCardData('Avg Daily Use', '${_fmtNum(summary['avgDailyConsumption'])} L', Icons.speed, const Color(0xFF8B5CF6), const Color(0xFFF3E8FF)),
+          _StatCardData('Projected Spend', '₹${_fmtNum(summary['projectedMonthEndCost'])}', Icons.trending_up, const Color(0xFFEC4899), const Color(0xFFFCE7F3)),
         ]),
-        const SizedBox(height: 24),
-        _sectionTitle('Total Fleet Spend Over Time'),
-        const Text('Combined daily fuel expenses across all vehicles.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-        SizedBox(height: 220, child: _buildFuelDailyTrendChart(dailyTrend)),
-        const SizedBox(height: 24),
-        _sectionTitle('Bus-Wise Fuel Consumption'),
-        const Text('Amount spent, liters consumed, and total fill-ups per vehicle.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-        SizedBox(height: 260, child: _buildBusWiseFuelChart(busWise)),
+        const SizedBox(height: 20),
+        _buildChartCard('Total Fleet Spend Over Time', 'Combined daily fuel expenses across all vehicles.', _buildFuelDailyTrendChart(dailyTrend)),
+        const SizedBox(height: 16),
+        _buildChartCard('Bus-Wise Fuel Consumption', 'Amount spent, liters consumed, and total fill-ups per vehicle.', _buildBusWiseFuelChart(busWise)),
         if (paymentModeBreakdown.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          _sectionTitle('Payment Modes (₹)'),
-          const SizedBox(height: 12),
-          SizedBox(height: 220, child: _buildPaymentModesChart(paymentModeBreakdown)),
+          const SizedBox(height: 16),
+          _buildChartCard('Payment Modes (₹)', 'Distribution of payment methods', _buildPaymentModesChart(paymentModeBreakdown)),
         ],
         if (mileageBreakdown.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          _sectionTitle('Fleet Mileage Performance'),
-          const Text('Kilometers per litre (km/L) breakdown by bus.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 12),
-          SizedBox(height: 220, child: _buildMileageChart(mileageBreakdown)),
+          const SizedBox(height: 16),
+          _buildChartCard('Fleet Mileage Performance', 'Kilometers per litre (km/L) breakdown by bus.', _buildMileageChart(mileageBreakdown)),
         ],
         if (topFuelStations.isNotEmpty) ...[
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _sectionTitle('Top Fuel Stations'),
           const SizedBox(height: 12),
           _buildTopFuelStationsList(topFuelStations),
@@ -481,7 +568,7 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   }
 
   Widget _buildFuelDailyTrendChart(List dailyTrend) {
-    if (dailyTrend.isEmpty) return const Center(child: Text('No fuel trend data for this period.'));
+    if (dailyTrend.isEmpty) return const Center(child: Text('No fuel trend data for this period.', style: TextStyle(color: textMuted)));
     final spots = <FlSpot>[];
     final labels = <String>[];
     for (var i = 0; i < dailyTrend.length; i++) {
@@ -492,37 +579,37 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
     }
     return LineChart(
       LineChartData(
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1)),
         titlesData: FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => _axisLabelText('₹${v.toInt()}'))),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
         ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: Colors.red,
+            color: primaryYellow,
             barWidth: 3,
             dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(show: true, color: Colors.red.withOpacity(0.1)),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                colors: [primaryYellow.withOpacity(0.2), primaryYellow.withOpacity(0.0)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Matches the web's "Bus-Wise Fuel Consumption" — three metrics per bus
-  /// (amount spent / quantity / fill-ups) as a grouped bar chart. Amount and
-  /// quantity share the left axis scale here for simplicity (fl_chart's dual
-  /// left/right axis scaling per-series isn't trivial); fill-ups are usually
-  /// a much smaller number so they'll render as thin bars near zero — good
-  /// enough to see fill-up count relative position, not exact value at a
-  /// glance. Tap-to-see-value via BarTooltipData covers the rest.
   Widget _buildBusWiseFuelChart(List busWise) {
-    if (busWise.isEmpty) return const Center(child: Text('No fuel activity for this period.'));
+    if (busWise.isEmpty) return const Center(child: Text('No fuel activity for this period.', style: TextStyle(color: textMuted)));
 
     final labels = <String>[];
     final groups = <BarChartGroupData>[];
@@ -536,9 +623,9 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       groups.add(BarChartGroupData(
         x: i,
         barRods: [
-          BarChartRodData(toY: amount, color: const Color(0xFF2ECC71), width: 12, borderRadius: BorderRadius.circular(3)),
-          BarChartRodData(toY: quantity, color: const Color(0xFF3B82F6), width: 12, borderRadius: BorderRadius.circular(3)),
-          BarChartRodData(toY: fillUps, color: const Color(0xFFF59E0B), width: 12, borderRadius: BorderRadius.circular(3)),
+          BarChartRodData(toY: amount, color: primaryGreen, width: 8, borderRadius: BorderRadius.circular(2)),
+          BarChartRodData(toY: quantity, color: primaryBlue, width: 8, borderRadius: BorderRadius.circular(2)),
+          BarChartRodData(toY: fillUps, color: primaryYellow, width: 8, borderRadius: BorderRadius.circular(2)),
         ],
         barsSpace: 4,
       ));
@@ -548,20 +635,20 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(spacing: 16, children: const [
-          _LegendDot(color: Color(0xFF2ECC71), label: 'Amount Spent (₹)'),
-          _LegendDot(color: Color(0xFF3B82F6), label: 'Quantity (L)'),
-          _LegendDot(color: Color(0xFFF59E0B), label: 'Fill Ups'),
+          _LegendDot(color: primaryGreen, label: 'Amount Spent (₹)'),
+          _LegendDot(color: primaryBlue, label: 'Quantity (L)'),
+          _LegendDot(color: primaryYellow, label: 'Fill Ups'),
         ]),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Expanded(
           child: BarChart(
             BarChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1)),
               titlesData: FlTitlesData(
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => _axisLabelText(v.toInt().toString()))),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
+                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
               ),
               borderData: FlBorderData(show: false),
               barGroups: groups,
@@ -572,9 +659,8 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
     );
   }
 
-  /// GUESSED shape: `paymentModeBreakdown: [{ mode: 'Cash', amount: 40000 }, ...]`
   Widget _buildPaymentModesChart(List paymentModeBreakdown) {
-    final colors = [Colors.teal, Colors.indigo, Colors.orange, Colors.pink, Colors.purple];
+    final colors = [primaryBlue, primaryGreen, primaryYellow, const Color(0xFF8B5CF6), const Color(0xFFEC4899)];
     final sections = <PieChartSectionData>[];
     final legend = <Widget>[];
 
@@ -583,20 +669,19 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       final amount = (p['amount'] as num?)?.toDouble() ?? 0;
       final mode = p['mode']?.toString() ?? p['paymentMode']?.toString() ?? 'Unknown';
       final color = colors[i % colors.length];
-      sections.add(PieChartSectionData(value: amount, color: color, title: '', radius: 40));
+      sections.add(PieChartSectionData(value: amount, color: color, title: '', radius: 32));
       legend.add(_LegendDot(color: color, label: mode));
     }
 
     return Column(
       children: [
-        Expanded(child: PieChart(PieChartData(sections: sections, centerSpaceRadius: 50, sectionsSpace: 2))),
+        Expanded(child: PieChart(PieChartData(sections: sections, centerSpaceRadius: 40, sectionsSpace: 3))),
         const SizedBox(height: 8),
         Wrap(spacing: 16, children: legend),
       ],
     );
   }
 
-  /// GUESSED shape: `mileageBreakdown: [{ busId, busNumber, registrationNo, kmPerLiter }]`
   Widget _buildMileageChart(List mileageBreakdown) {
     final bars = <BarChartGroupData>[];
     final labels = <String>[];
@@ -604,18 +689,18 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
       final m = mileageBreakdown[i];
       final kmPerLiter = (m['kmPerLiter'] as num?)?.toDouble() ?? 0;
       bars.add(BarChartGroupData(x: i, barRods: [
-        BarChartRodData(toY: kmPerLiter, color: Colors.deepPurple, width: 28, borderRadius: BorderRadius.circular(4)),
+        BarChartRodData(toY: kmPerLiter, color: primaryGreen, width: 20, borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6))),
       ]));
       labels.add(m['registrationNo']?.toString() ?? m['busNumber']?.toString() ?? 'Bus');
     }
     return BarChart(
       BarChartData(
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1)),
         titlesData: FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32, getTitlesWidget: (v, m) => _axisLabelText(v.toInt().toString()))),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, m) => _axisLabel(v, labels))),
         ),
         borderData: FlBorderData(show: false),
         barGroups: bars,
@@ -623,20 +708,28 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
     );
   }
 
-  /// GUESSED shape: `topFuelStations: [{ stationName, fillUps, amountSpent }]`
   Widget _buildTopFuelStationsList(List topFuelStations) {
     return Column(
       children: topFuelStations.map((s) {
         final name = s['stationName']?.toString() ?? s['fuelStation']?.toString() ?? 'Station';
         final fillUps = s['fillUps'] ?? s['totalFillUps'] ?? 0;
         final amount = s['amountSpent'] ?? s['totalAmountSpent'] ?? 0;
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+          ),
           child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.local_gas_station, size: 18)),
-            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('$fillUps Fill Ups'),
-            trailing: Text('₹$amount', style: const TextStyle(fontWeight: FontWeight.bold)),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: lightBlueBg, shape: BoxShape.circle),
+              child: const Icon(Icons.local_gas_station, size: 18, color: primaryBlue),
+            ),
+            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 14)),
+            subtitle: Text('$fillUps Fill Ups', style: const TextStyle(color: textMuted, fontSize: 12)),
+            trailing: Text('₹$amount', style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 14)),
           ),
         );
       }).toList(),
@@ -647,12 +740,14 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   // Shared UI helpers
   // ---------------------------------------------------------------------
 
-  Widget _sectionTitle(String title) => Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18));
+  Widget _sectionTitle(String title) => Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textDark));
+
+  Widget _axisLabelText(String text) => Text(text, style: const TextStyle(fontSize: 10, color: textMuted));
 
   Widget _axisLabel(double value, List<String> labels) {
     final i = value.toInt();
     if (i < 0 || i >= labels.length) return const SizedBox.shrink();
-    return Padding(padding: const EdgeInsets.only(top: 4), child: Text(labels[i], style: const TextStyle(fontSize: 10)));
+    return Padding(padding: const EdgeInsets.only(top: 4), child: Text(labels[i], style: const TextStyle(fontSize: 10, color: textMuted)));
   }
 
   String _formatChartDate(dynamic raw) {
@@ -664,19 +759,6 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
     }
   }
 
-  /// Auto-sizing stat card grid — FIXES the overflow bug.
-  ///
-  /// Previously used GridView.count(childAspectRatio: 1.8), which forces a
-  /// fixed card height. Once a label wrapped ("PROJECTED MONTH-END") or the
-  /// device's text scale was bumped up, the content no longer fit inside
-  /// that fixed height and Flutter threw the yellow/black overflow stripes.
-  ///
-  /// Fix: lay cards out two-per-row using IntrinsicHeight (so both cards in
-  /// a row match each other's height, whichever is taller) with NO fixed
-  /// height constraint on the row itself — so the row simply grows to fit
-  /// its tallest card's actual content. The value text is also wrapped in a
-  /// FittedBox so long numbers shrink to fit instead of overflowing
-  /// horizontally.
   Widget _buildStatGrid(List<_StatCardData> stats) {
     final rows = <Widget>[];
     for (var i = 0; i < stats.length; i += 2) {
@@ -700,26 +782,36 @@ class _TransportationAnalyticsScreenState extends State<TransportationAnalyticsS
   }
 
   Widget _statCard(_StatCardData s) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2))],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(radius: 16, backgroundColor: s.color.withOpacity(0.15), child: Icon(s.icon, size: 16, color: s.color)),
-            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: s.bgColor, shape: BoxShape.circle),
+              child: Icon(s.icon, size: 18, color: s.color),
+            ),
+            const SizedBox(height: 12),
             Text(
               s.label.toUpperCase(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 0.3),
+              style: const TextStyle(fontSize: 10, color: textMuted, fontWeight: FontWeight.w600, letterSpacing: 0.3),
             ),
             const SizedBox(height: 4),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(s.value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text(s.value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textDark)),
             ),
           ],
         ),
@@ -739,7 +831,8 @@ class _StatCardData {
   final String value;
   final IconData icon;
   final Color color;
-  _StatCardData(this.label, this.value, this.icon, this.color);
+  final Color bgColor;
+  _StatCardData(this.label, this.value, this.icon, this.color, this.bgColor);
 }
 
 class _LegendDot extends StatelessWidget {
@@ -752,9 +845,9 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 11, color: _TransportationAnalyticsScreenState.textMuted)),
       ],
     );
   }

@@ -118,6 +118,10 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     if (mounted) setState(() {});
 
     _finance.getFinanceStats(schoolId: schoolId, range: _cashflowRange);
+    _finance.getAllTransactions(schoolId: schoolId);
+    _accounting.loadOutstandingDuesSummary(schoolId: schoolId, academicYear: _academicYear);
+
+
     await _accounting.loadDashboardData();
 
     if (_accounting.canViewExpenses) {
@@ -136,6 +140,10 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     if (schoolId == null) return;
 
     _finance.getFinanceStats(schoolId: schoolId, range: _cashflowRange);
+    _finance.getAllTransactions(schoolId: schoolId);
+    _accounting.loadOutstandingDuesSummary(schoolId: schoolId, academicYear: _academicYear);
+    print('STATS KEYS: ${_finance.stats.value?.keys}');
+    print('STATS RAW: ${_finance.stats.value}');
     await _accounting.loadDashboardData();
 
     if (_accounting.canViewExpenses) {
@@ -388,8 +396,10 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
                     _cashflowRange,
                         (v) {
                       setState(() => _cashflowRange = v);
-                      final schoolId = _auth.user.value?.schoolId;
+                      final schoolId = _resolvedSchoolId;
                       if (schoolId != null) _finance.getFinanceStats(schoolId: schoolId, range: v);
+                      print('STATS KEYS: ${_finance.stats.value?.keys}');
+                      print('STATS RAW: ${_finance.stats.value}');
                     },
                   ),
                 ),
@@ -524,75 +534,44 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   Widget _buildOutstandingFees(bool loading) {
-    final stats = _finance.stats.value;
+    return Obx(() {
+      final breakdown = _accounting.outstandingDuesBreakdown;
+      final total = _accounting.totalOutstandingDues.value;
+      final isLoadingDues = _accounting.isLoadingDuesSummary.value;
 
-    Map<String, double> breakdown = {};
-    double total = 0;
-
-    if (stats != null) {
-      final admission = (stats['admissionDues']  ?? stats['admissionPending']  ?? 0).toDouble();
-      final term1     = (stats['term1Dues']       ?? stats['firstTermDues']    ?? 0).toDouble();
-      final term2     = (stats['term2Dues']       ?? stats['secondTermDues']   ?? 0).toDouble();
-      final transport = (stats['transportDues']   ?? stats['busDues']          ?? 0).toDouble();
-      total           = (stats['totalDues'] ?? stats['outstandingAmount'] ?? stats['totalPending'] ?? 0).toDouble();
-      if (admission > 0) breakdown['Admission'] = admission;
-      if (term1     > 0) breakdown['Term 1']    = term1;
-      if (term2     > 0) breakdown['Term 2']    = term2;
-      if (transport > 0) breakdown['Transport'] = transport;
-      if (breakdown.isEmpty && total > 0) breakdown['Pending'] = total;
-    }
-
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Outstanding Fees', Icons.pending_actions_rounded, _C.warning),
-          Text('Track pending term fees, and transport dues across the school',
-              style: const TextStyle(fontSize: 9, color: _C.textMuted)),
-          const SizedBox(height: 8),
-          loading
-              ? const _LoadingPulse(height: 90)
-              : _DonutChart(
-            data: breakdown,
-            centerLabel: 'Total\nPending',
-            centerValue: _fmt(total),
-            centerColor: _C.danger,
-            palette: [_C.admission, _C.term1, _C.term2, _C.transport,
-              const Color(0xFF8B5CF6), const Color(0xFFEC4899)],
-          ),
-          if (breakdown.isNotEmpty) ...[
+      return _card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Outstanding Fees', Icons.pending_actions_rounded, _C.warning),
+            Text('Track pending term fees, and transport dues across the school',
+                style: const TextStyle(fontSize: 9, color: _C.textMuted)),
             const SizedBox(height: 8),
-            _DonutLegend(
+            (loading || isLoadingDues)
+                ? const _LoadingPulse(height: 90)
+                : _DonutChart(
               data: breakdown,
-              palette: [_C.admission, _C.term1, _C.term2, _C.transport,
-                const Color(0xFF8B5CF6), const Color(0xFFEC4899)],
+              centerLabel: 'Total\nPending',
+              centerValue: _fmt(total),
+              centerColor: _C.danger,
+              palette: const [_C.admission, _C.term1, _C.term2, _C.transport,
+                Color(0xFF8B5CF6), Color(0xFFEC4899)],
             ),
+            if (breakdown.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _DonutLegend(
+                data: breakdown,
+                palette: const [_C.admission, _C.term1, _C.term2, _C.transport,
+                  Color(0xFF8B5CF6), Color(0xFFEC4899)],
+              ),
+            ],
           ],
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
-
   Widget _buildRecentPayments(bool loading) {
-    final stats    = _finance.stats.value;
-    final expenses = _accounting.expenses;
-
-    final List<dynamic> recent = [];
-    // Try raw map keys for recent transactions list
-    if (stats != null && stats['recentTransactions'] is List) {
-      recent.addAll(stats['recentTransactions'] as List);
-    } else if (stats != null && stats['recentPayments'] is List) {
-      recent.addAll(stats['recentPayments'] as List);
-    } else {
-      for (var e in expenses.take(6)) {
-        recent.add({
-          'description': e.category,
-          'amount':      e.amount,
-          'type':        'expense',
-          'date':        e.date?.toString() ?? '',
-        });
-      }
-    }
+    final txns = _finance.transactions; // now has both income + expense, real data
 
     return _card(
       child: Column(
@@ -606,7 +585,7 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
           const SizedBox(height: 8),
           loading
               ? const _LoadingPulse(height: 80)
-              : recent.isEmpty
+              : txns.isEmpty
               ? Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Center(
@@ -621,7 +600,7 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
             ),
           )
               : Column(
-            children: recent.take(6).map((txn) => _paymentRow(txn)).toList(),
+            children: txns.take(6).map((txn) => _paymentRow(txn)).toList(),
           ),
         ],
       ),
@@ -629,7 +608,9 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   Widget _paymentRow(dynamic txn) {
-    final isIncome  = (txn['type'] ?? '').toString().toLowerCase() == 'income';
+    final isIncome  = (txn['transactionType'] ?? txn['type'] ?? '').toString().toUpperCase() == 'CREDIT'
+        || (txn['type'] ?? '').toString().toLowerCase() == 'income';
+  //  final isIncome  = (txn['type'] ?? '').toString().toLowerCase() == 'income';
     final color     = isIncome ? _C.primary : _C.danger;
     final icon      = isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded;
     final amount    = txn['amount'] ?? txn['paidAmount'] ?? 0;
@@ -700,20 +681,22 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Title + range toggle
-              Row(
+
+              // ✅ Clean Vertical Stack Layout
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sectionTitle('Expense Report', Icons.summarize_rounded, _C.primaryDk),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _segmentedBar(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle('Expense Report', Icons.summarize_rounded, _C.primaryDk),
+                      _segmentedBar(
                         ['WEEK', 'MONTH', 'YEAR'],
                         ['week', 'month', 'year'],
                         _expenseRange,
                             (v) => setState(() => _expenseRange = v),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -809,6 +792,8 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   List<dynamic> _filterExpenses(List expenses) {
+    print('Expense payment modes: ${expenses.map((e) => e.paymentMode).toSet()}');
+
     final now     = DateTime.now();
     DateTime start;
     switch (_expenseRange) {
@@ -952,8 +937,8 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   void _showPayModePicker() {
-    final options = ['', 'cash', 'cheque', 'upi', 'online'];
-    final labels  = ['All', 'Cash', 'Cheque', 'UPI', 'Online'];
+    final options = ['', 'cash', 'cheque', 'upi', 'bank'];
+    final labels  = ['All', 'Cash', 'Cheque', 'UPI', 'Bank'];
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1033,14 +1018,14 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
             onTap: () => onChanged(values[i]),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: active ? _C.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Text(labels[i],
                   style: TextStyle(
-                      fontSize: 9.5,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w700,
                       color: active ? Colors.white : _C.textMuted)),
             ),
@@ -1092,21 +1077,39 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   String _formatDate(String raw) {
     if (raw.isEmpty) return '';
     try {
-      final d = DateTime.parse(raw).toLocal();
+      final d = DateTime.parse(raw);
+      // Detect if this is a pure date value (midnight UTC, no real time captured)
+      final isDateOnly = !raw.contains('T') ||
+          (d.hour == 0 && d.minute == 0 && d.second == 0);
+
+      final local = d.toLocal();
       final now = DateTime.now();
-      if (d.year == now.year && d.month == now.month && d.day == now.day) {
-        return 'Today, ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')} ${d.hour >= 12 ? 'PM' : 'AM'}';
+
+      if (isDateOnly) {
+        // No real time was ever recorded — just show the date, never a fake time
+        if (d.year == now.year && d.month == now.month && d.day == now.day) {
+          return 'Today';
+        }
+        final yesterday = now.subtract(const Duration(days: 1));
+        if (d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day) {
+          return 'Yesterday';
+        }
+        return '${d.day} ${_months[d.month - 1]} ${d.year}';
+      }
+
+      // Has a genuine time component — safe to show it
+      if (local.year == now.year && local.month == now.month && local.day == now.day) {
+        return 'Today, ${local.hour.toString().padLeft(2,'0')}:${local.minute.toString().padLeft(2,'0')} ${local.hour >= 12 ? 'PM' : 'AM'}';
       }
       final yesterday = now.subtract(const Duration(days: 1));
-      if (d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day) {
+      if (local.year == yesterday.year && local.month == yesterday.month && local.day == yesterday.day) {
         return 'Yesterday';
       }
-      return '${d.day} ${_months[d.month - 1]} ${d.year}';
+      return '${local.day} ${_months[local.month - 1]} ${local.year}';
     } catch (_) {
       return raw;
     }
   }
-
   static const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 }
 

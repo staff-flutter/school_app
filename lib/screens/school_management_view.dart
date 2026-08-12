@@ -1376,98 +1376,103 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
           child: Obx(() {
             final selectedClassVal = selectedClass.value;
             final selectedSectionVal = selectedSection.value;
-            return Row(children: [
-              // Class chip
-              GestureDetector(
-                onTap: () => _showClassFilterSheet(selectedClass, selectedSection),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: selectedClassVal != null ? _DS.accentSoft : _DS.surface,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: selectedClassVal != null ? _DS.accent : _DS.border,
-                      width: selectedClassVal != null ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.class_rounded,
-                        size: 14,
-                        color: selectedClassVal != null ? _DS.accent : _DS.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      selectedClassVal?.name ?? 'All Classes',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: selectedClassVal != null ? _DS.accent : _DS.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 14,
-                        color: selectedClassVal != null ? _DS.accent : _DS.textMuted),
-                  ]),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Section chip
-              GestureDetector(
-                onTap: () => _showSectionFilterSheet(selectedSection),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: selectedSectionVal != null ? _DS.accentSoft : _DS.surface,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: selectedSectionVal != null ? _DS.accent : _DS.border,
-                      width: selectedSectionVal != null ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.group_rounded,
-                        size: 14,
-                        color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      selectedSectionVal?.name ?? 'Sections',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: selectedSectionVal != null
-                            ? _DS.accent : _DS.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 14,
-                        color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
-                  ]),
-                ),
-              ),
-              const Spacer(),
-              // Clear button — only shows when something is selected
-              if (selectedClassVal != null || selectedSectionVal != null)
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Class chip
                 GestureDetector(
-                  onTap: () {
-                    selectedClass.value = null;
-                    selectedSection.value = null;
-                    _loadStudentsByFilters(null, null);
-                  },
+                  onTap: () => _showClassFilterSheet(selectedClass, selectedSection),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
-                      color: _DS.dangerSoft,
+                      color: selectedClassVal != null ? _DS.accentSoft : _DS.surface,
                       borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: selectedClassVal != null ? _DS.accent : _DS.border,
+                        width: selectedClassVal != null ? 1.5 : 1,
+                      ),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.close_rounded, size: 13, color: _DS.danger),
-
-
+                      Icon(Icons.class_rounded,
+                          size: 14,
+                          color: selectedClassVal != null ? _DS.accent : _DS.textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        selectedClassVal?.name ?? 'All Classes',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: selectedClassVal != null ? _DS.accent : _DS.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 14,
+                          color: selectedClassVal != null ? _DS.accent : _DS.textMuted),
                     ]),
                   ),
                 ),
-            ]);
+                const SizedBox(width: 2),
+                // Section chip
+                GestureDetector(
+                  onTap: () => _showSectionFilterSheet(selectedSection),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selectedSectionVal != null ? _DS.accentSoft : _DS.surface,
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: selectedSectionVal != null ? _DS.accent : _DS.border,
+                        width: selectedSectionVal != null ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.group_rounded,
+                          size: 14,
+                          color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        selectedSectionVal?.name ?? 'Sections',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: selectedSectionVal != null
+                              ? _DS.accent : _DS.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 14,
+                          color: selectedSectionVal != null ? _DS.accent : _DS.textMuted),
+                    ]),
+                  ),
+                ),
+                const Spacer(),
+                // Clear button — only shows when something is selected
+                if (selectedClassVal != null || selectedSectionVal != null)
+                  GestureDetector(
+                    onTap: () {
+                      selectedClass.value = null;
+                      selectedSection.value = null;
+                      _loadStudentsByFilters(null, null);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _DS.dangerSoft,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.close_rounded, size: 13, color: _DS.danger),
+
+
+                      ]),
+                    ),
+                  ),
+              ],
+            );
           }),
         ),
 
@@ -2153,7 +2158,6 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   Widget _buildTeacherAssignmentTab() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.selectedSchool.value != null) {
-        print('🏫 Loading teachers for school: ${controller.selectedSchool.value!.name}');
         controller.loadTeachers();
       }
     });
@@ -2962,22 +2966,50 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       actions: [TextButton(onPressed: () => Get.back(), child: const Text('Cancel'))],
     ));
   }
-
   void _showStudentClubDialog(Student student, SchoolClass? selectedClass) {
     if (selectedClass == null) { Get.snackbar('Error', 'Please select a class first'); return; }
     final clubController = Get.find<ClubController>();
-    final clubsController = Get.put(ClubsController());
-    final availableClubs = <Club>[].obs;
+    final authController = Get.find<AuthController>();
+    final availableClubs = <Map<String, dynamic>>[].obs;
     final dialogLoading = false.obs;
-    availableClubs.value = clubsController.getClubsByClass(selectedClass.id);
+    final isLoading = true.obs;
+
+    final role = authController.user.value?.role?.toLowerCase() ?? '';
+    final targetSchoolId = role == 'correspondent'
+        ? controller.selectedSchool.value?.id
+        : authController.user.value?.schoolId;
+
+    if (targetSchoolId == null || targetSchoolId.isEmpty) {
+      Get.snackbar('Error', 'No school selected');
+      return;
+    }
+
+    clubController.getClubsByClass(selectedClass.id, schoolId: targetSchoolId).then((_) {
+      availableClubs.assignAll(clubController.clubs);
+      isLoading.value = false;
+    }).catchError((_) {
+      isLoading.value = false;
+      Get.snackbar('Error', 'Failed to load clubs',
+          backgroundColor: Colors.red.shade400, colorText: Colors.white);
+    });
+
 
     Get.dialog(
       Dialog(backgroundColor: Colors.transparent, insetPadding: const EdgeInsets.all(16),
         child: GradientDialog(
-          header: dialogHeader(title: 'Club Management',
-              subtitle: '${student.name ?? 'N/A'} • ${selectedClass.name}',
-              icon: Icons.sports_soccer),
+          header: dialogHeader(
+            title: 'Club Management',
+            subtitle: '${student.name ?? 'N/A'} • ${selectedClass.name}',
+            icon: Icons.sports_soccer,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3B82F6), Color(0xFF1E3A5F)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
           body: Obx(() {
+            if (isLoading.value)
+              return const Center(child: CircularProgressIndicator());
             if (availableClubs.isEmpty)
               return const Center(child: Text('No clubs available', style: TextStyle(color: Colors.grey)));
             return ListView.builder(
@@ -2985,19 +3017,22 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
               itemCount: availableClubs.length,
               itemBuilder: (_, index) {
                 final club = availableClubs[index];
-                final isSelected = student.clubs?.contains(club.id) ?? false;
+                final clubId = (club['_id'] ?? club['id']).toString();
+                final isSelected = student.clubs?.contains(clubId) ?? false;
                 return clubTile(
-                  name: club.name, description: club.description, selected: isSelected,
+                  name: club['name'] ?? 'Unknown Club',
+                  description: club['description'] ?? '',
+                  selected: isSelected,
                   onTap: dialogLoading.value ? () {} : () async {
                     try {
                       dialogLoading.value = true;
                       if (!isSelected) {
-                        await clubController.addStudentToClub(club.id, student.id);
+                        await clubController.addStudentToClub(clubId, student.id);
                         student.clubs ??= [];
-                        student.clubs!.add(club.id);
+                        student.clubs!.add(clubId);
                       } else {
-                        await clubController.removeStudentFromClub(club.id, student.id);
-                        student.clubs?.remove(club.id);
+                        await clubController.removeStudentFromClub(clubId, student.id);
+                        student.clubs?.remove(clubId);
                       }
                       availableClubs.refresh();
                     } catch (e) {
@@ -3025,17 +3060,23 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
       barrierDismissible: false,
     );
   }
-
   void _showBulkClubDialog(List<Student> students, SchoolClass selectedClass) {
     final clubController = Get.find<ClubController>();
+    final authController = Get.find<AuthController>();
     final availableClubs = <Map<String, dynamic>>[].obs;
     final isLoading = true.obs;
     final dialogLoading = false.obs;
 
-    clubController.getClubsByClass(selectedClass.id).then((_) {
+    final role = authController.user.value?.role?.toLowerCase() ?? '';
+    final targetSchoolId = role == 'correspondent'
+        ? controller.selectedSchool.value?.id
+        : authController.user.value?.schoolId;
+
+    clubController.getClubsByClass(selectedClass.id, schoolId: targetSchoolId).then((_) {
       availableClubs.assignAll(clubController.clubs);
       isLoading.value = false;
     }).catchError((_) => isLoading.value = false);
+
 
     Get.dialog(
       Dialog(backgroundColor: Colors.transparent, insetPadding: const EdgeInsets.all(16),
@@ -3107,7 +3148,12 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
     void loadClubs() async {
       isLoading.value = true;
       try {
-        await clubController.getClubsByClass(student.classId ?? '');
+        final authController = Get.find<AuthController>();
+        final role = authController.user.value?.role?.toLowerCase() ?? '';
+        final targetSchoolId = role == 'correspondent'
+            ? controller.selectedSchool.value?.id
+            : authController.user.value?.schoolId;
+        await clubController.getClubsByClass(student.classId ?? '', schoolId: targetSchoolId);
         availableClubs.value = clubController.clubs;
         alreadyInClubs.value = List<String>.from(student.clubs ?? []);
         selectedClubs.value = List<String>.from(student.clubs ?? []);

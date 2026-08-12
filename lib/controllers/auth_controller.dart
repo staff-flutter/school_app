@@ -169,9 +169,7 @@ class AuthController extends GetxController {
           userSession.role = userData['role']?.toString(); // Sync role as well
           userSession.update(); // Notify active framework listeners
 
-          debugPrint('⚡ UserSession synchronously populated on login!');
-          debugPrint('Token: ${userSession.token != null ? "✅ Present" : "❌ Null"}');
-          debugPrint('SchoolID: ${userSession.schoolId}');
+
         }
 
         if (userSchool.value == null) {
@@ -388,7 +386,6 @@ class AuthController extends GetxController {
       // await box.erase(); // Or box.remove('pending_values');
 
     } catch (e) {
-      debugPrint('Error clearing session structures during logout: $e');
     }
 
     // 4. Reset routing history completely so the back-button is disabled

@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 
 // -------------------- GRADIENTS --------------------
 const LinearGradient gradientPrimary = LinearGradient(
-  colors: [Color(0xFFFF6A00), Color(0xFFEE0979)], // orange -> pink
+  colors:  [Color(0xFF3B82F6), Color(0xFF1E3A5F)], // orange -> pink
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
 );
@@ -81,12 +81,13 @@ Widget dialogHeader({
   required String title,
   required String subtitle,
   required IconData icon,
+  Gradient gradient = gradientPrimary,
 }) {
   return Container(
     padding: const EdgeInsets.all(20),
-    decoration: const BoxDecoration(
-      gradient: gradientPrimary,
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    decoration: BoxDecoration(
+      gradient: gradient,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
     ),
     child: Row(
       children: [
@@ -120,7 +121,6 @@ Widget dialogHeader({
     ),
   );
 }
-
 // -------------------- CLUB TILE --------------------
 Widget clubTile({
   required String name,
@@ -187,47 +187,58 @@ Widget dialogFooter({
     child: Row(
       children: [
         Expanded(
-          child: OutlinedButton(
-            onPressed: onCancel,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            height: 48,
+            child: OutlinedButton(
+              onPressed: onCancel,
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
+              child: const Text('Cancel'),
             ),
-            child: const Text('Cancel'),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: ElevatedButton(
-            onPressed: loading ? null : onSave,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: const BoxDecoration(
-                gradient: gradientPrimary,
-                borderRadius: BorderRadius.all(Radius.circular(14)),
+          child: SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: loading ? null : onSave,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
               ),
-              child: Container(
-                alignment: Alignment.center,
-                child: loading
-                    ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-                    : const Text('Save',
+              child: Ink(
+                decoration: const BoxDecoration(
+                  gradient: gradientPrimary,
+                  borderRadius: BorderRadius.all(Radius.circular(14)),
+                ),
+                child: Container(
+                  alignment: Alignment.center,
+                  child: loading
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
+                    'Save',
                     style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
