@@ -21,7 +21,7 @@ class PremisesFormScreen extends StatefulWidget {
 }
 
 class _PremisesFormScreenState extends State<PremisesFormScreen> {
-  final EBController ebController = Get.find();
+  final EBController ebController = Get.put(EBController());
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _nameController;

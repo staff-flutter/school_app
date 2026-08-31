@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "572419559275",
+    "project_id": "dailygrades-78f13",
+    "storage_bucket": "dailygrades-78f13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:572419559275:android:db62c82c7011f2fbbd862e",
+        "android_client_info": {
+          "package_name": "com.lms.school_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDaIhi43S-33jn4nDs_5ufq0W5WIQLg9as"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

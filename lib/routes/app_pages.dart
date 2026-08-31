@@ -63,7 +63,7 @@ import '../screens/fee_details_page.dart';
 import '../screens/marks_list_page.dart';
 import '../screens/parent_profile_page.dart';
 import '../screens/profile_selection_page.dart';
-import '../screens/splash_screen_for_daily_grades.dart';
+import '../screens/splash_screen_for_daily_grades.dart' hide SplashScreen;
 import '../screens/splash_screen1.dart';
 import '../screens/student_complete_details_page.dart';
 import '../screens/student_form_dialog.dart';
@@ -129,8 +129,8 @@ class AppPages {
   static final routes = [
     GetPage(
       name: AppRoutes.SPLASH,
-      page: () => const SplashScreen1(),
-      binding: AuthBinding(),
+      page: () => const DynamicSchoolSplashScreen(),
+     // binding: AuthBinding(),
     ),
     GetPage(
       name: AppRoutes.ONBOARDING,
@@ -370,7 +370,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.ADMISSION_BOOK,
       page: () => RoleAwareWrapper(child: AdmissionBookSetupView()),
-      binding: BillAdmissionBinding(),
+       binding: BindingsBuilder(() {
+        BillAdmissionBinding().dependencies();
+        SchoolBinding().dependencies();
+       })
     ),
     GetPage(
       name: AppRoutes.FEE_COLLECTION,
@@ -606,6 +609,7 @@ class AppPages {
       page: () => RoleAwareWrapper(child: SystemManagementView()),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => SystemManagementController());
+        Get.lazyPut(() => SchoolController());
       }),
     ),
     GetPage(

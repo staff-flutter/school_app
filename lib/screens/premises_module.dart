@@ -48,15 +48,19 @@ class _PremisesListScreenState extends State<PremisesListScreen> {
   @override
   void initState() {
     super.initState();
-    _tryLoad();
 
-    _authWorker = ever(_authController.user, (_) => _tryLoad());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoad());
+
+    _authWorker = ever(_authController.user, (_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoad());
+    });
 
     if (_school != null) {
-      _schoolWorker = ever(_school!.selectedSchool, (_) => _tryLoad());
+      _schoolWorker = ever(_school!.selectedSchool, (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoad());
+      });
     }
   }
-
   @override
   void dispose() {
     _authWorker?.dispose();

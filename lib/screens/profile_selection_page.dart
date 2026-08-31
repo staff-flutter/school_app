@@ -199,6 +199,7 @@ class _ProfileSelectionState extends State<ProfileSelection> {
                           await Future.delayed(const Duration(milliseconds: 100));
                           Get.to(() => MainWrapper(child: HomePage()));
                         },
+                          key: Key('student_tile_$index'),
                         ),
                       );
                     }),
@@ -216,8 +217,9 @@ class _ProfileSelectionState extends State<ProfileSelection> {
   // ---------------------------------------CIRCLE AVATAR METHOD -----------------------------------------
 
 
-  Widget circleAvatarMethod(bool isSelected,String studentName, String className, String? imageUrl,VoidCallback onTap) {
+  Widget circleAvatarMethod(bool isSelected,String studentName, String className, String? imageUrl,VoidCallback onTap,{Key? key}) {
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,

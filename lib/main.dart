@@ -1,4 +1,6 @@
 import 'package:device_preview/device_preview.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'package:get_storage/get_storage.dart';
+import 'package:school_app/services/notification_service.dart';
 
 import 'core/theme/app_theme.dart';
 
@@ -60,60 +63,33 @@ import 'controllers/finance_ledger_controller.dart';
 
 // }
 
+late Future<void> bootstrapFuture;
+Future<void> _bootstrap() async {
+  await GetStorage.init();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  Get.put(ApiService(), permanent: true);
+  Get.put(SubscriptionService(), permanent: true);
+  Get.put(AuthController(), permanent: true);
+  Get.put(AccountingController(), permanent: true);
+  Get.put(DashboardController(), permanent: true);
+  Get.put(ThemeController(), permanent: true);
+  Get.put(SchoolController(), permanent: true);
+  Get.lazyPut(() => SchoolController(), fenix: true);
+  Get.put(MainNavigationController(), permanent: true);
+  Get.put(SubscriptionController(), permanent: true);
+  Get.put(ClubController(), permanent: true);
+  Get.put(FinanceLedgerController(), permanent: true);
+
+  final session = Get.put(UserSession(), permanent: true);
+  await session.loadSession();
+}
 
 
 void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
-
-  await GetStorage.init();
-
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-
-    statusBarColor: Colors.transparent,
-
-    statusBarIconBrightness: Brightness.light,
-
-    statusBarBrightness: Brightness.dark,
-
-  ));
-
-// Initialize core services and controllers
-
-  Get.put(ApiService(), permanent: true);
-
-  Get.put(SubscriptionService(), permanent: true);
-
-  Get.put(AuthController(), permanent: true);
-
-  Get.put(AccountingController(), permanent: true);
-
-  Get.put(DashboardController(), permanent: true);
-
-  Get.put(ThemeController(), permanent: true);
-
-  Get.put(SchoolController(), permanent: true);
-
-  Get.lazyPut(() => SchoolController(), fenix: true);
-
-  Get.put(MainNavigationController(), permanent: true);
-
-  Get.put(SubscriptionController(), permanent: true);
-
-  Get.put(ClubController(), permanent: true);
-
-  Get.put(FinanceLedgerController(), permanent: true);
-
-
-
-
-
-  final session = Get.put(UserSession(), permanent: true);
-
-  await session.loadSession();
-
-
-
 
 
   SystemChrome.setPreferredOrientations([
@@ -125,12 +101,13 @@ void main() async {
   ]).then((_) {
 
 
+    bootstrapFuture = _bootstrap();
 
     runApp(
 
       DevicePreview(
 
-        enabled: true,
+        enabled: false,
 
         builder: (context) => SchoolApp(),
 

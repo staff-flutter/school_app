@@ -7,12 +7,14 @@ import 'club_quiz_attempt_page.dart';
 class QuizLeaderboardPage extends StatefulWidget {
   final String quizId;
   final String quizTitle;
+  final String schoolId;
   final bool canDelete;
 
   const QuizLeaderboardPage({
     super.key,
     required this.quizId,
     required this.quizTitle,
+    required this.schoolId,
     this.canDelete = false,
   });
 
@@ -34,7 +36,7 @@ class _QuizLeaderboardPageState extends State<QuizLeaderboardPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final token = _auth.storage.read('token') ?? '';
-    final list = await QuizAttemptApi.fetchAttempts(token: token, quizId: widget.quizId);
+    final list = await QuizAttemptApi.fetchAttempts(token: token, quizId: widget.quizId,schoolId: widget.schoolId);
     // Leaderboard order: highest score/percentage first, most recent as tiebreak.
     list.sort((a, b) {
       final byPct = b.percentage.compareTo(a.percentage);
@@ -124,7 +126,7 @@ class _QuizLeaderboardPageState extends State<QuizLeaderboardPage> {
               ),
               child: Row(children: [
                 Container(
-                  width: 32, height: 32,
+                  width: 32, height: 52,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isTop ? Colors.amber.shade50 : Colors.blue.shade50,
@@ -143,6 +145,7 @@ class _QuizLeaderboardPageState extends State<QuizLeaderboardPage> {
                     const SizedBox(height: 3),
                     Text(
                       [
+                       // if (a.studentId != null) 'StudentId: ${a.studentId!}',
                         if (a.className != null) a.className!,
                         if (a.sectionName != null) a.sectionName!,
                         a.completedAt.split('T').first,
@@ -154,7 +157,7 @@ class _QuizLeaderboardPageState extends State<QuizLeaderboardPage> {
                 Text('${a.score}',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF22C55E))),
                 Text(' (${a.percentage}%)',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 10, color: Colors.grey[500])),
                 if (widget.canDelete) ...[
                   const SizedBox(width: 4),
                   IconButton(

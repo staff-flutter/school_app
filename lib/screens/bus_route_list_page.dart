@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/transport_controller.dart';
 
+import '../controllers/auth_controller.dart';
+import '../controllers/school_controller.dart';
 import 'bus_route_detail_page.dart';
 import 'bus_route_form_page.dart';
 
@@ -18,10 +20,18 @@ class BusRouteListScreen extends StatefulWidget {
 
 class _BusRouteListScreenState extends State<BusRouteListScreen> {
   final TransportController controller = Get.find<TransportController>();
+  final AuthController _authController = Get.find<AuthController>();
+
+  SchoolController? get _school =>
+      Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
 
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _minFeeCtrl = TextEditingController();
   final TextEditingController _maxFeeCtrl = TextEditingController();
+
+  Worker? _authWorker;
+  Worker? _schoolWorker;
+  String _lastLoadedSchoolId = '';
 
   // Theme Constants
   static const Color primaryBlue = Color(0xFF2563EB);
@@ -32,23 +42,74 @@ class _BusRouteListScreenState extends State<BusRouteListScreen> {
   static const Color textDark = Color(0xFF1E293B);
   static const Color textMuted = Color(0xFF64748B);
 
+  // Dynamically resolve school ID based on role
+  String get activeSchoolId {
+    final role = _authController.user.value?.role?.toLowerCase() ?? '';
+    if (role == 'correspondent') {
+      final selectedId = _school?.selectedSchool.value?.id;
+      if (selectedId != null && selectedId.isNotEmpty) {
+        return selectedId;
+      }
+    }
+    // Fallback to widget prop or auth user school ID
+    return widget.schoolId.isNotEmpty
+        ? widget.schoolId
+        : (_authController.user.value?.schoolId ?? '');
+  }
+// 1. Update the workers in initState to schedule the fetch after the current frame
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchRoutes());
-  }
 
+    // Safe post-frame fetch
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryFetchRoutes());
+
+    // Wrap worker callbacks so they don't trigger state mutations mid-draw
+    _authWorker = ever(_authController.user, (_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tryFetchRoutes());
+    });
+
+    if (_school != null) {
+      _schoolWorker = ever(_school!.selectedSchool, (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _tryFetchRoutes());
+      });
+    }
+  }
   @override
   void dispose() {
+    _authWorker?.dispose();
+    _schoolWorker?.dispose();
     _searchCtrl.dispose();
     _minFeeCtrl.dispose();
     _maxFeeCtrl.dispose();
     super.dispose();
   }
+  @override
+  void didUpdateWidget(covariant BusRouteListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.schoolId != widget.schoolId) {
+      // Optional: Reset filters when switching schools
+      _searchCtrl.clear();
+      _minFeeCtrl.clear();
+      _maxFeeCtrl.clear();
+
+      _fetchRoutes();
+    }
+  }
+
+
+  void _tryFetchRoutes() {
+    final currentId = activeSchoolId;
+    if (currentId.isEmpty) return;
+
+    _lastLoadedSchoolId = currentId;
+    _fetchRoutes();
+  }
 
   void _fetchRoutes() {
     controller.getBusRoutes(
-      schoolId: widget.schoolId,
+      schoolId: activeSchoolId, // Pass active school ID here
       search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
       minFee: _minFeeCtrl.text.isEmpty ? null : double.tryParse(_minFeeCtrl.text),
       maxFee: _maxFeeCtrl.text.isEmpty ? null : double.tryParse(_maxFeeCtrl.text),

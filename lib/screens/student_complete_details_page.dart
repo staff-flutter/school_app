@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
@@ -16,7 +17,12 @@ import '../models/school_models.dart';
 import '../services/api_service.dart';
 import '../models/student_model.dart' ;
 import 'package:school_app/controllers/bill_admission_controller.dart';
-
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:school_app/widgets/api_rbac_wrapper.dart';
+import 'dart:typed_data';
+import 'package:open_file/open_file.dart';
 
 // Make sure these match your actual import paths for your project controllers!
 // import 'package:your_app/controllers/auth_controller.dart';
@@ -418,7 +424,80 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
       setState(() => _isLoadingProfile = false);
     }
   }
-  // ─── SEARCH SELECTION: builds a Student from a raw list-item JSON and loads it ──
+  void _exportStudentDirectory() async {
+    final schoolId = _resolvedSchoolId;
+    if (schoolId == null || schoolId.isEmpty) {
+      _showSnackbar('Error', 'Unable to resolve school context', _DS.danger);
+      return;
+    }
+
+    Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+
+    try {
+      final queryParams = <String, dynamic>{
+        'schoolId': schoolId,
+        if (selectedClass.value != null) 'classId': selectedClass.value!.id,
+        if (selectedSection.value != null) 'sectionId': selectedSection.value!.id,
+        if (_studentId.trim().isNotEmpty) 'search': _studentId.trim(),
+      };
+
+      final response = await Dio().get(
+        '${ApiConstants.baseUrl}/api/student/v1/export',
+        queryParameters: queryParams,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Authorization': 'Bearer ${_getToken()}'},
+        ),
+      );
+
+      Get.back(); // close loading dialog
+
+      final fileName = 'student_directory_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+
+      // System Save dialog (Storage Access Framework) — same pattern as
+      // Student Records export: puts the file somewhere genuinely visible
+      // to other apps (e.g. Downloads), not this app's private sandbox.
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save student directory export',
+        fileName: fileName,
+        bytes: Uint8List.fromList(response.data as List<int>),
+      );
+
+      if (savedPath == null) return; // user cancelled the save dialog
+
+      Get.snackbar(
+        'Export Complete',
+        'Saved to: $savedPath',
+        backgroundColor: _DS.success,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+        mainButton: TextButton(
+          onPressed: () async {
+            final result = await OpenFile.open(savedPath);
+            if (result.type != ResultType.done) {
+              _showSnackbar('Error', 'Could not open file: ${result.message}', _DS.danger);
+            }
+          },
+          child: const Text('OPEN', style: TextStyle(color: Colors.white)),
+        ),
+      );
+    } on DioException catch (e) {
+      Get.back();
+      String detail = e.message ?? 'Unknown error';
+      final data = e.response?.data;
+      if (data != null) {
+        try {
+          final decoded = data is List<int> ? utf8.decode(data) : data.toString();
+          final parsed = jsonDecode(decoded);
+          detail = parsed['message']?.toString() ?? decoded;
+        } catch (_) {}
+      }
+      _showSnackbar('Export Failed', detail, _DS.danger);
+    } catch (e) {
+      Get.back();
+      _showSnackbar('Error', 'Failed to export student directory: ${e.toString()}', _DS.danger);
+    }
+  }  // ─── SEARCH SELECTION: builds a Student from a raw list-item JSON and loads it ──
   /// Builds a lightweight [Student] from a raw student-list JSON map so the
   /// detail tabs (which key off `selectedStudent.value`) can render even when
   /// the tapped student wasn't already present in `_schoolController.students`.
@@ -641,30 +720,51 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
                   children: [
                     // Search bar — live filters as you type (debounced), just like
                     // StudentProfileManagementPage's search field. No button needed.
-                    Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'Search by student name or ID…',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
-                          prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.7), size: 18),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                            icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.8), size: 18),
-                            onPressed: () => _searchController.clear(),
-                          )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withOpacity(0.3)),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Search by student name or ID…',
+                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                                prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.7), size: 18),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                  icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.8), size: 18),
+                                  onPressed: () => _searchController.clear(),
+                                )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                            onTap: _exportStudentDirectory,
+                            child: Container(
+                              height: 42,
+                              width: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white.withOpacity(0.3)),
+                              ),
+                              child: const Icon(Icons.file_download_outlined, color: Colors.white, size: 18),
+                            ),
+                          ),
+
+                      ],
                     ),
                     const SizedBox(height: 10),
 
@@ -944,10 +1044,22 @@ class _StudentDetailViewState extends State<StudentDetailView> with SingleTicker
             child: CircleAvatar(
               radius: 36,
               backgroundColor: _DS.surface,
-              child: Text(
+              backgroundImage: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+                  ? NetworkImage(_profileImageUrl!)
+                  : null,
+              onBackgroundImageError: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+                  ? (exception, stackTrace) {
+                // Falls back silently — the Text child below still renders as a
+                // backup since backgroundImage failed to load.
+                if (mounted) setState(() => _profileImageUrl = null);
+              }
+                  : null,
+              child: (_profileImageUrl == null || _profileImageUrl!.isEmpty)
+                  ? Text(
                 displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'S',
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _DS.primary),
-              ),
+              )
+                  : null,
             ),
           ),
           const SizedBox(width: 16),

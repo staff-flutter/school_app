@@ -111,6 +111,7 @@ class ConcessionModel {
   final int inAmount;
   final String proofUrl;
   final String approvedBy;
+  final bool isApproved;
 
   ConcessionModel({
     required this.isApplied,
@@ -119,6 +120,7 @@ class ConcessionModel {
     required this.inAmount,
     required this.proofUrl,
     required this.approvedBy,
+    required this.isApproved,
   });
 
   factory ConcessionModel.fromJson(Map<String, dynamic> json) {
@@ -137,6 +139,7 @@ class ConcessionModel {
       inAmount: _toInt(json['inAmount']),
       proofUrl: proofUrl,
       approvedBy: _approvedByLabel(json['approvedBy']),
+      isApproved: json['approvedBy'] != null,
     );
   }
 }
@@ -526,6 +529,16 @@ class _ConcessionTab extends StatelessWidget {
     final c = record.concession;
     final discountLabel =
     c.type == 'percentage' ? '${c.value}%' : '₹ ${c.value}';
+
+    final String statusLabel = !c.isApplied
+        ? 'Not Applied'
+        : (c.isApproved ? 'Approved' : 'Pending Approval');
+    final Color statusColor = !c.isApplied
+        ? Colors.grey.shade400
+        : (c.isApproved ? const Color(0xff27AE60) : const Color(0xffD97706));
+    final IconData statusIcon = !c.isApplied
+        ? Icons.cancel_outlined
+        : (c.isApproved ? Icons.check_circle : Icons.hourglass_top_rounded);
 
     return _TabScaffold(
       onRefresh: onRefresh,

@@ -129,7 +129,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
   String _eventType = 'holiday';
   String _eventYear = AcademicYearUtils.getCurrentAcademicYear();
   String? _editingEventId;
-  static const int _pastEditWindowDays = 7;
+ // static const int _pastEditWindowDays = 7;
   static final _years = AcademicYearUtils.getRecentAcademicYears(3);
   bool _isEditingExisting = false;
 
@@ -652,7 +652,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                 child: _datePicker(
                   label: 'Date',
                   date: _selectedDate,
-                  firstDate: DateTime.now().subtract(const Duration(days: _pastEditWindowDays)),
+                  firstDate: DateTime(2000), // allow all past dates
                   lastDate: DateTime.now(), // never allow future
                   onChanged: (d) {
                     setState(() => _selectedDate = d);
@@ -1035,7 +1035,7 @@ class _AdminAttendanceViewState extends State<AdminAttendanceView>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 1,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

@@ -484,7 +484,7 @@ class TransportController extends GetxController {
         _showSnackbar('Error', response.data['message'] ?? 'Failed to load bus dropdown', AppTheme.errorRed);
       }
     } catch (e) {
-      _showSnackbar('Error', _errorMessage(e, 'An error occurred while loading bus dropdown'), AppTheme.errorRed);
+     // _showSnackbar('Error', _errorMessage(e, 'An error occurred while loading bus dropdown'), AppTheme.errorRed);
     } finally {
       isLoading.value = false;
     }

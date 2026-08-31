@@ -58,7 +58,9 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
   // ------------------------------------THE  CLUBS&ACTIVITIES FUNCTION -----------------------------
 
   Future<void> fetchClubsAndActivities({bool isRefresh = false}) async {
+    print('🟢 fetchClubsAndActivities called, isRefresh=$isRefresh');
     if (_isFetching) {
+      print('🔴 skipped — already fetching');
       return;
     }
 
@@ -75,10 +77,13 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     if (role == 'correspondent') {
       schoolId = _school?.selectedSchool.value?.id;
     } else {
-      schoolId =  _authController.user.value?.schoolId;
+      schoolId = _authController.user.value?.schoolId;
     }
 
+    print('🟡 role=$role schoolId=$schoolId token=${token != null ? "present" : "NULL"}');
+
     if (schoolId == null || schoolId.isEmpty) {
+      print('🔴 schoolId empty — bailing out early');
       setState(() {
         isLoading = false;
         _quizzesLoading = false;
@@ -87,6 +92,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       return;
     }
     if (!isRefresh && schoolId == _lastFetchedSchoolId && apiClubs.isNotEmpty) {
+      print('🔴 skipped — same schoolId already fetched, apiClubs.length=${apiClubs.length}');
       return;
     }
 
@@ -100,30 +106,44 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     final uri = Uri.parse('$baseUrl/api/club/getall')
         .replace(queryParameters: queryParameters);
 
+    print('🟣 calling $uri');
+
     try {
       final response = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
 
+      print('🟣 response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final decodedData = jsonDecode(response.body);
         final List<dynamic> list = decodedData['data'] ?? [];
+        final parsed = list.map((data) => ClubsAndActivitiesStrings.fromJson(data)).toList();
+
+        final Map<String, ClubsAndActivitiesStrings> uniqueMap = {
+          for (var c in parsed) c.id: c
+        };
+
         setState(() {
-          apiClubs = list
-              .map((data) => ClubsAndActivitiesStrings.fromJson(data))
-              .toList();
+          apiClubs = uniqueMap.values.toList();
           isLoading = false;
         });
+
+        print('🔵 apiClubs: ${apiClubs.length} — ${apiClubs.map((c) => c.name).toList()}');
+
         _lastFetchedSchoolId = schoolId;
         await _fetchAllClubQuizzes();
       } else {
+        print('🔴 non-200 response: ${response.body}');
         setState(() {
           isLoading = false;
           _quizzesLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      print('🔴 EXCEPTION: $e');
+      print(st);
       setState(() {
         isLoading = false;
         _quizzesLoading = false;
@@ -132,7 +152,6 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
       _isFetching = false;
     }
   }
-
   // ------------------------------------ QUIZZES ---------------------------------------------------
 
   Future<void> _fetchAllClubQuizzes() async {
@@ -192,6 +211,7 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         }
 
         _quizzes = uniqueQuizzesMap.values.toList();
+        print('🟠 quizzes: ${_quizzes.length} — ${_quizzes.map((q) => q.title).toList()}');
         _quizzesLoading = false;
       });
     }
@@ -204,18 +224,21 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     final role = _authController.user.value?.role?.toLowerCase() ?? '';
 
     if (role == 'correspondent') {
-      final school = _school; // read once, safely
+      final school = _school;
       if (school != null) {
         ever(school.selectedSchool, (_) {
-          if (mounted) {
-            fetchClubsAndActivities();
-          }
+          if (mounted) fetchClubsAndActivities();
         });
-      } else {
       }
     } else {
+      String? _lastEverSchoolId = _authController.user.value?.schoolId;
       ever(_authController.user, (user) {
-        if (mounted && user?.schoolId != null && user!.schoolId!.isNotEmpty) {
+        final newSchoolId = user?.schoolId;
+        if (mounted &&
+            newSchoolId != null &&
+            newSchoolId.isNotEmpty &&
+            newSchoolId != _lastEverSchoolId) {   // ← only fetch if it actually changed
+          _lastEverSchoolId = newSchoolId;
           fetchClubsAndActivities();
         }
       });
@@ -231,27 +254,31 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.dark,
       ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFEEF3FB),
-        body: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 50.0),
-            child: RefreshIndicator(
-              onRefresh: () => fetchClubsAndActivities(isRefresh: true),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    _header(),
-                    const SizedBox(height: 20),
-                    _gridCards(),
-                    const SizedBox(height: 24),
-                    _quizzesSection(),
-                    SizedBox(height: AppTheme.navBarPadding(context)),
-                  ],
+      child: MediaQuery.removePadding(   // ← add this
+        context: context,
+        removeBottom: true,              // ← strips ambient bottom inset from MainWrapper
+        child: Scaffold(
+          backgroundColor: const Color(0xFFEEF3FB),
+          body: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 50.0),
+              child: RefreshIndicator(
+                onRefresh: () => fetchClubsAndActivities(isRefresh: true),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      _header(),
+                      const SizedBox(height: 20),
+                      _gridCards(),
+                      const SizedBox(height: 24),
+                      _quizzesSection(),
+                      SizedBox(height: AppTheme.navBarPadding(context)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -563,12 +590,24 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
     final role = _authController.user.value?.role?.toLowerCase() ?? '';
     final isParent = role == 'parent';
 
+    // if (!isParent) {
+    //   // Every other role: view the leaderboard only, never attempt.
+    //   Navigator.push(context, MaterialPageRoute(
+    //     builder: (_) => QuizLeaderboardPage(
+    //       quizId: quiz.id,
+    //       quizTitle: quiz.title,
+    //       canDelete: role == 'correspondent' || role == 'administrator',
+    //     ),
+    //   ));
+    //   return;
+    // }
+
     if (!isParent) {
-      // Every other role: view the leaderboard only, never attempt.
+      // Admin/correspondent/others: view the quiz content only, never attempt.
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => QuizLeaderboardPage(
-          quizId: quiz.id,
-          quizTitle: quiz.title,
+        builder: (_) => QuizViewOnlyPage(
+          quiz: quiz,
+          schoolId: _schoolId ?? '',
           canDelete: role == 'correspondent' || role == 'administrator',
         ),
       ));
@@ -610,6 +649,124 @@ class _ClubPageState extends State<ClubAndActivitiesPage> {
         ),
       ));
     }
+  }
+}
+
+class QuizViewOnlyPage extends StatelessWidget {
+  final ClubQuiz quiz;
+  final String schoolId;
+  final bool canDelete;
+
+  const QuizViewOnlyPage({super.key, required this.quiz,required this.schoolId,  this.canDelete = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(quiz.title,
+                style: const TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w600)),
+            Text(quiz.clubName, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          ],
+        ),
+      ),
+      body: quiz.questions.isEmpty
+          ? Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(children: [
+            Icon(Icons.quiz_outlined, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            const Text('No questions in this quiz.',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
+          ]),
+        ),
+      )
+          : ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: quiz.questions.length + 1,
+        itemBuilder: (ctx, i) {
+          if (i == quiz.questions.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuizLeaderboardPage(
+                        quizId: quiz.id,
+                        quizTitle: quiz.title,
+                        schoolId: schoolId,
+                        canDelete: canDelete,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.leaderboard_outlined),
+                label: const Text('View leaderboard'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            );
+          }
+
+          final q = quiz.questions[i];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${i + 1}. ${q.questionText}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                for (int oi = 0; oi < q.options.length; oi++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: oi == q.correctOptionIndex ? Colors.green.shade50 : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: oi == q.correctOptionIndex ? Colors.green.shade300 : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            oi == q.correctOptionIndex ? Icons.check_circle : Icons.circle_outlined,
+                            size: 18,
+                            color: oi == q.correctOptionIndex ? Colors.green : Colors.grey[400],
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(q.options[oi], style: const TextStyle(fontSize: 12))),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 class ClubMembersPage extends StatefulWidget {
@@ -876,12 +1033,18 @@ class ClubQuizQuestion {
   final String questionText;
   final List<String> options;
 
-  const ClubQuizQuestion({required this.questionText, required this.options});
+  final int? correctOptionIndex;
 
-  factory ClubQuizQuestion.fromJson(Map<String, dynamic> j) => ClubQuizQuestion(
-    questionText: j['questionText'] ?? j['question'] ?? '',
-    options: (j['options'] as List? ?? []).map((e) => '$e').toList(),
-  );
+  const ClubQuizQuestion({this.correctOptionIndex,required this.questionText, required this.options});
+
+  factory ClubQuizQuestion.fromJson(Map<String, dynamic> j) {
+    final rawCorrect = j['correctOptionIndex'] ?? j['correctAnswerIndex'] ?? j['answerIndex'];
+    return ClubQuizQuestion(
+      questionText: j['questionText'] ?? j['question'] ?? '',
+      options: (j['options'] as List? ?? []).map((e) => '$e').toList(),
+      correctOptionIndex: rawCorrect is num ? rawCorrect.toInt() : null,
+    );
+  }
 }
 
 class ClubQuiz {
@@ -962,6 +1125,8 @@ class _QuizAttemptPageState extends State<QuizAttemptPage> {
 
     final payload = {
       'quizId': widget.quiz.id,
+      'studentId': widget.studentId,
+
       'studentAnswers': List.generate(_selected.length, (i) => {
         'index': i,
         'selectedOptionIndex': _selected[i],

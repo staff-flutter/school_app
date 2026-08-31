@@ -9,10 +9,11 @@ class ConcessionDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final student = concessionData['studentId'] ?? {};
-    final concession = concessionData['concession'] ?? {};
+    final student = (concessionData['studentId'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final concession = (concessionData['concession'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
+
     
     return Scaffold(
       backgroundColor: Colors.grey[50],

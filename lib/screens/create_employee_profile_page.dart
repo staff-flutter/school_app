@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart' hide Response;
 import 'package:dio/dio.dart' as dio;
@@ -10,7 +11,7 @@ import '../../controllers/school_controller.dart';
 import '../../services/api_service.dart';
 
 // =============================================================================
-// API ROUTES  (move these into ApiConstants once you confirm naming there)
+// API ROUTES
 // =============================================================================
 class _EmployeeApi {
   static String getOne(String userId) => '/api/employee-profile/get/$userId';
@@ -23,7 +24,6 @@ class _EmployeeApi {
 // MODELS
 // =============================================================================
 
-/// Mirrors `uploadSchema` on the server: {type, key, url, originalName, uploadedAt, _id}
 class EmployeeDocument {
   final String id;
   final String url;
@@ -89,11 +89,6 @@ class EducationEntry {
 // =============================================================================
 
 class CreateEmployeeProfilePage extends StatefulWidget {
-  /// The user (staff member) this employee profile belongs to.
-  /// Pass `null` to create a brand-new staff member from scratch (this page
-  /// will then also collect Full Name / Email / Phone / Role / Password and
-  /// register the user before saving the profile) — this is what "Add Staff"
-  /// on the Staff Management page uses.
   final String? userId;
   final String? schoolId;
   final bool isEdit;
@@ -118,10 +113,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
   bool _isLoading = false;
   bool _isFetching = false;
 
-  /// The resolved user id for this profile. Null until a brand-new staff
-  /// member has been registered (see `_registerStaffUser`).
   String? _userId;
-  // 1. Harden the check so empty string is treated the same as null.
   bool get _isNewStaff => _userId == null || _userId!.trim().isEmpty;
 
   String? get _resolvedSchoolId {
@@ -132,14 +124,13 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     return _auth.user.value?.schoolId;
   }
 
-  // ── Account / registration controllers (new staff only) ──────────────────
+  // Account / registration controllers
   final _fullNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
 
-  // TODO: replace with roles pulled from your roles API if available.
   static const List<String> _roleOptions = [
     'Teacher',
     'Principal',
@@ -149,7 +140,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
   ];
   String? _selectedAccountRole;
 
-  // ── Text controllers matching schema fields directly ──────────────────────
+  // Text controllers
   final _currentAddressCtrl = TextEditingController();
   final _permanentAddressCtrl = TextEditingController();
   final _employeeNoCtrl = TextEditingController();
@@ -181,16 +172,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
   final List<EmployeeDocument> _existingDocuments = [];
   String? _deletingDocId;
 
-  Future<void> _pickSalarySlip() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-    );
-    if (result != null && result.files.single.path != null) {
-      setState(() => _salarySlipFile = File(result.files.single.path!));
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -219,7 +200,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     super.dispose();
   }
 
-  // ── Date helpers (DD/MM/YYYY UI <-> ISO server) ────────────────────────────
   String? _isoDate(String? ddmmyyyy) {
     if (ddmmyyyy == null || ddmmyyyy.trim().isEmpty) return null;
     final parts = ddmmyyyy.split('/');
@@ -230,7 +210,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
   String? _fromIsoDate(String? v) {
     if (v == null || v.trim().isEmpty) return null;
     if (v.contains('/')) return v;
-    // Handles both "YYYY-MM-DD" and full ISO timestamps.
     final datePart = v.split('T').first;
     final parts = datePart.split('-');
     if (parts.length == 3 && parts[0].length == 4) {
@@ -251,7 +230,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     }
   }
 
-  // ── Load existing profile for edit mode (GET /get/:userId) ────────────────
   Future<void> _loadExistingProfile() async {
     if (_userId == null) return;
     setState(() => _isFetching = true);
@@ -261,7 +239,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
           ? Map<String, dynamic>.from(res.data['data'])
           : Map<String, dynamic>.from(res.data ?? {});
 
-      // Basic account info, if the backend nests it under `user`.
       final user = data['userId'];
       if (user is Map) {
         _fullNameCtrl.text = user['fullName']?.toString() ?? user['name']?.toString() ?? '';
@@ -338,7 +315,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     }
   }
 
-  // ── File picking ────────────────────────────────────────────────────────
   Future<void> _pickDocuments() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
@@ -349,6 +325,16 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
       setState(() {
         _selectedFiles.addAll(result.paths.whereType<String>().map((p) => File(p)));
       });
+    }
+  }
+
+  Future<void> _pickSalarySlip() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+    if (result != null && result.files.single.path != null) {
+      setState(() => _salarySlipFile = File(result.files.single.path!));
     }
   }
 
@@ -393,9 +379,7 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     }
   }
 
-  // ── Register a brand-new staff user, returns the new user id ─────────────
   Future<String> _registerStaffUser(String schoolId) async {
-    // ApiConstants.createUser = '/api/user/v1/create'
     final resp = await _apiService.dio.post(
       ApiConstants.createUser,
       data: {
@@ -419,7 +403,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     throw Exception(msg ?? 'Failed to register staff account');
   }
 
-  // ── Submit (create or update) ──────────────────────────────────────────
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -434,8 +417,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      // Step 1: if this is a brand-new staff member, register the user
-      // account first so we have a userId to attach the profile to.
       if (_isNewStaff) {
         _userId = await _registerStaffUser(schoolId);
       }
@@ -461,8 +442,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
           .toList();
 
       final fields = <String, dynamic>{
-        // schoolId still useful to send in case the backend needs it on
-        // first-time creation via upsert.
         'schoolId': schoolId,
         'currentAddress': _currentAddressCtrl.text.trim(),
         'permanentAddress': _permanentAddressCtrl.text.trim(),
@@ -483,7 +462,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
 
       final formData = dio.FormData.fromMap(fields);
 
-      // Documents — multiple, key: 'documents'
       for (final file in _selectedFiles) {
         formData.files.add(MapEntry(
           'documents',
@@ -491,7 +469,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
         ));
       }
 
-      // Salary slip — single file, key: 'salarySlipFile'
       if (_salarySlipFile != null) {
         formData.files.add(MapEntry(
           'salarySlipFile',
@@ -520,7 +497,6 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
         throw Exception(msg ?? 'Failed to save profile');
       }
     } on dio.DioException catch (e) {
-
       final msg = (e.response?.data is Map ? e.response!.data['message']?.toString() : null) ?? e.message;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $msg')));
@@ -534,270 +510,737 @@ class _CreateEmployeeProfilePageState extends State<CreateEmployeeProfilePage> {
     }
   }
 
-  // ==========================================================================
-  // BUILD
-  // ==========================================================================
+  InputDecoration _buildInputDecoration({String? hintText}) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+      filled: true,
+      fillColor: const Color(0xFFF9FAFB),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFDC2626)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF374151),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF374151)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Color(0xFF111827),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCardContainer({required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEdit ? 'Edit Employee Profile' : 'Add Staff')),
-      body: _isFetching
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: Text(
+          widget.isEdit ? 'Edit Employee Profile' : 'Add Staff',
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: _isFetching
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionHeader('Account Details'),
-              if (_isNewStaff) ...[
-                TextFormField(
-                  controller: _fullNameCtrl,
-                  decoration: const InputDecoration(labelText: 'Full Name *', hintText: 'e.g. Rahul'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _emailCtrl,
-                  decoration: const InputDecoration(labelText: 'Email Address *', hintText: 'name@school.com'),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  decoration: const InputDecoration(labelText: 'Phone Number *', hintText: '10-digit mobile number'),
-                  keyboardType: TextInputType.phone,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                DropdownButtonFormField<String>(
-                  value: _selectedAccountRole,
-                  decoration: const InputDecoration(labelText: 'Assign Role *'),
-                  items: _roleOptions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                  onChanged: (v) => setState(() => _selectedAccountRole = v),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _passwordCtrl,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Password *',
-                    hintText: 'Enter password',
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                  validator: (v) => (v == null || v.length < 6) ? 'Minimum 6 characters' : null,
-                ),
-              ] else ...[
-                // Editing an existing staff member — account fields are
-                // read-only here; wire up a separate "Edit Account" call if
-                // you want to allow changing name/email/role after creation.
-                TextFormField(
-                  controller: _fullNameCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Full Name'),
-                ),
-                TextFormField(
-                  controller: _emailCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Email Address'),
-                ),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Phone Number'),
-                ),
-              ],
-
-              const SizedBox(height: 24),
-              _buildSectionHeader('Personal Details'),
-              TextFormField(controller: _currentAddressCtrl, decoration: const InputDecoration(labelText: 'Current Address'), maxLines: 2),
-              TextFormField(controller: _permanentAddressCtrl, decoration: const InputDecoration(labelText: 'Permanent Address'), maxLines: 2),
-              TextFormField(controller: _nationalIdCtrl, decoration: const InputDecoration(labelText: 'National ID')),
-
-              const SizedBox(height: 24),
-              _buildSectionHeader('Work Details'),
-              TextFormField(
-                controller: _employeeNoCtrl,
-                decoration: const InputDecoration(labelText: 'Employee Number *'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _designationCtrl,
-                decoration: const InputDecoration(labelText: 'Designation *'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              TextFormField(controller: _departmentCtrl, decoration: const InputDecoration(labelText: 'Department')),
-              TextFormField(
-                controller: _dateOfJoiningCtrl,
-                readOnly: true,
-                onTap: () => _pickDate(_dateOfJoiningCtrl),
-                decoration: const InputDecoration(labelText: 'Date of Joining', hintText: 'DD/MM/YYYY'),
-              ),
-              DropdownButtonFormField<String>(
-                value: _employmentType,
-                decoration: const InputDecoration(labelText: 'Employment Type'),
-                items: _employmentOptions.map((v) => DropdownMenuItem(value: v, child: Text(v.toUpperCase()))).toList(),
-                onChanged: (v) => setState(() => _employmentType = v!),
-              ),
-              TextFormField(controller: _yearsOfExpCtrl, decoration: const InputDecoration(labelText: 'Years of Experience'), keyboardType: TextInputType.number),
-              TextFormField(controller: _previousWorkplaceCtrl, decoration: const InputDecoration(labelText: 'Previous Workplace')),
-              TextFormField(controller: _pfNumberCtrl, decoration: const InputDecoration(labelText: 'PF Number')),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Active'),
-                value: _isActive,
-                onChanged: (v) => setState(() => _isActive = v),
-              ),
-
-              const SizedBox(height: 24),
-              _buildSectionHeaderWithAction(
-                'Education Details',
-                onAdd: () => setState(() => _education.add(EducationEntry())),
-              ),
-              ..._education.asMap().entries.map((entry) {
-                final i = entry.key;
-                final e = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      // 1. Account Details
+                      _buildCardContainer(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(child: Text('Entry ${i + 1}', style: const TextStyle(fontWeight: FontWeight.w600))),
-                              if (_education.length > 1)
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 18),
-                                  onPressed: () => setState(() {
-                                    e.dispose();
-                                    _education.removeAt(i);
-                                  }),
+                          _buildSectionHeader(Icons.person_outline, 'Account Details'),
+                          const SizedBox(height: 14),
+                          if (_isNewStaff) ...[
+                            _buildFieldLabel('Full Name *'),
+                            TextFormField(
+                              controller: _fullNameCtrl,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(hintText: 'e.g. Rahul'),
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFieldLabel('Email Address *'),
+                            TextFormField(
+                              controller: _emailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(hintText: 'name@school.com'),
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFieldLabel('Phone Number *'),
+                            TextFormField(
+                              controller: _phoneCtrl,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(hintText: '10-digit mobile number'),
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFieldLabel('Assign Role *'),
+                            DropdownButtonFormField<String>(
+                              value: _selectedAccountRole,
+                              icon: const Icon(Icons.keyboard_arrow_down, size: 20, color: Color(0xFF6B7280)),
+                              decoration: _buildInputDecoration(hintText: 'Select Role'),
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+                              items: _roleOptions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                              onChanged: (v) => setState(() => _selectedAccountRole = v),
+                              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFieldLabel('Password *'),
+                            TextFormField(
+                              controller: _passwordCtrl,
+                              obscureText: _obscurePassword,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(hintText: 'Enter password').copyWith(
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF6B7280)),
+                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                 ),
-                            ],
-                          ),
-                          TextFormField(controller: e.degreeCtrl, decoration: const InputDecoration(labelText: 'Degree')),
-                          TextFormField(controller: e.institutionCtrl, decoration: const InputDecoration(labelText: 'Institution')),
-                          TextFormField(controller: e.yearCtrl, decoration: const InputDecoration(labelText: 'Year of Passing')),
-                          TextFormField(controller: e.gradeCtrl, decoration: const InputDecoration(labelText: 'Grade')),
+                              ),
+                              validator: (v) => (v == null || v.length < 6) ? 'Minimum 6 characters' : null,
+                            ),
+                          ] else ...[
+                            _buildFieldLabel('Full Name'),
+                            TextFormField(
+                              controller: _fullNameCtrl,
+                              readOnly: true,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(),
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFieldLabel('Email Address'),
+                            TextFormField(
+                              controller: _emailCtrl,
+                              readOnly: true,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(),
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFieldLabel('Phone Number'),
+                            TextFormField(
+                              controller: _phoneCtrl,
+                              readOnly: true,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: _buildInputDecoration(),
+                            ),
+                          ],
                         ],
                       ),
-                    ),
-                  ),
-                );
-              }),
+                      const SizedBox(height: 14),
 
-              const SizedBox(height: 24),
-              _buildSectionHeader('Bank Details'),
-              TextFormField(controller: _bankAccountNameCtrl, decoration: const InputDecoration(labelText: 'Account Holder Name')),
-              TextFormField(controller: _bankNameCtrl, decoration: const InputDecoration(labelText: 'Bank Name')),
-              TextFormField(controller: _accountNoCtrl, decoration: const InputDecoration(labelText: 'Account Number')),
-              TextFormField(controller: _ifscCodeCtrl, decoration: const InputDecoration(labelText: 'IFSC Code')),
+                      // 2. Personal Details
+                      _buildCardContainer(
+                        children: [
+                          _buildSectionHeader(Icons.contact_mail_outlined, 'Personal Details'),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Current Address'),
+                          TextFormField(
+                            controller: _currentAddressCtrl,
+                            maxLines: 2,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Enter current address'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Permanent Address'),
+                          TextFormField(
+                            controller: _permanentAddressCtrl,
+                            maxLines: 2,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Enter permanent address'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('National ID'),
+                          TextFormField(
+                            controller: _nationalIdCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Aadhaar / National ID No.'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
 
-              const SizedBox(height: 24),
-              _buildSectionHeader('Emergency Contact'),
-              TextFormField(controller: _emgNameCtrl, decoration: const InputDecoration(labelText: 'Name')),
-              TextFormField(controller: _emgRelationCtrl, decoration: const InputDecoration(labelText: 'Relation')),
-              TextFormField(controller: _emgPhoneCtrl, decoration: const InputDecoration(labelText: 'Phone'), keyboardType: TextInputType.phone),
+                      // 3. Work Details
+                      _buildCardContainer(
+                        children: [
+                          _buildSectionHeader(Icons.work_outline, 'Work Details'),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Employee Number *'),
+                          TextFormField(
+                            controller: _employeeNoCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. EMP-102'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Designation *'),
+                          TextFormField(
+                            controller: _designationCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. Senior Teacher'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Department'),
+                          TextFormField(
+                            controller: _departmentCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. Science'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Date of Joining'),
+                          InkWell(
+                            onTap: () => _pickDate(_dateOfJoiningCtrl),
+                            borderRadius: BorderRadius.circular(8),
+                            child: InputDecorator(
+                              decoration: _buildInputDecoration(hintText: 'DD/MM/YYYY'),
+                              child: Text(
+                                _dateOfJoiningCtrl.text.isEmpty ? 'Select Date' : _dateOfJoiningCtrl.text,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: _dateOfJoiningCtrl.text.isEmpty ? const Color(0xFF9CA3AF) : const Color(0xFF1F2937),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Employment Type'),
+                          DropdownButtonFormField<String>(
+                            value: _employmentType,
+                            icon: const Icon(Icons.keyboard_arrow_down, size: 20, color: Color(0xFF6B7280)),
+                            decoration: _buildInputDecoration(),
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+                            items: _employmentOptions
+                                .map((v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(v.toUpperCase(), style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937))),
+                            ))
+                                .toList(),
+                            onChanged: (v) => setState(() => _employmentType = v!),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Years of Experience'),
+                          TextFormField(
+                            controller: _yearsOfExpCtrl,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. 5'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Previous Workplace'),
+                          TextFormField(
+                            controller: _previousWorkplaceCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Previous School / Organization'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('PF Number'),
+                          TextFormField(
+                            controller: _pfNumberCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Provident Fund No.'),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Active Status', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                              Switch(
+                                value: _isActive,
+                                activeColor: const Color(0xFF2563EB),
+                                onChanged: (v) => setState(() => _isActive = v),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
 
-              const SizedBox(height: 24),
-              _buildSectionHeader('Documents / Attachments'),
-              if (_existingDocuments.isNotEmpty) ...[
-                ..._existingDocuments.map((doc) => ListTile(
-                  leading: const Icon(Icons.description, color: Colors.blue),
-                  title: Text(doc.name),
-                  trailing: _deletingDocId == doc.id
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteExistingDocument(doc),
-                  ),
-                )),
-                const Divider(),
-              ],
-              ElevatedButton.icon(
-                onPressed: _pickDocuments,
-                icon: const Icon(Icons.attach_file),
-                label: const Text('Select Documents (PDF / Images)'),
-              ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _selectedFiles.length,
-                itemBuilder: (context, index) => ListTile(
-                  leading: const Icon(Icons.description, color: Colors.blue),
-                  title: Text(_selectedFiles[index].path.split('/').last),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                      // 4. Education Details
+                      _buildCardContainer(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildSectionHeader(Icons.school_outlined, 'Education Details'),
+                              OutlinedButton.icon(
+                                onPressed: () => setState(() => _education.add(EducationEntry())),
+                                icon: const Icon(Icons.add, size: 16, color: Color(0xFF2563EB)),
+                                label: const Text('Add Entry', style: TextStyle(color: Color(0xFF2563EB), fontSize: 12)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF2563EB)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          ..._education.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final e = entry.value;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('ENTRY #${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF6B7280))),
+                                      if (_education.length > 1)
+                                        IconButton(
+                                          icon: const Icon(Icons.close, size: 16, color: Color(0xFFEF4444)),
+                                          onPressed: () => setState(() {
+                                            e.dispose();
+                                            _education.removeAt(i);
+                                          }),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            _buildFieldLabel('Degree'),
+                                            TextFormField(
+                                              controller: e.degreeCtrl,
+                                              style: const TextStyle(fontSize: 13),
+                                              decoration: _buildInputDecoration(hintText: 'e.g. B.Ed'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            _buildFieldLabel('Institution'),
+                                            TextFormField(
+                                              controller: e.institutionCtrl,
+                                              style: const TextStyle(fontSize: 13),
+                                              decoration: _buildInputDecoration(hintText: 'University Name'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            _buildFieldLabel('Year of Passing'),
+                                            TextFormField(
+                                              controller: e.yearCtrl,
+                                              keyboardType: TextInputType.number,
+                                              style: const TextStyle(fontSize: 13),
+                                              decoration: _buildInputDecoration(hintText: 'e.g. 2018'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            _buildFieldLabel('Grade / Class'),
+                                            TextFormField(
+                                              controller: e.gradeCtrl,
+                                              style: const TextStyle(fontSize: 13),
+                                              decoration: _buildInputDecoration(hintText: 'e.g. First Class'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 5. Bank Details
+                      _buildCardContainer(
+                        children: [
+                          _buildSectionHeader(Icons.account_balance_outlined, 'Bank Details'),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Account Holder Name'),
+                          TextFormField(
+                            controller: _bankAccountNameCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'As per bank records'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Bank Name'),
+                          TextFormField(
+                            controller: _bankNameCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. State Bank of India'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Account Number'),
+                          TextFormField(
+                            controller: _accountNoCtrl,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Account No.'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('IFSC Code'),
+                          TextFormField(
+                            controller: _ifscCodeCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. SBIN0001234'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 6. Emergency Contact
+                      _buildCardContainer(
+                        children: [
+                          _buildSectionHeader(Icons.contact_phone_outlined, 'Emergency Contact'),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Contact Person Name'),
+                          TextFormField(
+                            controller: _emgNameCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Contact Name'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Relation'),
+                          TextFormField(
+                            controller: _emgRelationCtrl,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'e.g. Spouse / Parent'),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildFieldLabel('Phone Number'),
+                          TextFormField(
+                            controller: _emgPhoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _buildInputDecoration(hintText: 'Mobile Number'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 7. Documents & Attachments
+                      _buildCardContainer(
+                        children: [
+                          _buildSectionHeader(Icons.attach_file_outlined, 'Documents / Attachments'),
+                          const SizedBox(height: 14),
+                          if (_existingDocuments.isNotEmpty) ...[
+                            ..._existingDocuments.map((doc) => Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.description_outlined, color: Color(0xFF2563EB), size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(doc.name, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+                                  ),
+                                  if (_deletingDocId == doc.id)
+                                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                  else
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 18),
+                                      onPressed: () => _deleteExistingDocument(doc),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                ],
+                              ),
+                            )),
+                            const SizedBox(height: 8),
+                          ],
+                          OutlinedButton.icon(
+                            onPressed: _pickDocuments,
+                            icon: const Icon(Icons.file_upload_outlined, size: 16, color: Color(0xFF2563EB)),
+                            label: const Text('Select Documents (PDF / Images)', style: TextStyle(color: Color(0xFF2563EB), fontSize: 13)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF2563EB)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                          if (_selectedFiles.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            ..._selectedFiles.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final file = entry.value;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.insert_drive_file_outlined, size: 16, color: Color(0xFF6B7280)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        file.path.split('/').last,
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFF374151)),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFEF4444)),
+                                      onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 8. Salary Slip
+                      _buildCardContainer(
+                        children: [
+                          _buildSectionHeader(Icons.receipt_long_outlined, 'Salary Slip'),
+                          const SizedBox(height: 14),
+                          if (_existingSalarySlip != null && _salarySlipFile == null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.receipt_outlined, color: Color(0xFF2563EB), size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _existingSalarySlip!.name,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _pickSalarySlip,
+                                icon: const Icon(Icons.upload_file_outlined, size: 16, color: Color(0xFF2563EB)),
+                                label: Text(
+                                  _salarySlipFile == null ? 'Upload Salary Slip' : 'Change File',
+                                  style: const TextStyle(color: Color(0xFF2563EB), fontSize: 13),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF2563EB)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                              if (_salarySlipFile != null) ...[
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Color(0xFFEF4444), size: 18),
+                                  onPressed: () => setState(() => _salarySlipFile = null),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (_salarySlipFile != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                _salarySlipFile!.path.split('/').last,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              _buildSectionHeader('Salary Slip'),
-              if (_existingSalarySlip != null && _salarySlipFile == null)
-                ListTile(
-                  leading: const Icon(Icons.receipt_long, color: Colors.blue),
-                  title: Text(_existingSalarySlip!.name),
-                  subtitle: const Text('Current salary slip'),
+
+              // Bottom Action Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
                 ),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickSalarySlip,
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(_salarySlipFile == null ? 'Upload Salary Slip' : 'Change File'),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : () => Navigator.maybePop(context),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Color(0xFF374151),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  if (_salarySlipFile != null)
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: () => setState(() => _salarySlipFile = null),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                              : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              widget.isEdit ? 'Update Profile' : 'Save & Upload',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                ],
+                  ],
+                ),
               ),
-              if (_salarySlipFile != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(_salarySlipFile!.path.split('/').last, style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
-                ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  onPressed: _isLoading ? null : _submit,
-                  child: _isLoading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text(widget.isEdit ? 'Update Profile' : 'Save & Upload to Server',
-                      style: const TextStyle(color: Colors.white, fontSize: 16)),
-                ),
-              )
             ],
           ),
         ),
       ),
     );
   }
-
-  Widget _buildSectionHeader(String title) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8.0),
-    child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-  );
-
-  Widget _buildSectionHeaderWithAction(String title, {required VoidCallback onAdd}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8.0),
-    child: Row(
-      children: [
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
-        IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.blue), onPressed: onAdd),
-      ],
-    ),
-  );
 }

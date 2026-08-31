@@ -466,8 +466,7 @@ class _ClassSectionSheet extends StatefulWidget {
   final SchoolClass? initialClass;
   final Section? initialSection;
   final bool hasSectionAccess;
-  final Future<void> Function(SchoolClass cls) onClassChanged;
-  final int Function(String, String) compareClassNames;
+  final Future<List<Section>> Function(SchoolClass cls) onClassChanged;  final int Function(String, String) compareClassNames;
   final IconData Function(String) getClassIcon;
 
   const _ClassSectionSheet({
@@ -488,12 +487,14 @@ class _ClassSectionSheet extends StatefulWidget {
 class _ClassSectionSheetState extends State<_ClassSectionSheet> {
   SchoolClass? _selectedClass;
   Section? _selectedSection;
-
+  late List<Section> _sections;
+  bool _loadingSections = false;
   @override
   void initState() {
     super.initState();
     _selectedClass = widget.initialClass;
     _selectedSection = widget.initialSection;
+    _sections = widget.sections;
   }
 
   List<SchoolClass> get _sortedClasses {
@@ -503,7 +504,7 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final sections = widget.sections;
+    final sections = _sections;
 
     return Container(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -606,8 +607,15 @@ class _ClassSectionSheetState extends State<_ClassSectionSheet> {
                               setState(() {
                                 _selectedClass = cls;
                                 _selectedSection = null;
+                                _loadingSections = true;
                               });
-                              await widget.onClassChanged(cls);
+                              final fetched = await widget.onClassChanged(cls);
+                              if (mounted) {
+                                setState(() {
+                                  _sections = fetched;
+                                  _loadingSections = false;
+                                });
+                              }
                             },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
@@ -1620,11 +1628,12 @@ class _TimetableManagementViewState extends State<TimetableManagementView> with 
             getClassIcon: _getClassIcon,
             onClassChanged: (cls) async {
               if (schoolController.selectedSchool.value != null) {
-                schoolController.getAllSections(
+                await  schoolController.getAllSections(
                   classId: cls.id,
                   schoolId: schoolController.selectedSchool.value!.id,
                 );
               }
+              return schoolController.sections;
             },
           ),
         ),

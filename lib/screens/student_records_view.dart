@@ -28,7 +28,8 @@ import 'package:school_app/screens/concession_detail_view.dart';
 import 'package:school_app/screens/student_receipts_view.dart';
 
 import '../core/utils/academic_year_utils.dart';
-
+import 'dart:typed_data';
+import 'package:open_file/open_file.dart';
 const _kPrimary = Color(0xFF2563EB);
 
 class StudentRecordsView extends StatefulWidget {
@@ -227,6 +228,19 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            // Temporarily test without the RBAC check:
+            GestureDetector(
+              onTap: _exportRecords,
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _kPrimary.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.file_upload_outlined, color: _kPrimary, size: 20),
               ),
             ),
             Container(
@@ -754,7 +768,84 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
       ),
     );
   }
+  void _exportRecords() async {
+    if (selectedSchool.value == null) {
+      Get.snackbar('Error', 'Please select a school first');
+      return;
+    }
 
+    Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+
+    try {
+      final token = Get.find<AuthController>().storage.read('token');
+
+      final queryParams = <String, dynamic>{
+        'schoolId': selectedSchool.value!.id,
+        'academicYear': selectedAcademicYear.value,
+        if (selectedClass.value != null) 'classId': selectedClass.value!.id,
+        if (selectedSection.value != null) 'sectionId': selectedSection.value!.id,
+      };
+
+      final response = await Dio().get(
+        '${ApiConstants.baseUrl}/api/studentrecord/v1/export',
+        queryParameters: queryParams,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+
+      Get.back(); // close loading dialog
+
+      final fileName = 'student_records_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+
+      // System Save dialog (Storage Access Framework) — puts the file
+      // somewhere genuinely visible to other apps, e.g. Downloads,
+      // instead of this app's private sandbox.
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save student records export',
+        fileName: fileName,
+        bytes: Uint8List.fromList(response.data as List<int>),
+      );
+
+      if (savedPath == null) return; // user cancelled the save dialog
+
+      Get.snackbar(
+        'Export Complete',
+        'Saved to: $savedPath',
+        backgroundColor: AppTheme.successGreen,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+        mainButton: TextButton(
+          onPressed: () async {
+            final result = await OpenFile.open(savedPath);
+            if (result.type != ResultType.done) {
+              Get.snackbar('Error', 'Could not open file: ${result.message}',
+                  backgroundColor: Colors.red, colorText: Colors.white);
+            }
+          },
+          child: const Text('OPEN', style: TextStyle(color: Colors.white)),
+        ),
+      );
+    } on DioException catch (e) {
+      Get.back();
+      String detail = e.message ?? 'Unknown error';
+      final data = e.response?.data;
+      if (data != null) {
+        try {
+          final decoded = data is List<int> ? utf8.decode(data) : data.toString();
+          final parsed = jsonDecode(decoded);
+          detail = parsed['message']?.toString() ?? decoded;
+        } catch (_) {}
+      }
+      Get.snackbar('Export Failed', detail,
+          backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 6));
+    } catch (e) {
+      Get.back();
+      Get.snackbar('Error', 'Failed to export records: ${e.toString()}',
+          backgroundColor: Colors.red, colorText: Colors.white);
+    }
+  }
   void _applyFilter() async {
     if (selectedSchool.value == null) {
       Get.snackbar('Error', 'Please select a school');
@@ -773,6 +864,9 @@ class _StudentRecordsViewState extends State<StudentRecordsView> {
         if (records.isNotEmpty) {
         }
         studentRecords.value = records;
+        if (records.isNotEmpty) {
+          debugPrint('SAMPLE RECORD: ${jsonEncode(records.first)}');
+        }
       } else {
         final message = response?['message'] ?? 'Failed to load student records';
         Get.snackbar('Error', message);
@@ -1335,7 +1429,7 @@ class _ConcessionsTab extends StatelessWidget {
       backgroundColor: Colors.transparent,
       body: Obx(() {
         final concessionsRecords = records.where((record) =>
-        record['concession']?['isApplied'] == true
+        record['hasConcession'] == true
         ).toList();
 
         if (concessionsRecords.isEmpty) {
@@ -1407,9 +1501,41 @@ class _ConcessionsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildConcessionCard(Map<String, dynamic> record, bool isTablet) {
-    final student = record['studentId'] ?? {};
-    final concession = record['concession'] ?? {};
+  Widget _buildConcessionCard(Map<String, dynamic> flatRecord, bool isTablet) {
+    final studentId = flatRecord['_id'];
+
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: parent.recordController.getStudentRecord(
+        parent.selectedSchool.value!.id,
+        studentId,
+        academicYear: parent.selectedAcademicYear.value,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            margin: EdgeInsets.symmetric(horizontal: isTablet ? 8 : 4, vertical: 6),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final fullRecord = snapshot.data;
+        if (fullRecord == null) {
+          return const SizedBox.shrink(); // failed to load — skip silently, or show an error tile
+        }
+
+        // fullRecord now has the real nested studentId/concession objects
+        return _buildConcessionCardContent(fullRecord, isTablet);
+      },
+    );
+  }
+  Widget _buildConcessionCardContent(Map<String, dynamic> record, bool isTablet) {
+    final student = (record['studentId'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final concession = (record['concession'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final isApproved = concession['approvedBy'] != null;
     final role = Get.find<AuthController>().user.value?.role?.toLowerCase() ?? '';
     final canReview = ['correspondent', 'administrator'].contains(role);
@@ -1642,8 +1768,8 @@ class _ConcessionsTab extends StatelessWidget {
         ),
       ),
     );
-  }
 
+  }
   // Approve/reject a pending concession request.
   // NOTE: this hits the "verify-concession" endpoint (api no. 141) using a
   // best-effort payload shape ({studentId, schoolId, approved, remark?}).

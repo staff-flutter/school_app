@@ -78,11 +78,11 @@ class _AttendancePageState extends State<AttendancePage> {
     try {
       print("🚀 Calling getAttendanceHistory...");
       await _attendanceCtrl.getAttendanceHistory(
-        schoolId: currentSchoolId,
-        classId: sampleClassId,
-        sectionId: sampleSectionId,
-        startDate: '01-06-2026',
-        endDate: '25-06-2026'
+          schoolId: currentSchoolId,
+          classId: sampleClassId,
+          sectionId: sampleSectionId,
+          startDate: '01-06-2026',
+          endDate: '25-06-2026'
       );
 
       print("📦 Attendance History Saved State: ${_attendanceCtrl.attendanceHistory.value}");
@@ -98,7 +98,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
 
   Future<void> _initializeAttendance() async {
-   // await loginAndGetToken();
+    // await loginAndGetToken();
     List<AttendanceRecord> records = await fetchAttendance();
 
     // Converting List to Map for easy calendar coloring
@@ -213,6 +213,7 @@ class _AttendancePageState extends State<AttendancePage> {
             festivalName: e['title'] ?? e['name'] ?? 'Event',
             dateAndMonth: _ordinalDate(from),
             dayName: _weekdayName(from),
+            date: from,
           );
         }).toList();
 
@@ -247,7 +248,7 @@ class _AttendancePageState extends State<AttendancePage> {
     String baseUrl = ApiConstants.baseUrl;
 
     //final SharedPreferences prefs = await SharedPreferences.getInstance();
-   // String? token = prefs.getString('user_token');
+    // String? token = prefs.getString('user_token');
     final String? token = _AuthCtrl.storage.read('token');
 
     final uri = Uri.parse('$baseUrl/api/calendar/getall');
@@ -282,13 +283,13 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
 
-@override
+  @override
   void initState() {
     // TODO: implement initState
     super.initState();
     _initializeAttendance();
     _fetchHolidayCalendar();
-  // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     //   statusBarColor: Colors.black, // transparent so AppBar image shows through
     //   statusBarIconBrightness: Brightness.light, // dark icons (visible on light bg)
     //   // or Brightness.light if your header image is dark
@@ -303,8 +304,8 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   Widget build(BuildContext context) {
-   // final absentCount = _attendanceMap.values.where((s) => s == 'absent').length;
-   // final presentCount = _attendanceMap.values.where((s) => s == 'present').length;
+    // final absentCount = _attendanceMap.values.where((s) => s == 'absent').length;
+    // final presentCount = _attendanceMap.values.where((s) => s == 'present').length;
     final absentCount = _attendanceTotals['absent'] ?? 0;
     final presentCount = _attendanceTotals['present'] ?? 0;
     final List<NumberColorItem> dynamicStats = [
@@ -384,7 +385,7 @@ class _AttendancePageState extends State<AttendancePage> {
         ),
       ),
 
-         // ------------------------------------- PAGE VIEW -----------------------------------------------
+      // ------------------------------------- PAGE VIEW -----------------------------------------------
 
 
       body: SafeArea(
@@ -498,31 +499,37 @@ class _AttendancePageState extends State<AttendancePage> {
                     children: [
 
 
-            // ---------------------------------TABLE CALENDER FOR HOLIDAYS --------------------------------------
+                      // ---------------------------------TABLE CALENDER FOR HOLIDAYS --------------------------------------
 
 
                       TableCalendar(
                         rowHeight: ResponsiveHelper.isSmallHeight(context) ? 34.0 : 46.0,
                         daysOfWeekHeight: ResponsiveHelper.isSmallHeight(context) ? 18.0 : 16.0,
-                        firstDay: DateTime.utc(2025,10,16) ,
-                        lastDay: DateTime.utc(2030,3,14),
+                        firstDay: DateTime.utc(2025, 10, 16),
+                        lastDay: DateTime.utc(2030, 3, 14),
                         headerStyle: const HeaderStyle(
                           titleCentered: true,
                           formatButtonVisible: false,
                         ),
                         daysOfWeekStyle: const DaysOfWeekStyle(
-                            weekdayStyle: TextStyle(color:Colors.black),
-                            weekendStyle: TextStyle(color: Colors.red)
+                          weekdayStyle: TextStyle(color: Colors.black),
+                          weekendStyle: TextStyle(color: Colors.red),
                         ),
                         calendarStyle: CalendarStyle(
-                            todayDecoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(100),
-                                color: Colors.green),
-                            selectedDecoration: BoxDecoration(color: Colors.red,borderRadius: BorderRadius.circular(100),)
+                          todayDecoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(100),
+                            color: Colors.green,
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        calendarBuilders: CalendarBuilders(
+                          defaultBuilder: (context, day, focusedDay) => _buildHolidayCell(day),
+                          holidayBuilder: (context, day, focusedDay) => _buildHolidayCell(day),
                         ),
                         focusedDay: _focusDay,
-                        //selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                        //onDaySelected: _onDaySelected,
                         calendarFormat: _calendarFormat,
                       ),
                       ResponsiveHelper.vSpace(context, 50),
@@ -538,7 +545,7 @@ class _AttendancePageState extends State<AttendancePage> {
                       ),
 
 
-             // ------------------------------LIST VIEW BUILDER FOR LIST OF HOLIDAYS ------------------------------------------
+                      // ------------------------------LIST VIEW BUILDER FOR LIST OF HOLIDAYS ------------------------------------------
 
 
                       Expanded(
@@ -604,13 +611,28 @@ class _AttendancePageState extends State<AttendancePage> {
       return _buildStatusContainer(day, Colors.green); // Deep Green
     }
     return null;
+  }
+
+  bool _isHoliday(DateTime day) {
+    return _holidayList.any((h) =>
+    h.date.year == day.year &&
+        h.date.month == day.month &&
+        h.date.day == day.day);
+  }
+
+  Widget? _buildHolidayCell(DateTime day) {
+    if (_isHoliday(day)) {
+      return _buildStatusContainer(day, const Color(0xFFC62828)); // filled red circle
+    }
+    return null; // fall back to default rendering for non-holiday days
   }}
 
 class FestivalTiles{
   final String festivalName;
   final String dateAndMonth;
   final String dayName;
-  FestivalTiles({required this.festivalName,required this.dateAndMonth,required this.dayName});
+  final DateTime date;
+  FestivalTiles({ required this.date,required this.festivalName,required this.dateAndMonth,required this.dayName});
 }
 
 class NumberColorItem {

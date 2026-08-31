@@ -116,7 +116,7 @@ class _NotificationsViewState extends State<NotificationsView> {
       case 'urgent':  return _DS.danger;
       case 'event':   return _DS.accent;
       case 'holiday': return _DS.success;
-      default:        return const Color(0xFF3B82F6);
+      default:        return const Color(0xFF1D4ED8);
     }
   }
 
@@ -261,121 +261,122 @@ class _NotificationsViewState extends State<NotificationsView> {
           border: Border.all(color: _DS.border),
           boxShadow: _DS.shadow,
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Coloured header band ──────────────────────────────
-              Container(
-                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-                decoration: BoxDecoration(
-                  color: accent.withOpacity(0.08),
-                  borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                child: Row(children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Coloured header band (Updated to match CommunicationsView) ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.25), // Updated opacity
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
                   Container(
-                    width: 32, height: 32,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.14),
+                      color: accent.withOpacity(0.19), // Updated opacity
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child:
-                    Icon(_typeIcon(type), color: accent, size: 15),
+                    child: Icon(_typeIcon(type), color: accent, size: 16),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       a['title'] ?? 'No Title',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: accent,
+                        color: Color(0xFF0F172A), // Dark text instead of colored
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_ios_rounded,
-                      size: 12, color: accent.withOpacity(0.6)),
-                ]),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Color(0xFF94A3B8), // Muted arrow icon
+                  ),
+                ],
               ),
+            ),
 
-              // ── Body ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // ── Body ─────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    a['description'] ?? 'No description',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _DS.textSecondary,
+                      height: 1.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Bottom row
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        a['description'] ?? 'No description',
-                        style: const TextStyle(
-                            fontSize: 13,
-                            color: _DS.textSecondary,
-                            height: 1.5),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
+                      // Type badge
+                      _pill((type ?? 'general').toUpperCase(), accent, fillOpacity: 0.1),
 
-                      // ── Bottom row — wrap instead of Row to prevent overflow
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          // Type badge
-                          _pill(
-                            (type ?? 'general').toUpperCase(),
-                            accent,
-                          ),
-                          // Priority badge
-                          _pill(
-                            (priority ?? 'normal').toUpperCase(),
-                            _priorityColor(priority),
-                          ),
-                          // Posted by
-                          if (a['createdBy']?['userName'] != null)
-                            Row(mainAxisSize: MainAxisSize.min, children: [
-                              const Icon(Icons.person_outline_rounded,
-                                  size: 11, color: _DS.textMuted),
-                              const SizedBox(width: 3),
-                              Text(
-                                a['createdBy']['userName'],
-                                style: const TextStyle(
-                                    fontSize: 10, color: _DS.textMuted),
-                              ),
-                            ]),
-                          // Date
-                          Text(
-                            _formatDate(a['createdAt']),
-                            style: const TextStyle(
-                                fontSize: 10, color: _DS.textMuted),
-                          ),
-                        ],
+                      // Priority badge
+                      _pill((priority ?? 'normal').toUpperCase(), _priorityColor(priority)), // default 0.08
+                      // Posted by
+                      if (a['createdBy']?['userName'] != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.person_outline_rounded,
+                                size: 11, color: _DS.textMuted),
+                            const SizedBox(width: 3),
+                            Text(
+                              a['createdBy']['userName'],
+                              style: const TextStyle(
+                                  fontSize: 10, color: _DS.textMuted),
+                            ),
+                          ],
+                        ),
+                      // Date
+                      Text(
+                        _formatDate(a['createdAt']),
+                        style: const TextStyle(
+                            fontSize: 10, color: _DS.textMuted),
                       ),
-                    ]),
+                    ],
+                  ),
+                ],
               ),
-            ]),
+            ),
+          ],
+        ),
       ),
     );
   }
-
 // ── Compact pill badge ────────────────────────────────────────────
-  Widget _pill(String label, Color color) {
+  Widget _pill(String label, Color color, {double fillOpacity = 0.08}) {
     return Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withOpacity(fillOpacity),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
         label,
-        style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: color),
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color),
       ),
     );
   }

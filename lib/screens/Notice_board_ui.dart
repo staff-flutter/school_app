@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:school_app/controllers/announcement_controller.dart';
 
 import 'announcement_detail_page.dart'; // your existing controller
+import 'package:school_app/screens/notification_page.dart'; // adjust path — wherever you saved it
 
 class NoticeBoardScreenUi extends StatefulWidget {
   const NoticeBoardScreenUi({super.key});
@@ -107,6 +108,7 @@ class _NoticeBoardScreenState extends State<NoticeBoardScreenUi> {
                   onPressed: () => Get.back(),
                 ),
                 actions: [
+                  const NotificationBell(),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     onPressed: () {

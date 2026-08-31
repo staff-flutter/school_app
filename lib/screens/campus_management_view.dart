@@ -1872,6 +1872,7 @@ class _QuizTabState extends State<_QuizTab> {
                 child: Column(children: _quizzes.map((q) => _QuizListTile(
                   quiz: q,
                   canEdit: widget.canEdit,
+                  schoolId: widget.schoolId,
                   onTap: () => _openTakeQuiz(q),
                   onEdit: () => _openManualBuilder(editing: q),
                   onDelete: () => _confirmDelete(q),
@@ -1922,11 +1923,13 @@ class _QuizActionCard extends StatelessWidget {
 class _QuizListTile extends StatelessWidget {
   final Quiz quiz;
   final bool canEdit;
+  final String schoolId;
   final VoidCallback onTap, onEdit, onDelete;
 
   const _QuizListTile({
     required this.quiz,
     required this.canEdit,
+    required this.schoolId,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -2002,6 +2005,7 @@ class _QuizListTile extends StatelessWidget {
                       builder: (_) => QuizLeaderboardPage(
                         quizId: quiz.id,
                         quizTitle: quiz.title,
+                        schoolId: schoolId,
                         canDelete: canEdit,
                       ),
                     ),

@@ -907,19 +907,19 @@ class _CommunicationsViewState extends State<CommunicationsView> {
                           }
                         },
                       ),
-                      FilterChip(
-                        label: const Text('Students'),
-                        selected: selectedAudiences.contains('student'),
-                        onSelected: (selected) {
-                          selectedAudiences.remove('all');
-                          if (selected) {
-                            selectedAudiences.add('student');
-                          } else {
-                            selectedAudiences.remove('student');
-                          }
-                          if (selectedAudiences.isEmpty) selectedAudiences.add('all');
-                        },
-                      ),
+                      // FilterChip(
+                      //   label: const Text('Students'),
+                      //   selected: selectedAudiences.contains('student'),
+                      //   onSelected: (selected) {
+                      //     selectedAudiences.remove('all');
+                      //     if (selected) {
+                      //       selectedAudiences.add('student');
+                      //     } else {
+                      //       selectedAudiences.remove('student');
+                      //     }
+                      //     if (selectedAudiences.isEmpty) selectedAudiences.add('all');
+                      //   },
+                      // ),
                       FilterChip(
                         label: const Text('Parents'),
                         selected: selectedAudiences.contains('parent'),

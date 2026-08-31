@@ -141,6 +141,8 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                     const SizedBox(width: 4),
                     const Icon(Icons.unfold_more_rounded,

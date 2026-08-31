@@ -1449,7 +1449,7 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
                     ]),
                   ),
                 ),
-                const Spacer(),
+
                 // Clear button — only shows when something is selected
                 if (selectedClassVal != null || selectedSectionVal != null)
                   GestureDetector(
@@ -1550,6 +1550,9 @@ class _SchoolManagementViewState extends State<SchoolManagementView> {
   }
 
   Widget _buildStudentCard(Student student, String currentUserRole, bool canManageClubs) {
+    final initial = (student.name != null && student.name!.trim().isNotEmpty)
+        ? student.name!.trim().substring(0, 1).toUpperCase()
+        : 'U';
     return _card(
       padding: const EdgeInsets.only(top: 12,bottom: 12,left: 8),
       child: Row(children: [

@@ -93,11 +93,12 @@ class QuizAttemptApi {
   static Future<List<ClubQuizAttempt>> fetchAttempts({
     required String token,
     required String quizId,
-    String? studentId,
+    String? studentId,  String? schoolId,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getAllQuizAttempts}')
         .replace(queryParameters: {
       'quizId': quizId,
+      'schoolId': schoolId,
       if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
     });
     try {
@@ -106,6 +107,7 @@ class QuizAttemptApi {
         'Accept': 'application/json',
       });
       if (res.statusCode == 200) {
+        print('response:${res.body}');
         final body = jsonDecode(res.body);
         return (body['data'] as List? ?? [])
             .map((e) => ClubQuizAttempt.fromJson(e))

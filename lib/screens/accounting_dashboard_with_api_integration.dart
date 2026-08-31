@@ -59,7 +59,7 @@ class AccountingDashboardView1 extends StatefulWidget {
 class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     with SingleTickerProviderStateMixin {
   SchoolController? get _school {
-    if (!Get.isRegistered<SchoolController>()) return Get.find<SchoolController>();
+    if (Get.isRegistered<SchoolController>()) return Get.find<SchoolController>();
     return null;
   }
   //final schoolController = Get.find<SchoolController>();
@@ -72,11 +72,15 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   String _academicYear      = '';
   String _expenseStatus     = '';
   String _expensePayMode    = '';
+  String? _defaulterClassFilter;
 
   // Cash-flow timeline range
   String _cashflowRange     = 'month'; // all | 100 | month | year | current
 
-
+  bool get _canViewTransactions {
+    final role = _auth.user.value?.role?.toLowerCase() ?? '';
+    return role == 'correspondent' || role == 'accountant';
+  }
 
   @override
   void initState() {
@@ -108,6 +112,14 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   Future<void> _init() async {
+    // Resolve/select the school FIRST, before any data fetch
+    if (_school != null && _school!.selectedSchool.value == null) {
+      await _school!.getAllSchools();
+      final fallbackId = _auth.user.value?.schoolId;
+      _school!.selectedSchool.value =
+          _school!.schools.firstWhereOrNull((s) => s.id == fallbackId);
+    }
+
     final schoolId = _resolvedSchoolId;
     if (schoolId == null) return;
 
@@ -118,11 +130,13 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     if (mounted) setState(() {});
 
     _finance.getFinanceStats(schoolId: schoolId, range: _cashflowRange);
-    _finance.getAllTransactions(schoolId: schoolId);
-    _accounting.loadOutstandingDuesSummary(schoolId: schoolId, academicYear: _academicYear);
+    if (_canViewTransactions) {
+      _finance.getAllTransactions(schoolId: schoolId);
+    }    _accounting.loadOutstandingDuesSummary(schoolId: schoolId, academicYear: _academicYear);
 
 
     await _accounting.loadDashboardData();
+    _accounting.loadStudentDefaulters(schoolId: schoolId, academicYear: _academicYear);
 
     if (_accounting.canViewExpenses) {
       _accounting.loadExpenses(schoolId: schoolId);
@@ -140,11 +154,13 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     if (schoolId == null) return;
 
     _finance.getFinanceStats(schoolId: schoolId, range: _cashflowRange);
-    _finance.getAllTransactions(schoolId: schoolId);
+    if (_canViewTransactions) {
+      _finance.getAllTransactions(schoolId: schoolId);
+    }
     _accounting.loadOutstandingDuesSummary(schoolId: schoolId, academicYear: _academicYear);
-    print('STATS KEYS: ${_finance.stats.value?.keys}');
-    print('STATS RAW: ${_finance.stats.value}');
+
     await _accounting.loadDashboardData();
+    _accounting.loadStudentDefaulters(schoolId: schoolId, academicYear: _academicYear);
 
     if (_accounting.canViewExpenses) {
       _accounting.loadExpenses(schoolId: schoolId);
@@ -170,6 +186,8 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
               SliverToBoxAdapter(child: _buildCashFlowSection()),
               SliverToBoxAdapter(child: const SizedBox(height: 8)),
               SliverToBoxAdapter(child: _buildFeeChartsRow()),
+              SliverToBoxAdapter(child: const SizedBox(height: 8)),
+              SliverToBoxAdapter(child: _buildDefaulterAnalyticsSection()),
               SliverToBoxAdapter(child: const SizedBox(height: 8)),
               SliverToBoxAdapter(child: _buildExpenseReportSection()),
               SliverToBoxAdapter(child: const SizedBox(height: 16)),
@@ -398,8 +416,7 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
                       setState(() => _cashflowRange = v);
                       final schoolId = _resolvedSchoolId;
                       if (schoolId != null) _finance.getFinanceStats(schoolId: schoolId, range: v);
-                      print('STATS KEYS: ${_finance.stats.value?.keys}');
-                      print('STATS RAW: ${_finance.stats.value}');
+
                     },
                   ),
                 ),
@@ -474,8 +491,10 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            _buildRecentPayments(loading),
+            if (_canViewTransactions) ...[
+              const SizedBox(height: 8),
+              _buildRecentPayments(loading),
+            ],
           ],
         );
       }),
@@ -763,7 +782,96 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
               ),
 
               const SizedBox(height: 12),
+              Builder(builder: (_) {
+                if (loading) return const _LoadingPulse(height: 160);
 
+                final byDate = _buildCategoryTimeline(filtered);
+                final dateLabels = byDate.keys.toList()..sort();
+                final categories = filtered
+                    .map((e) => (e.category ?? 'Other').toString())
+                    .toSet()
+                    .toList()
+                  ..sort();
+                final composition = _buildCategoryComposition(filtered);
+                final colors = [
+                  for (int i = 0; i < categories.length; i++) _categoryColor(categories[i], i)
+                ];
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Category Spending Timeline',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700, color: _C.text)),
+                    const Text('Tracking outflow distribution across categories',
+                        style: TextStyle(fontSize: 9, color: _C.textMuted)),
+                    const SizedBox(height: 8),
+                    dateLabels.isEmpty
+                        ? const SizedBox(
+                      height: 80,
+                      child: Center(
+                          child: Text('No data available for this range',
+                              style: TextStyle(color: _C.textMuted, fontSize: 11))),
+                    )
+                        : SizedBox(
+                      height: 110,
+                      child: CustomPaint(
+                        painter: _MultiLineChartPainter(
+                          dateLabels: dateLabels,
+                          byDate: byDate,
+                          categories: categories,
+                          colors: colors,
+                        ),
+                        child: Container(),
+                      ),
+                    ),
+                    if (dateLabels.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(dateLabels.first,
+                              style: const TextStyle(fontSize: 8, color: _C.textMuted)),
+                          Text(dateLabels.last,
+                              style: const TextStyle(fontSize: 8, color: _C.textMuted)),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        for (int i = 0; i < categories.length; i++)
+                          _legendDotStatic(colors[i], categories[i]),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Expense Composition',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700, color: _C.text)),
+                    const SizedBox(height: 8),
+                    _DonutChart(
+                      data: composition,
+                      centerLabel: 'Total\nExpense',
+                      centerValue:
+                      _fmt(composition.values.fold<double>(0, (s, v) => s + v)),
+                      centerColor: _C.danger,
+                      palette: const [_C.primary, Color(0xFF8B5CF6), _C.warning,
+                        _C.success, _C.danger, _C.primaryLt],
+                    ),
+                    if (composition.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _DonutLegend(
+                        data: composition,
+                        palette: const [_C.primary, Color(0xFF8B5CF6), _C.warning,
+                          _C.success, _C.danger, _C.primaryLt],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                  ],
+                );
+              }),
               // Expense list
               loading
                   ? const _LoadingPulse(height: 120)
@@ -792,7 +900,6 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
   }
 
   List<dynamic> _filterExpenses(List expenses) {
-    print('Expense payment modes: ${expenses.map((e) => e.paymentMode).toSet()}');
 
     final now     = DateTime.now();
     DateTime start;
@@ -1111,8 +1218,288 @@ class _AccountingDashboardViewState extends State<AccountingDashboardView1>
     }
   }
   static const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  Widget _buildDefaulterAnalyticsSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: _card(
+        child: Obx(() {
+          final loading = _accounting.isLoadingDefaulters.value;
+          final groups = _accounting.studentDefaulters;
+          final totalOutstanding =
+          groups.fold<double>(0, (s, g) => s + (g['total'] as double));
+
+          final classLabels = groups.map((g) => g['label'] as String).toSet().toList()
+            ..sort();
+
+          final filtered = _defaulterClassFilter == null
+              ? groups
+              : groups.where((g) => g['label'] == _defaulterClassFilter).toList();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sectionTitle('Student Defaulter Analytics',
+                      Icons.warning_amber_rounded, _C.danger),
+                  if (!loading)
+                    Text(_fmt(totalOutstanding),
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800, color: _C.danger)),
+                ],
+              ),
+              const SizedBox(height: 2),
+              const Text('Class-wise breakdown of specific student dues',
+                  style: TextStyle(fontSize: 9, color: _C.textMuted)),
+              const SizedBox(height: 10),
+
+              if (classLabels.isNotEmpty)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _filterChip('All Classes', Icons.filter_list_rounded,
+                          _defaulterClassFilter == null,
+                              () => setState(() => _defaulterClassFilter = null)),
+                      const SizedBox(width: 8),
+                      ...classLabels.map((label) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _filterChip(label, Icons.class_rounded,
+                            _defaulterClassFilter == label,
+                                () => setState(() => _defaulterClassFilter = label)),
+                      )),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 10),
+
+              loading
+                  ? const _LoadingPulse(height: 100)
+                  : filtered.isEmpty
+                  ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Column(children: [
+                    Icon(Icons.emoji_events_outlined, color: _C.textMuted, size: 32),
+                    const SizedBox(height: 6),
+                    const Text('No defaulters found',
+                        style: TextStyle(color: _C.textMuted, fontSize: 11)),
+                  ]),
+                ),
+              )
+                  : Column(children: filtered.map((g) => _defaulterGroupCard(g)).toList()),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _defaulterGroupCard(Map<String, dynamic> group) {
+    final label = group['label'] as String;
+    final total = group['total'] as double;
+    final students = group['students'] as List<Map<String, dynamic>>;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _C.bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _C.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700, color: _C.text)),
+                    Text('${students.length} Defaulter${students.length == 1 ? '' : 's'}',
+                        style: const TextStyle(fontSize: 9, color: _C.textMuted)),
+                  ],
+                ),
+              ),
+              Text(_fmt(total),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800, color: _C.danger)),
+            ],
+          ),
+          const Divider(height: 16, color: _C.border),
+          ...students.map((s) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: _C.dangerBg,
+                  child: Text(
+                    (s['name'] as String).isNotEmpty
+                        ? (s['name'] as String)[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w700, color: _C.danger),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(s['name'] as String,
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w600, color: _C.text)),
+                      Text('Roll: ${s['roll']}',
+                          style: const TextStyle(fontSize: 9, color: _C.textMuted)),
+                    ],
+                  ),
+                ),
+                Text(_fmt(s['amount']),
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700, color: _C.danger)),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Map<String, Map<String, double>> _buildCategoryTimeline(List<dynamic> filtered) {
+    final Map<String, Map<String, double>> result = {};
+    for (final e in filtered) {
+      if (e.date == null) continue;
+      DateTime d;
+      try {
+        d = DateTime.parse(e.date.toString());
+      } catch (_) {
+        continue;
+      }
+      final label =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final cat = (e.category ?? 'Other').toString();
+      result.putIfAbsent(label, () => {});
+      result[label]![cat] = (result[label]![cat] ?? 0) + (e.amount as num).toDouble();
+    }
+    return result;
+  }
+
+  /// Sums filtered expenses per category, for the donut chart.
+  Map<String, double> _buildCategoryComposition(List<dynamic> filtered) {
+    final Map<String, double> result = {};
+    for (final e in filtered) {
+      final cat = (e.category ?? 'Other').toString();
+      result[cat] = (result[cat] ?? 0) + (e.amount as num).toDouble();
+    }
+    return result;
+  }
+
+  /// Fixed colors for the categories seen in the web version's chart, with a
+  /// palette fallback for anything else. Adjust the map if your real
+  /// category names differ (these are lowercase-matched).
+  Color _categoryColor(String category, int index) {
+    final known = <String, Color>{
+      'maintenance': _C.primary,
+      'salary': const Color(0xFF8B5CF6),
+      'fuel': _C.warning,
+      'eb': _C.success,
+    };
+    final key = category.toLowerCase();
+    if (known.containsKey(key)) return known[key]!;
+    return _C.donutPalette[index % _C.donutPalette.length];
+  }
+
+  /// Standalone legend dot (the existing _legendDot lives inside
+  /// _CashflowBarChart and isn't reachable from here).
+  Widget _legendDotStatic(Color c, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(width: 8, height: 8,
+          decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(label, style: const TextStyle(fontSize: 9, color: _C.textMuted)),
+    ],
+  );
+
+
+
 }
 
+class _MultiLineChartPainter extends CustomPainter {
+  final List<String> dateLabels; // sorted ascending
+  final Map<String, Map<String, double>> byDate; // date -> {category: amount}
+  final List<String> categories;
+  final List<Color> colors;
+
+  _MultiLineChartPainter({
+    required this.dateLabels,
+    required this.byDate,
+    required this.categories,
+    required this.colors,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (dateLabels.isEmpty || categories.isEmpty) return;
+
+    double maxVal = 0;
+    for (final date in dateLabels) {
+      final map = byDate[date] ?? {};
+      for (final cat in categories) {
+        final v = map[cat] ?? 0;
+        if (v > maxVal) maxVal = v;
+      }
+    }
+    if (maxVal == 0) maxVal = 1;
+
+    const double leftPad = 4, rightPad = 4, topPad = 8, bottomPad = 4;
+    final chartW = size.width - leftPad - rightPad;
+    final chartH = size.height - topPad - bottomPad;
+    final n = dateLabels.length;
+    final stepX = n > 1 ? chartW / (n - 1) : 0.0;
+
+    for (int ci = 0; ci < categories.length; ci++) {
+      final cat = categories[ci];
+      final linePaint = Paint()
+        ..color = colors[ci % colors.length]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+
+      final path = Path();
+      for (int i = 0; i < n; i++) {
+        final v = byDate[dateLabels[i]]?[cat] ?? 0;
+        final x = leftPad + stepX * i;
+        final y = topPad + chartH - (v / maxVal) * chartH;
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(path, linePaint);
+
+      final dotPaint = Paint()..color = colors[ci % colors.length];
+      for (int i = 0; i < n; i++) {
+        final v = byDate[dateLabels[i]]?[cat] ?? 0;
+        final x = leftPad + stepX * i;
+        final y = topPad + chartH - (v / maxVal) * chartH;
+        canvas.drawCircle(Offset(x, y), 2.5, dotPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MultiLineChartPainter old) =>
+      old.dateLabels != dateLabels || old.byDate != byDate;
+}
 // ─── DonutChart Painter ────────────────────────────────────────────────────────
 class _DonutChart extends StatelessWidget {
   final Map<String, double> data;

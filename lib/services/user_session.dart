@@ -37,29 +37,29 @@ class UserSession extends GetxController {
     schoolPhoneNo=prefs.getString('schoolPhoneNo');
     schoolAddress=prefs.getString('schoolAddress');
 
-    print(token);
-    print(schoolId);
-    print(parentId);
-    print(parentName);
-    print(parentEmail);
-    print(parentPhoneNo);
-    print(isPlatformAdmin);
-    print(assignments);
-    print(schoolSocialPlatform);
-    print(schoolName);
-    print(schoolEmail);
-    print(schoolPhoneNo);
-    print(schoolAddress);
+    // print(token);
+    // print(schoolId);
+    // print(parentId);
+    // print(parentName);
+    // print(parentEmail);
+    // print(parentPhoneNo);
+    // print(isPlatformAdmin);
+    // print(assignments);
+    // print(schoolSocialPlatform);
+    // print(schoolName);
+    // print(schoolEmail);
+    // print(schoolPhoneNo);
+    // print(schoolAddress);
 
     //  Print individual IDs
-    if (studentId != null && studentId!.isNotEmpty) {
-      print("--- Printing Individual Student IDs ---");
-      for (var id in studentId!) {
-        print("Student ID: $id");
-      }
-    } else {
-      print("No Student IDs found in session.");
-    }
+    // if (studentId != null && studentId!.isNotEmpty) {
+    //   print("--- Printing Individual Student IDs ---");
+    //   for (var id in studentId!) {
+    //     print("Student ID: $id");
+    //   }
+    // } else {
+    //   print("No Student IDs found in session.");
+    // }
 
     update();
   }

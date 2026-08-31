@@ -166,6 +166,7 @@ class _HomePageState extends State<HomePage> {
 
 
                             _buildHomeItem(
+                              key: const Key('parent_profile_home_button'),
                               iconPath: 'assets/images/parentprofile_icon.png',
                               label: 'Parent Profile',
                               onTap: () => Get.to(() => MainWrapperWithNoNavBar(child: const ParentProfile())),
@@ -218,11 +219,13 @@ class _HomePageState extends State<HomePage> {
   }
 }
 Widget _buildHomeItem({
+  Key? key,
   required String iconPath,
   required String label,
   required VoidCallback onTap,
 }) {
   return Column(
+    key: key,
     children: [
       Material(
         color: Colors.transparent, // Required so the ripple isn't hidden

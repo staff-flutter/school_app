@@ -351,6 +351,7 @@ class _ParentManagementPageState extends State<ParentManagementPage> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      color: Colors.white,
       elevation: 0.5,
       child: InkWell(
         borderRadius: BorderRadius.circular(10),

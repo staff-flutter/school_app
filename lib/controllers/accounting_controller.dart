@@ -41,6 +41,10 @@ class AccountingController extends GetxController {
   var billBooks = <dynamic>[].obs;
   var selectedBillBookId = ''.obs;
   var isLoadingBillBooks = false.obs;
+
+  final studentDefaulters = <Map<String, dynamic>>[].obs; // grouped by class+section
+  final isLoadingDefaulters = false.obs;
+
   double get totalCashAmount {
     double total = 0;
     cashDenominations.forEach((denom, count) {
@@ -179,6 +183,72 @@ class AccountingController extends GetxController {
       isLoadingDuesSummary.value = false;
     }
   }
+  Future<void> loadStudentDefaulters({
+    required String schoolId,
+    String? academicYear,
+    String? classId, // optional — pass this to scope to one class, like web does
+  }) async {
+    try {
+      isLoadingDefaulters.value = true;
+
+      final queryParams = <String, String>{'schoolId': schoolId};
+      if (academicYear != null && academicYear.isNotEmpty) {
+        queryParams['academicYear'] = academicYear;
+      }
+      if (classId != null && classId.isNotEmpty) {
+        queryParams['classId'] = classId;
+      }
+
+      final response = await _apiService.get(
+        '/api/financeledger/v1/class/fee-dues',
+        queryParameters: queryParams,
+      );
+
+      if (response.data == null || response.data['ok'] != true) {
+        studentDefaulters.clear();
+        return;
+      }
+
+      final groupsRaw = (response.data['data'] as List?) ?? [];
+
+      double parseAmount(dynamic v) {
+        if (v is num) return v.toDouble();
+        if (v is String) return double.tryParse(v) ?? 0;
+        return 0;
+      }
+
+      studentDefaulters.value = groupsRaw.map((g) {
+        final className = g['className']?.toString() ?? 'Unknown Class';
+        final sectionName = g['sectionName']?.toString() ?? '';
+        final label = sectionName.isNotEmpty ? '$className - $sectionName' : className;
+        final total = parseAmount(g['classTotalDue']);
+
+        final studentsRaw = (g['students'] as List?) ?? [];
+        final students = studentsRaw
+            .map((s) => {
+          'name': s['studentName']?.toString() ?? 'Unknown',
+          'roll': (s['rollNumber']?.toString().isNotEmpty ?? false)
+              ? s['rollNumber'].toString() : 'N/A',
+          'amount': parseAmount(s['totalDue']),
+        })
+            .toList();
+        students.sort((a, b) =>
+            (b['amount'] as double).compareTo(a['amount'] as double));
+
+        return {
+          'label': label,
+          'total': total,
+          'students': students,
+          'classId': g['classId']?.toString() ?? '', // kept for future refetch-on-filter use
+        };
+      }).toList();
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load student defaulter analytics');
+    } finally {
+      isLoadingDefaulters.value = false;
+    }
+  }
+
   Future<void> loadDashboardData() async {
     try {
       isLoading.value = true;

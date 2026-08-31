@@ -4,6 +4,8 @@ import 'package:school_app/controllers/system_management_controller.dart';
 import 'package:school_app/core/theme/app_theme.dart';
 import 'package:school_app/controllers/auth_controller.dart';
 
+import '../controllers/school_controller.dart';
+
 class SystemManagementView extends StatefulWidget {
   SystemManagementView({Key? key}) : super(key: key);
 
@@ -16,15 +18,41 @@ class _SystemManagementViewState extends State<SystemManagementView> with Ticker
   final authController = Get.find<AuthController>();
   late TabController _tabController;
 
+  SchoolController? get _school =>
+      Get.isRegistered<SchoolController>() ? Get.find<SchoolController>() : null;
+
+  String? get _resolvedSchoolId {
+    final role = authController.user.value?.role?.toLowerCase() ?? '';
+    if (role == 'correspondent') {
+      return _school?.selectedSchool.value?.id;
+    }
+    return authController.user.value?.schoolId;
+  }
+
+  Worker? _schoolWorker;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
+
+    // Re-fetch whenever the correspondent switches schools
+    if (_school != null) {
+      _schoolWorker = ever(_school!.selectedSchool, (_) {
+        if (mounted) _loadData();
+      });
+    }
+  }
+  @override
+  void dispose() {
+    _schoolWorker?.dispose();
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _loadData() {
-    final schoolId = authController.user.value?.schoolId;
+    final schoolId = _resolvedSchoolId;
     if (schoolId != null) {
       controller.getAllArchivedItems(schoolId: schoolId);
       controller.getAllAuditLogs(schoolId: schoolId);

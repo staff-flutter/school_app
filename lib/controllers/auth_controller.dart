@@ -19,8 +19,10 @@ import 'package:school_app/controllers/school_controller.dart';
 import 'package:school_app/controllers/my_children_controller.dart';
 
 import '../screens/create_student_profile_page.dart';
+import '../services/notification_service.dart';
 import '../services/user_session.dart';
 import 'announcement_controller.dart';
+import 'notification_controller.dart';
 
 class AuthController extends GetxController {
   final ApiService _apiService = Get.find();
@@ -75,7 +77,7 @@ class AuthController extends GetxController {
               // Silent fail
             }
           }
-
+          await NotificationService().init();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             navigateBasedOnRole();
           });
@@ -85,6 +87,7 @@ class AuthController extends GetxController {
         final authResult = await isAuthenticated();
 
         if (authResult['ok'] == true) {
+          await NotificationService().init();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             navigateBasedOnRole();
           });
@@ -198,6 +201,7 @@ class AuthController extends GetxController {
         }
 
         Get.snackbar('Success', response.data['message']);
+        await NotificationService().init();
         navigateBasedOnRole();
       } else {
         final errorMsg = response.data['message'] ?? 'Login failed';
@@ -379,6 +383,9 @@ class AuthController extends GetxController {
       Get.delete<AnnouncementController>(force: true);
       Get.delete<AcademicsController>(force: true);
       Get.delete<SchoolController>(force: true);
+      if (Get.isRegistered<NotificationController>()) {
+        Get.delete<NotificationController>(force: true);
+      }
 
       // 3. Clear disk-persisted key-value local storage data (GetStorage/SharedPreferences)
       // If you are caching profile data or offline fields:

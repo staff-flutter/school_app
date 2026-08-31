@@ -125,6 +125,17 @@ class _MarksListState extends State<MarksList> {
 
   final auth_ctrl = Get.find<AuthController>();
 
+  int get _totalMarksObtained =>
+      _activeSubjects.fold(0, (s, r) => s + r.marksObtained);
+
+  int get _totalMaxMarks =>
+      _activeSubjects.fold(0, (s, r) => s + r.maxMarks);
+
+  int get _totalMinPassing =>
+      _activeSubjects.fold(0, (s, r) => s + r.minPassingMarks);
+
+  bool get _totalPassed => _totalMarksObtained >= _totalMinPassing;
+
   // ── Derived from selected exam ─────────────────────────────────────────────
 
   List<SubjectRecord> get _activeSubjects {
@@ -415,51 +426,60 @@ class _MarksListState extends State<MarksList> {
                                       ]),
                                     ),
                                   ),
+                                  if (!_loading && _activeSubjects.isNotEmpty) ...[
+                                    Container(height: 1, color: Colors.grey.shade300),
+                                    _TotalRow(
+                                      totalMarks: _totalMarksObtained,
+                                      totalMax:   _totalMaxMarks,
+                                      totalPass:  _totalMinPassing,
+                                      passed:     _totalPassed,
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
                           ),
 
                           // Download button
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isTablet
-                                  ? screenWidth * 0.2
-                                  : ResponsiveHelper.w(context, 60),
-                              vertical: ResponsiveHelper.h(context, 10),
-                            ),
-                            child: InkWell(
-                              onTap: () => debugPrint('Download PDF clicked'),
-                              child: Container(
-                                height: ResponsiveHelper.h(context, 48),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Center(
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'DOWNLOAD PDF',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: ResponsiveHelper.sp(context, 11),
-                                        ),
-                                      ),
-                                      Image.asset(
-                                        'assets/images/acrobat_icon_transparent.png',
-                                        height: ResponsiveHelper.h(context, 26),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          // Padding(
+                          //   padding: EdgeInsets.symmetric(
+                          //     horizontal: isTablet
+                          //         ? screenWidth * 0.2
+                          //         : ResponsiveHelper.w(context, 60),
+                          //     vertical: ResponsiveHelper.h(context, 10),
+                          //   ),
+                          //   child: InkWell(
+                          //     onTap: () => debugPrint('Download PDF clicked'),
+                          //     child: Container(
+                          //       height: ResponsiveHelper.h(context, 48),
+                          //       decoration: BoxDecoration(
+                          //         gradient: const LinearGradient(
+                          //           colors: [Color(0xff4A90E2), Color(0xff6FD3F7)],
+                          //         ),
+                          //         borderRadius: BorderRadius.circular(12),
+                          //       ),
+                          //       child: Center(
+                          //         child: Row(
+                          //           mainAxisAlignment: MainAxisAlignment.center,
+                          //           children: [
+                          //             Text(
+                          //               'DOWNLOAD PDF',
+                          //               style: TextStyle(
+                          //                 color: Colors.white,
+                          //                 fontWeight: FontWeight.bold,
+                          //                 fontSize: ResponsiveHelper.sp(context, 11),
+                          //               ),
+                          //             ),
+                          //             Image.asset(
+                          //               'assets/images/acrobat_icon_transparent.png',
+                          //               height: ResponsiveHelper.h(context, 26),
+                          //             ),
+                          //           ],
+                          //         ),
+                          //       ),
+                          //     ),
+                          //   ),
+                          // ),
 
                           Expanded(
                             child: Padding(
@@ -531,7 +551,95 @@ class _MarksListState extends State<MarksList> {
     );
   }
 }
+class _TotalRow extends StatelessWidget {
+  final int totalMarks;
+  final int totalMax;
+  final int totalPass;
+  final bool passed;
 
+  const _TotalRow({
+    required this.totalMarks,
+    required this.totalMax,
+    required this.totalPass,
+    required this.passed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF5F7FB),
+      child: IntrinsicHeight(
+        child: Row(children: [
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveHelper.w(context, 16),
+                vertical:   ResponsiveHelper.h(context, 12),
+              ),
+              child: Text(
+                'Total',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize:   ResponsiveHelper.sp(context, 12),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: ResponsiveHelper.h(context, 12)),
+                child: Text(
+                  '$totalMax',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize:   ResponsiveHelper.sp(context, 12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: ResponsiveHelper.h(context, 12)),
+                child: Text(
+                  '$totalPass',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize:   ResponsiveHelper.sp(context, 12),
+                    color:      const Color(0xFFE65100),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: ResponsiveHelper.h(context, 12)),
+                child: Text(
+                  '$totalMarks',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize:   ResponsiveHelper.sp(context, 12),
+                    color: passed
+                        ? const Color(0xFF2E7D32)
+                        : const Color(0xFFC62828),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
 // =============================================================================
 // SMALL REUSABLE WIDGETS
 // =============================================================================

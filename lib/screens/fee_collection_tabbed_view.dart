@@ -362,6 +362,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
       if (response.data['ok'] == true) {
         final list = (response.data['data'] as List)
             .cast<Map<String, dynamic>>();
+
         controller.students.value = list;
         filteredStudents.value = list;
       }
@@ -865,9 +866,6 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
   // ── FIXED _selectStudent: reads classId/sectionId from the
   //    student's own data, not from schoolController.classes.first
   void _selectStudent(Map<String, dynamic> student) {
-
-
-    // Helper function to extract ID securely whether it's a raw String or a nested Map object
     String extractId(dynamic field) {
       if (field == null) return '';
       if (field is Map) {
@@ -878,10 +876,12 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
 
     final classId = extractId(student['currentClassId'] ?? student['classId'] ?? selectedFilterClass.value?.id);
     final sectionId = extractId(student['currentSectionId'] ?? student['sectionId'] ?? selectedFilterSection.value?.id);
+    final rollNumber = student['nonMandatory']?['rollNumber']?.toString() ?? '';
 
     controller.selectedStudent.value = {
       'studentId':   student['_id']?.toString() ?? '',
       'studentName': (student['studentName'] ?? '').toString(),
+      'rollNumber':  rollNumber, // added
       'classId':     classId,
       'sectionId':   sectionId,
     };
@@ -1386,7 +1386,7 @@ class _FeeCollectionTabState extends State<_FeeCollectionTab> {
                               : _DS.textPrimary,
                         )),
                     subtitle: Text(
-                      'Roll: ${student['rollNumber'] ?? 'N/A'}',
+                      'Roll: ${student['nonMandatory']?['rollNumber'] ?? 'N/A'}',
                       style: const TextStyle(
                           fontSize: 11, color: _DS.textMuted),
                     ),
